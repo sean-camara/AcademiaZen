@@ -1,89 +1,122 @@
-🪷 **AcademiaZen**
+# 🪷 AcademiaZen
 
-🎯 _Focus. Learn. Achieve._
+**Focus. Learn. Achieve.**
 
-AcademiaZen is a modern, privacy-focused **Progressive Web App (PWA)** designed to help students manage their academic life with calm and clarity. It combines task management, flashcard review, and focus tools into a single, distraction-free environment.
+AcademiaZen is a modern, privacy-focused **Progressive Web App (PWA)** built to help students manage tasks, study efficiently, and stay focused — all in one calm, distraction-free workspace.
 
-Built with ⚛️ React, 🎨 Tailwind CSS, and ⚡ Vite, it delivers a smooth, native-app experience directly in the browser.
+🔗 **Live App (Installable PWA):**  
+👉 https://academia-zen.vercel.app/
 
-✨ **KEY FEATURES**
+You can install AcademiaZen on **Android, iOS, and Desktop** directly from your browser.
 
-📱 **Native PWA Experience**Installable on iOS and Android. Works offline and feels like a native app.
+---
 
-✅ **Task Management**Organize assignments by subject, priority, and due date.
+## 🚀 What is AcademiaZen?
 
-🧠 **Flashcard Review**Built-in spaced repetition system with a _toss & snap_ animation for immersive studying.
+| Feature | Description |
+|------|-----------|
+| 🎓 Purpose | Academic task & study management |
+| 📱 Platform | Web, Android, iOS (PWA) |
+| 🔐 Privacy | 100% local storage (no server, no tracking) |
+| ⚡ Performance | Fast, lightweight, offline-capable |
 
-🍅 **Focus Timer**Integrated Pomodoro-style timer to support deep work sessions.
+---
 
-📊 **Grade Tracking**Track current and target grades for each module.
+## ✨ Key Features
 
-🌓 **Dark / Light Mode**A beautifully themed interface that adapts to your preference.
+| Feature | Explanation |
+|------|-----------|
+| 📱 Native PWA | Installable on Android, iOS (Safari), and Desktop |
+| ✅ Task Management | Organize assignments by subject, priority, and due date |
+| 🧠 Flashcards | Spaced repetition with interactive review animations |
+| 🍅 Focus Timer | Pomodoro-style deep-focus sessions |
+| 📊 Grade Tracking | Track current vs target grades per module |
+| 🌓 Dark / Light Mode | Adaptive, eye-friendly UI |
+| 🔔 Local Notifications | Task reminders without any backend |
 
-🔔 **Local Notifications**Get reminders before tasks are due — no server required.
+---
 
-📸 **SCREENSHOTS**
+## 📸 Screenshots
 
-🚀 Starting Dashboard./screenshots/starting-dashboard.jpeg
+### 🏠 Core Views
 
-📋 Dashboard./screenshots/dashboard.jpeg
+| Starting Dashboard | Dashboard | Subject Detail |
+|-------------------|-----------|---------------|
+| <img src="./screenshots/starting-dashboard.jpeg" width="250" /> | <img src="./screenshots/dashboard.jpeg" width="250" /> | <img src="./screenshots/subject.jpeg" width="250" /> |
 
-📘 Subject Detail./screenshots/subject.jpeg
+### 🧠 Study & Focus
 
-🧠 Flashcard Review./screenshots/review.jpeg
+| Flashcard Review | Focus Mode | Calendar |
+|------------------|------------|----------|
+| <img src="./screenshots/review.jpeg" width="250" /> | <img src="./screenshots/focus.jpeg" width="250" /> | <img src="./screenshots/calendar.jpeg" width="250" /> |
 
-⏱️ Focus Mode./screenshots/focus.jpeg
+### 📚 Library
 
-📅 Calendar./screenshots/calendar.jpeg
+| Library View |
+|--------------|
+| <img src="./screenshots/library.jpeg" width="250" /> |
 
-📚 Library./screenshots/library.jpeg
+---
 
-🛠️ **TECH STACK**
+## 🛠️ Tech Stack
 
-⚛️ Frontend: React.js (Vite)🎨 Styling: Tailwind CSS, Lucide React (Icons)🧩 State Management: Custom React Hooks💾 Persistence: LocalStorage (data stays on your device)📦 PWA: Service Workers and Web App Manifest
+| Layer | Technology |
+|----|-----------|
+| Frontend | React.js (Vite) |
+| Styling | Tailwind CSS |
+| Icons | Lucide React |
+| State | Custom React Hooks |
+| Storage | LocalStorage |
+| PWA | Web App Manifest + Service Workers |
+| Hosting | Vercel |
 
-🚀 **GETTING STARTED**
+---
 
-📥 Clone the repository
+## 📲 Install as an App (PWA)
 
-git clone [https://github.com/sean-camara/AcademiaZen.git](https://github.com/sean-camara/AcademiaZen.git)cd AcademiaZen
+### 🍎 iOS (Safari only)
+1. Open 👉 https://academia-zen.vercel.app/
+2. Tap **Share**
+3. Select **Add to Home Screen**
 
-📦 Install dependencies
+### 🤖 Android (Chrome)
+1. Open 👉 https://academia-zen.vercel.app/
+2. Tap **⋮**
+3. Select **Install App**
 
-npm install
+> No App Store. No Play Store. No account required.
 
-▶️ Run the development server
+---
 
-npm run dev
+## 🚀 Getting Started (Local Development)
 
-🏗️ Build for production
+| Step | Command |
+|----|--------|
+| Clone | `git clone https://github.com/sean-camara/AcademiaZen.git` |
+| Enter | `cd AcademiaZen` |
+| Install | `npm install` |
+| Dev | `npm run dev` |
+| Build | `npm run build` |
 
-npm run build
+---
 
-📲 **HOW TO INSTALL ON MOBILE**
+## 🤝 Contributing
 
-🍎 **iOS (Safari)**
+Contributions are welcome.
 
-1️⃣ Open the deployed link in Safari2️⃣ Tap the Share button (square with arrow)3️⃣ Select **Add to Home Screen**
+| Step | Action |
+|----|-------|
+| 1 | Fork the repository |
+| 2 | `git checkout -b feature/AmazingFeature` |
+| 3 | `git commit -m "Add AmazingFeature"` |
+| 4 | `git push origin feature/AmazingFeature` |
+| 5 | Open a Pull Request |
 
-🤖 **Android (Chrome)**
+---
 
-1️⃣ Open the deployed link in Chrome2️⃣ Tap the three dots menu3️⃣ Select **Install App** or **Add to Home Screen**
-
-🤝 **CONTRIBUTING**
-
-Contributions are welcome!
-
-🍴 Fork the project
-
-🌿 Create your feature branchgit checkout -b feature/AmazingFeature
-
-💾 Commit your changesgit commit -m "Add some AmazingFeature"
-
-🚀 Push to the branchgit push origin feature/AmazingFeature
-
-🔁 Open a Pull Request
-
-❤️ **CREDITS**
+## ❤️ Credits
 
 Created with ❤️ by **Sean John Camara**
+
+---
+
