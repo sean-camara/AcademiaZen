@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f5f5f4;
+  color: #1c1917;
+}
+
+/* Dark mode fallback */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1c2128;
+    color: #e7e5e4;
+  }
+}
