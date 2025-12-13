@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 
 export const useAcademiaController = () => {
-  // Existing State
+  // --- STATE MANAGEMENT ---
   const [subjects, setSubjects] = useState([]);
   const [categories, setCategories] = useState(["Homework", "Exam", "Reading"]);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   
-  // NEW: State for Library and Flashcards
+  // New Features State
   const [libraryFiles, setLibraryFiles] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
 
@@ -18,10 +18,12 @@ export const useAcademiaController = () => {
 
   const audioRef = useRef(null);
 
-  // --- Initialization ---
+  // --- INITIALIZATION ---
   useEffect(() => {
+    // Preload notification sound
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
     audioRef.current.volume = 0.5;
+
     try {
       const savedData = localStorage.getItem('academiaZenData');
       if (savedData) setSubjects(JSON.parse(savedData));
@@ -32,7 +34,6 @@ export const useAcademiaController = () => {
       const savedCategories = localStorage.getItem('academiaZenCategories');
       if (savedCategories) setCategories(JSON.parse(savedCategories));
 
-      // Load new features
       const savedFiles = localStorage.getItem('academiaZenFiles');
       if (savedFiles) setLibraryFiles(JSON.parse(savedFiles));
 
@@ -43,7 +44,7 @@ export const useAcademiaController = () => {
     finally { setIsLoaded(true); }
   }, []);
 
-  // --- Persistence ---
+  // --- PERSISTENCE ---
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem('academiaZenData', JSON.stringify(subjects));
@@ -53,45 +54,83 @@ export const useAcademiaController = () => {
     localStorage.setItem('academiaZenFlashcards', JSON.stringify(flashcards));
   }, [subjects, darkMode, categories, libraryFiles, flashcards, isLoaded]);
 
-  // --- Notifications (Existing Logic) ---
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
-    const checkNotifications = () => {
-      if (Notification.permission !== "granted") return;
-      const now = new Date();
-      const threeDaysFromNow = new Date();
-      threeDaysFromNow.setDate(now.getDate() + 3);
+  // --- NOTIFICATIONS LOGIC (FIXED) ---
+  const checkNotifications = (force = false) => {
+    // 1. Check if browser supports it
+    if (!("Notification" in window)) return;
+    
+    // 2. Check if permission is granted
+    if (Notification.permission !== "granted") return;
+    
+    const now = new Date();
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(now.getDate() + 3);
 
-      let updatesNeeded = false;
-      const updatedSubjects = subjects.map(sub => {
-        let subUpdated = false;
-        const updatedTasks = sub.tasks.map(task => {
-          if (!task.completed) {
-            const taskDate = new Date(task.date);
-            if (taskDate > now && taskDate <= threeDaysFromNow) {
-               const lastNotified = task.lastNotified || 0;
-               if (Date.now() - lastNotified > 7200000) { 
-                   new Notification(`Upcoming: ${sub.name}`, { body: `${task.title} is due on ${taskDate.toLocaleDateString()}` });
-                   if(audioRef.current) audioRef.current.play().catch(() => {});
-                   subUpdated = true;
-                   updatesNeeded = true;
-                   return { ...task, lastNotified: Date.now() }; 
-               }
-            }
+    let updatesNeeded = false;
+    
+    // 3. Scan tasks
+    const updatedSubjects = subjects.map(sub => {
+      let subUpdated = false;
+      const updatedTasks = sub.tasks.map(task => {
+        if (!task.completed && task.date) {
+          const taskDate = new Date(task.date);
+          
+          // Check if due within 3 days AND in the future
+          if (taskDate > now && taskDate <= threeDaysFromNow) {
+             const lastNotified = task.lastNotified || 0;
+             // Notify if: forced (user clicked enable), OR 2 hours (7200000ms) passed since last
+             if (force || Date.now() - lastNotified > 7200000) { 
+                 
+                 try {
+                    new Notification(`Upcoming: ${sub.name}`, { 
+                        body: `${task.title} is due on ${taskDate.toLocaleDateString()}`,
+                        // Note: Icons depend on browser/OS support
+                        icon: '/icon-192.png' 
+                    });
+                    if(audioRef.current) audioRef.current.play().catch(() => {});
+                 } catch(e) { console.log("Notify error", e); }
+
+                 subUpdated = true;
+                 updatesNeeded = true;
+                 return { ...task, lastNotified: Date.now() }; 
+             }
           }
-          return task;
-        });
-        if (subUpdated) return { ...sub, tasks: updatedTasks };
-        return sub;
+        }
+        return task;
       });
-      if (updatesNeeded) setSubjects(updatedSubjects);
-    };
-    const interval = setInterval(checkNotifications, 60000); 
-    const timeout = setTimeout(checkNotifications, 3000); 
-    return () => { clearInterval(interval); clearTimeout(timeout); };
+      
+      if (subUpdated) return { ...sub, tasks: updatedTasks };
+      return sub;
+    });
+
+    if (updatesNeeded) setSubjects(updatedSubjects);
+  };
+
+  // Run check every minute automatically
+  useEffect(() => {
+    const interval = setInterval(() => checkNotifications(false), 60000); 
+    return () => clearInterval(interval);
   }, [subjects]);
 
-  // --- CRUD Actions ---
+  // Manual Trigger for the UI Button
+  const enableNotifications = async () => {
+      if (!("Notification" in window)) {
+          alert("This browser does not support notifications.");
+          return;
+      }
+      
+      const permission = await Notification.requestPermission();
+      
+      if (permission === "granted") {
+          // Send a test notification immediately to prove it works
+          new Notification("Notifications Enabled", { body: "You will be alerted 3 days before tasks are due." });
+          // Check for actual tasks immediately
+          checkNotifications(true); 
+      }
+  };
+
+  // --- CRUD ACTIONS ---
+
   const addSubject = (name) => {
     setSubjects([...subjects, {id: Date.now().toString(), name, tasks: [], note: "", resources: [], grades: {target: '', current: ''}}]);
   };
@@ -162,10 +201,9 @@ export const useAcademiaController = () => {
     if (categories.length > 1) setCategories(categories.filter(c => c !== cat));
   };
 
-  // --- NEW ACTIONS for Library & Review ---
+  // --- LIBRARY & FLASHCARD ACTIONS ---
 
   const addFile = (fileObj) => {
-    // fileObj: { name, type, data (base64), date }
     setLibraryFiles([...libraryFiles, { ...fileObj, id: Date.now().toString() }]);
   };
 
@@ -175,6 +213,10 @@ export const useAcademiaController = () => {
 
   const addFlashcard = (subjectId, question, answer) => {
     setFlashcards([...flashcards, { id: Date.now().toString(), subjectId, question, answer, mastery: 0 }]);
+  };
+
+  const updateFlashcard = (cardId, updates) => {
+    setFlashcards(flashcards.map(c => c.id === cardId ? { ...c, ...updates } : c));
   };
 
   const deleteFlashcard = (cardId) => {
@@ -187,15 +229,23 @@ export const useAcademiaController = () => {
   };
 
   return {
+    // State
     subjects, categories, darkMode, setDarkMode, isLoaded,
     activeSubjectId, setActiveSubjectId, 
     activeModal, setActiveModal, openModal, editingItem,
+    libraryFiles, flashcards,
+    
+    // Core Actions
     addSubject, updateSubjectName, deleteSubject, 
     addTask, updateTask, deleteTask, toggleTaskComplete,
     updateNote, addResource, deleteResource, updateGrade,
     addCategory, deleteCategory,
-    // New Exports
-    libraryFiles, addFile, deleteFile,
-    flashcards, addFlashcard, deleteFlashcard
+    
+    // Feature Actions
+    addFile, deleteFile,
+    addFlashcard, updateFlashcard, deleteFlashcard,
+    
+    // Notification Actions
+    enableNotifications
   };
 };
