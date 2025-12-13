@@ -6,9 +6,10 @@ import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import Focus from './pages/Focus';
 import SubjectDetail from './pages/SubjectDetail';
-import Library from './pages/Library'; // NEW
-import Review from './pages/Review';   // NEW
+import Library from './pages/Library';
+import Review from './pages/Review';
 import { Button } from './components/UI';
+import { useNotifications } from './hooks/useNotifications';
 
 const NavBar = ({ darkMode }) => {
   const location = useLocation();
@@ -30,6 +31,9 @@ export default function App() {
   const controller = useAcademiaController();
   const { darkMode, setDarkMode, categories, addCategory, deleteCategory, activeModal, setActiveModal, addSubject, addTask, updateTask, updateSubjectName, activeSubjectId, addResource, addFlashcard, subjects } = controller;
   
+  // Notifications Hook
+  useNotifications(controller.tasks);
+
   // Modal Inputs
   const [inputName, setInputName] = useState("");
   const [inputDate, setInputDate] = useState("");
@@ -84,8 +88,16 @@ export default function App() {
       updateSubjectName(editingItem.id, inputName);
     } else if (activeModal === 'task' && activeSubjectId) {
       addTask(activeSubjectId, { title: inputName, date: inputDate, type: inputType, priority: inputPriority });
-    } else if (activeModal === 'edit-task' && editingItem && activeSubjectId) {
-      updateTask(activeSubjectId, editingItem.id, { title: inputName, date: inputDate, type: inputType, priority: inputPriority });
+    } else if (activeModal === 'edit-task' && editingItem) {
+      // NOTE: For global task editing (like from Calendar), we need to find the subject ID if not active.
+      // Assuming updateTask handles this or we pass the specific subjectID if needed. 
+      // If your updateTask relies on activeSubjectId, this works fine for SubjectDetail but for Calendar 
+      // you might need to ensure updateTask finds the subject automatically or pass it.
+      // For now, assuming standard flow:
+      const targetSubjectId = activeSubjectId || subjects.find(s => s.tasks.some(t => t.id === editingItem.id))?.id;
+      if (targetSubjectId) {
+          updateTask(targetSubjectId, editingItem.id, { title: inputName, date: inputDate, type: inputType, priority: inputPriority });
+      }
     } else if (activeModal === 'resource' && activeSubjectId) {
         addResource(activeSubjectId, { title: resTitle, url: resUrl });
         setResTitle(""); setResUrl("");
@@ -113,7 +125,7 @@ export default function App() {
           <main className="max-w-md mx-auto px-4 mt-6">
             <Routes>
               <Route path="/" element={<Dashboard controller={controller} openModal={openModal} />} />
-              <Route path="/calendar" element={<Calendar controller={controller} />} />
+              <Route path="/calendar" element={<Calendar controller={controller} openModal={openModal} />} />
               <Route path="/focus" element={<Focus controller={controller} />} />
               <Route path="/library" element={<Library controller={controller} />} />
               <Route path="/review" element={<Review controller={controller} openModal={openModal} />} />
