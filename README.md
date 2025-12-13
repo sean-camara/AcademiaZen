@@ -2,7 +2,7 @@
 
 **Focus. Learn. Achieve.**
 
-AcademiaZen is a modern, privacy-focused **Progressive Web App (PWA)** built to help students manage tasks, study efficiently, and stay focused — all in one calm, distraction-free workspace.
+AcademiaZen is a modern, privacy-focused **Progressive Web App (PWA)** built to help students manage tasks, study efficiently, and stay focused all in one calm, distraction-free workspace.
 
 🔗 **Live App (Installable PWA):**  
 👉 https://academia-zen.vercel.app/
