@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil } from 'lucide-react';
+import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil, FileText, X, Eye } from 'lucide-react';
 import { Card, Button } from '../components/UI';
 
 export default function SubjectDetail({ controller, openModal }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  // Added deleteTask to destructuring
   const { subjects, updateGrade, deleteResource, updateNote, deleteSubject, toggleTaskComplete, darkMode, setActiveSubjectId, deleteTask } = controller;
   
   const activeSubject = subjects.find(s => s.id === id);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [localNote, setLocalNote] = useState("");
+  
+  // --- TIMER EDIT STATE ---
+  const [isEditingTimer, setIsEditingTimer] = useState(false);
+  const [timerInput, setTimerInput] = useState("25");
 
-  // Sync URL ID with Controller State
+  // State for viewing PDF (Task Object)
+  const [viewingTaskPdf, setViewingTaskPdf] = useState(null);
+
   useEffect(() => {
-    if (id) {
-      setActiveSubjectId(id);
-    }
+    if (id) setActiveSubjectId(id);
   }, [id, setActiveSubjectId]);
 
   useEffect(() => {
@@ -28,9 +31,76 @@ export default function SubjectDetail({ controller, openModal }) {
   useEffect(() => {
     let interval = null;
     if (timerActive && timeLeft > 0) interval = setInterval(() => setTimeLeft(p => p - 1), 1000);
-    else if (timeLeft === 0) setTimerActive(false);
+    else if (timeLeft === 0) {
+        setTimerActive(false);
+    }
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
+
+  // --- TIMER CUSTOMIZATION LOGIC ---
+  const handleTimerClick = () => {
+      // Only allow edit if timer is paused
+      if (!timerActive) {
+          setIsEditingTimer(true);
+          setTimerInput(Math.floor(timeLeft / 60).toString());
+      }
+  };
+
+  const handleTimerSave = () => {
+      let minutes = parseInt(timerInput);
+      // Validation: Must be a number > 0. Default to 25. Max 180 mins.
+      if (isNaN(minutes) || minutes < 1) minutes = 25; 
+      if (minutes > 180) minutes = 180;
+      
+      setTimeLeft(minutes * 60);
+      setIsEditingTimer(false);
+  };
+
+  const handleTimerKeyDown = (e) => {
+      if (e.key === 'Enter') handleTimerSave();
+  };
+
+  // --- SMART PDF OPENER ---
+  const openPdfViewer = () => {
+    if (!viewingTaskPdf?.pdfFile) return;
+
+    try {
+        const base64 = viewingTaskPdf.pdfFile;
+        const byteCharacters = atob(base64.split(',')[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        const newWindow = window.open(blobUrl, '_blank');
+
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+            alert("Please allow popups to view this file.");
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+
+    } catch(e) { 
+        console.error("PDF Open Error:", e);
+        alert("Could not open PDF. File might be corrupted."); 
+    }
+  };
+
+  const handleTaskClick = (task) => {
+      if (task.pdfFile) {
+          setViewingTaskPdf(task);
+      } else {
+          toggleTaskComplete(activeSubject.id, task.id);
+      }
+  };
+
+  const handleCompleteFromModal = () => {
+      if (viewingTaskPdf) {
+          toggleTaskComplete(activeSubject.id, viewingTaskPdf.id);
+          setViewingTaskPdf(null);
+      }
+  };
 
   if (!activeSubject) return <div className="p-8 text-center">Module not found.</div>;
 
@@ -45,7 +115,33 @@ export default function SubjectDetail({ controller, openModal }) {
   };
 
   return (
-    <div className="animate-in slide-in-from-right-8 duration-300 pb-24">
+    <div className="animate-in slide-in-from-right-8 duration-300 pb-24 relative">
+      
+      {/* --- PDF ACTION MODAL --- */}
+      {viewingTaskPdf && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingTaskPdf(null)}></div>
+              <div className={`relative w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 ${darkMode ? 'bg-[#2c333e]' : 'bg-white'}`}>
+                  <button onClick={() => setViewingTaskPdf(null)} className="absolute top-4 right-4 text-slate-400"><X size={20}/></button>
+                  <div className="flex flex-col items-center text-center mb-6">
+                      <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mb-4 shadow-sm">
+                          <FileText size={40} />
+                      </div>
+                      <h3 className={`text-lg font-bold mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{viewingTaskPdf.pdfName || "Attached PDF"}</h3>
+                      <p className="text-xs text-slate-400 max-w-[200px]">Review the attached material before marking this task as complete.</p>
+                  </div>
+                  <div className="space-y-3">
+                      <Button onClick={openPdfViewer} variant="secondary" className="w-full gap-2 py-3 shadow-sm border border-slate-200 dark:border-stone-700">
+                          <Eye size={18}/> View Document
+                      </Button>
+                      <Button onClick={handleCompleteFromModal} className="w-full gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-none shadow-lg">
+                          <Check size={18}/> Mark as Done
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Grade Tracker */}
       <div className={`mb-6 p-4 rounded-2xl flex items-center justify-between ${darkMode ? 'bg-[#2c333e]' : 'bg-white'} shadow-sm`}>
         <div className="flex items-center gap-3">
@@ -62,11 +158,41 @@ export default function SubjectDetail({ controller, openModal }) {
         </div>
       </div>
 
-      {/* Timer */}
+      {/* --- CUSTOMIZABLE TIMER SECTION --- */}
       <Card className="p-4 mb-6 flex items-center justify-between bg-gradient-to-r from-[#4a7a7d] to-[#3b6366] text-white border-none shadow-lg">
-         <div><p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Focus Timer</p><p className="text-3xl font-mono font-bold tracking-wider">{formatTime(timeLeft)}</p></div>
+         <div>
+             <p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Focus Timer</p>
+             {isEditingTimer ? (
+                 <div className="flex items-center">
+                     <input 
+                        autoFocus
+                        type="number" 
+                        value={timerInput} 
+                        onChange={(e) => setTimerInput(e.target.value)}
+                        onBlur={handleTimerSave}
+                        onKeyDown={handleTimerKeyDown}
+                        className="w-16 text-3xl font-mono font-bold bg-white/20 text-white rounded px-1 outline-none border-b-2 border-white"
+                     />
+                     <span className="ml-2 text-sm opacity-80">min</span>
+                 </div>
+             ) : (
+                 <div 
+                    onClick={handleTimerClick}
+                    className={`flex items-center gap-3 ${!timerActive ? 'cursor-pointer' : 'cursor-default'}`}
+                    title="Click to edit timer duration"
+                 >
+                    <p className="text-3xl font-mono font-bold tracking-wider">{formatTime(timeLeft)}</p>
+                    {/* Visual Indicator: Clearly visible edit button */}
+                    {!timerActive && (
+                        <div className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors shadow-sm">
+                            <Pencil size={16} fill="currentColor" className="text-white" />
+                        </div>
+                    )}
+                 </div>
+             )}
+         </div>
          <div className="flex gap-2">
-           <button onClick={() => setTimerActive(!timerActive)} className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm transition-all">{timerActive ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" />}</button>
+           <button onClick={() => { if(!isEditingTimer) setTimerActive(!timerActive); }} className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm transition-all">{timerActive ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" />}</button>
            <button onClick={() => { setTimerActive(false); setTimeLeft(25*60); }} className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm transition-all"><RotateCcw size={16} /></button>
          </div>
       </Card>
@@ -110,15 +236,26 @@ export default function SubjectDetail({ controller, openModal }) {
         {activeSubject.tasks.map(task => {
           const urgency = getUrgency(task.date);
           const priorityColor = task.priority==='High'?'bg-rose-100 text-rose-600':task.priority==='Low'?'bg-blue-100 text-blue-600':'bg-amber-100 text-amber-600';
+          
           return (
-            <Card key={task.id} onClick={() => toggleTaskComplete(activeSubject.id, task.id)} className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-stone-700/50 transition-all ${task.completed ? 'opacity-40 grayscale' : ''} ${darkMode ? 'bg-[#2c333e]' : 'bg-white'}`}>
+            <Card key={task.id} onClick={() => handleTaskClick(task)} className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-stone-700/50 transition-all ${task.completed ? 'opacity-40 grayscale' : ''} ${darkMode ? 'bg-[#2c333e]' : 'bg-white'}`}>
+              
+              {/* Checkbox Icon */}
               <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-[#4a7a7d] border-[#4a7a7d] text-white' : 'border-slate-300 dark:border-stone-600'}`}>{task.completed && <Check size={14} strokeWidth={3} />}</div>
-              <div className="flex-1">
+              
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${priorityColor}`}>{task.priority || "Medium"}</span>
                   {task.type && <span className="text-[10px] text-slate-400 font-medium">{task.type}</span>}
+                  
+                  {/* PDF Badge */}
+                  {task.pdfFile && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded">
+                          <FileText size={10} /> PDF
+                      </span>
+                  )}
                 </div>
-                <p className={`font-bold text-sm ${task.completed ? 'line-through' : ''} ${darkMode ? 'text-stone-200' : 'text-slate-800'}`}>{task.title}</p>
+                <p className={`font-bold text-sm truncate ${task.completed ? 'line-through' : ''} ${darkMode ? 'text-stone-200' : 'text-slate-800'}`}>{task.title}</p>
                 {!task.completed && <div className="flex items-center gap-2 mt-1"><div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${urgency.bg} ${urgency.text}`}><Clock size={10} /> {urgency.label}</div></div>}
               </div>
               

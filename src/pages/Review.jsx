@@ -29,16 +29,10 @@ export default function Review({ controller, openModal }) {
   const handleNext = () => {
     if (filteredCards.length <= 1) return;
     setIsFlipped(false);
-    
-    // Phase 1: Toss current card away
     setAnimClass('animate-toss-left'); 
-    
     setTimeout(() => {
-        // Phase 2: Switch data and Snap new card in
         setCurrentCardIndex((prev) => (prev + 1) % filteredCards.length);
         setAnimClass('animate-bouncy-in'); 
-        
-        // Phase 3: Cleanup
         setTimeout(() => setAnimClass(''), 400); 
     }, 200);
   };
@@ -46,20 +40,13 @@ export default function Review({ controller, openModal }) {
   const handlePrev = () => {
     if (filteredCards.length <= 1) return;
     setIsFlipped(false);
-    
-    // Phase 1: Toss current card away
     setAnimClass('animate-toss-right'); 
-    
     setTimeout(() => {
-        // Phase 2: Switch data and Snap new card in
         setCurrentCardIndex((prev) => (prev - 1 + filteredCards.length) % filteredCards.length);
         setAnimClass('animate-bouncy-in'); 
-        
-        // Phase 3: Cleanup
         setTimeout(() => setAnimClass(''), 400);
     }, 200);
   };
-  // --------------------------
 
   const handleDeleteSubject = () => {
       if (window.confirm(`Delete "${activeSubject.name}" and all its flashcards?`)) {
@@ -68,8 +55,8 @@ export default function Review({ controller, openModal }) {
       }
   };
 
-  // Custom Scrollbar Class
-  const scrollbarClass = `
+  // Custom Scrollbar Class for Vertical Content (Inside Card)
+  const cardScrollbarClass = `
     overflow-y-auto 
     [&::-webkit-scrollbar]:w-1.5 
     [&::-webkit-scrollbar-track]:bg-transparent 
@@ -81,34 +68,43 @@ export default function Review({ controller, openModal }) {
   return (
     <div className="animate-in fade-in duration-500 pb-24 relative overflow-hidden">
       
-      {/* Creative Animations Styles */}
+      {/* Creative Animations Styles & Horizontal Scrollbar */}
       <style>{`
-        /* Throw card to the left with rotation */
         @keyframes tossLeft {
           0% { transform: translateX(0) rotate(0); opacity: 1; }
           100% { transform: translateX(-120%) rotate(-15deg); opacity: 0; }
         }
-        
-        /* Throw card to the right with rotation */
         @keyframes tossRight {
           0% { transform: translateX(0) rotate(0); opacity: 1; }
           100% { transform: translateX(120%) rotate(15deg); opacity: 0; }
         }
-
-        /* Snap/Bounce in from the back */
         @keyframes bouncyIn {
           0% { transform: scale(0.85) translateY(20px); opacity: 0; }
           60% { transform: scale(1.02) translateY(-5px); opacity: 1; }
           100% { transform: scale(1) translateY(0); opacity: 1; }
         }
-
         .animate-toss-left { animation: tossLeft 0.25s forwards ease-in; }
         .animate-toss-right { animation: tossRight 0.25s forwards ease-in; }
         .animate-bouncy-in { animation: bouncyIn 0.4s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* CUSTOM HORIZONTAL SCROLLBAR FOR SUBJECTS */
+        .subject-scroll::-webkit-scrollbar {
+            height: 6px; /* Horizontal height */
+        }
+        .subject-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .subject-scroll::-webkit-scrollbar-thumb {
+            background-color: ${darkMode ? '#4b5563' : '#cbd5e1'};
+            border-radius: 10px;
+        }
+        .subject-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: #4a7a7d;
+        }
       `}</style>
 
-      {/* 1. Deck Filter / Navigation */}
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar items-center mb-2">
+      {/* 1. Deck Filter / Navigation (With Custom Scrollbar) */}
+      <div className="flex gap-2 overflow-x-auto pb-4 items-center mb-2 subject-scroll">
         <button 
           onClick={() => { setActiveSubjectFilter('all'); setCurrentCardIndex(0); setIsFlipped(false); }}
           className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition-all ${activeSubjectFilter === 'all' ? 'bg-[#4a7a7d] text-white border-[#4a7a7d]' : `bg-transparent border-slate-300 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}`}
@@ -179,8 +175,8 @@ export default function Review({ controller, openModal }) {
                     <div className="w-12 h-1 bg-slate-100 dark:bg-stone-700 rounded-full mb-4 flex-none"></div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-2 tracking-widest flex-none">Question</p>
                     
-                    {/* SCROLLABLE CONTENT */}
-                    <div className={`flex-1 w-full flex items-center justify-center ${scrollbarClass}`}>
+                    {/* SCROLLABLE CONTENT (Vertical) */}
+                    <div className={`flex-1 w-full flex items-center justify-center ${cardScrollbarClass}`}>
                         <h3 className={`text-xl font-bold leading-relaxed max-h-full py-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                             {currentCard.question}
                         </h3>
@@ -194,8 +190,8 @@ export default function Review({ controller, openModal }) {
                     <div className="w-12 h-1 bg-slate-100 dark:bg-stone-700 rounded-full mb-4 flex-none"></div>
                     <p className="text-[10px] text-amber-500 font-bold uppercase mb-2 tracking-widest flex-none">Answer</p>
                     
-                    {/* SCROLLABLE CONTENT */}
-                    <div className={`flex-1 w-full flex items-center justify-center ${scrollbarClass}`}>
+                    {/* SCROLLABLE CONTENT (Vertical) */}
+                    <div className={`flex-1 w-full flex items-center justify-center ${cardScrollbarClass}`}>
                         <h3 className={`text-xl font-bold leading-relaxed max-h-full py-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                             {currentCard.answer}
                         </h3>

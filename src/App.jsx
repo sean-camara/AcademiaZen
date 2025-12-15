@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, Calendar as CalendarIcon, Zap, LayoutGrid, X, Plus, Trash2, FolderOpen, BrainCircuit } from 'lucide-react';
+import { Moon, Sun, Calendar as CalendarIcon, Zap, LayoutGrid, X, Plus, Trash2, FolderOpen, BrainCircuit, Upload, FileText } from 'lucide-react';
 import { useAcademiaController } from './hooks/useAcademiaController';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
@@ -9,7 +9,6 @@ import SubjectDetail from './pages/SubjectDetail';
 import Library from './pages/Library';
 import Review from './pages/Review';
 import { Button } from './components/UI';
-import { useNotifications } from './hooks/useNotifications';
 
 const NavBar = ({ darkMode }) => {
   const location = useLocation();
@@ -29,15 +28,12 @@ const NavBar = ({ darkMode }) => {
 
 export default function App() {
   const controller = useAcademiaController();
-  const { darkMode, setDarkMode, categories, addCategory, deleteCategory, activeModal, setActiveModal, addSubject, addTask, updateTask, updateSubjectName, activeSubjectId, addResource, addFlashcard, subjects } = controller;
+  const { darkMode, setDarkMode, categories, addCategory, deleteCategory, activeModal, setActiveModal, addSubject, addTask, updateTask, updateSubjectName, activeSubjectId, addResource, addFlashcard, updateFlashcard, subjects } = controller;
   
-  // Notifications Hook
-  useNotifications(controller.tasks);
-
   // Modal Inputs
   const [inputName, setInputName] = useState("");
   const [inputDate, setInputDate] = useState("");
-  const [inputType, setInputType] = useState(categories[0]);
+  const [inputType, setInputType] = useState(""); 
   const [inputPriority, setInputPriority] = useState("Medium");
   const [editingItem, setEditingItem] = useState(null); 
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -49,21 +45,56 @@ export default function App() {
   const [fcAnswer, setFcAnswer] = useState("");
   const [fcSubjectId, setFcSubjectId] = useState("");
 
-  // Sync modal inputs
+  // Task File Input
+  const [taskFile, setTaskFile] = useState(null); // Base64 or null
+  const [taskFileName, setTaskFileName] = useState(""); // Name for UI
+  const taskFileInputRef = useRef(null);
+
+  // --- Helper to read file for task ---
+  const handleTaskFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 4500000) { alert("File too large (Max 4.5MB)"); return; }
+      setTaskFileName(file.name);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTaskFile(reader.result); // Save Base64
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   useEffect(() => {
     if (activeModal === 'edit-task' && editingItem) {
       setInputName(editingItem.title);
       setInputDate(editingItem.date);
       setInputType(editingItem.type || categories[0]);
       setInputPriority(editingItem.priority || "Medium");
+      setTaskFile(editingItem.pdfFile || null);
+      setTaskFileName(editingItem.pdfName || "");
     } else if (activeModal === 'edit-subject' && editingItem) {
       setInputName(editingItem.name);
-    } else if (activeModal === 'flashcard' && subjects.length > 0) {
-      setFcSubjectId(subjects[0].id);
-    } else if (activeModal !== 'manage-categories' && activeModal !== 'resource') {
-      setInputName(""); setInputDate(""); setInputType(categories[0]); setInputPriority("Medium");
+    } else if (activeModal === 'flashcard') {
+      if (editingItem) {
+        setFcSubjectId(editingItem.subjectId);
+        setFcQuestion(editingItem.question);
+        setFcAnswer(editingItem.answer);
+      } else {
+        setFcQuestion("");
+        setFcAnswer("");
+        if (subjects.length > 0 && !fcSubjectId) {
+            setFcSubjectId(subjects[0].id);
+        }
+      }
+    } else if (activeModal !== 'manage-categories' && activeModal !== 'resource' && activeModal !== null) {
+      setInputName(""); 
+      setInputDate(""); 
+      setInputType(categories[0] || "Homework"); 
+      setInputPriority("Medium");
+      setTaskFile(null);
+      setTaskFileName("");
     }
-  }, [activeModal, editingItem, categories, subjects]);
+  }, [activeModal, editingItem]);
 
   const openModal = (type, item = null) => {
     controller.openModal(type, item);
@@ -73,7 +104,8 @@ export default function App() {
   const handleSave = () => {
     if (activeModal === 'flashcard') {
       if (fcQuestion && fcAnswer && fcSubjectId) {
-        addFlashcard(fcSubjectId, fcQuestion, fcAnswer);
+        if (editingItem) updateFlashcard(editingItem.id, { question: fcQuestion, answer: fcAnswer, subjectId: fcSubjectId });
+        else addFlashcard(fcSubjectId, fcQuestion, fcAnswer);
         setFcQuestion(""); setFcAnswer("");
       }
       setActiveModal(null);
@@ -87,17 +119,25 @@ export default function App() {
     } else if (activeModal === 'edit-subject' && editingItem) {
       updateSubjectName(editingItem.id, inputName);
     } else if (activeModal === 'task' && activeSubjectId) {
-      addTask(activeSubjectId, { title: inputName, date: inputDate, type: inputType, priority: inputPriority });
-    } else if (activeModal === 'edit-task' && editingItem) {
-      // NOTE: For global task editing (like from Calendar), we need to find the subject ID if not active.
-      // Assuming updateTask handles this or we pass the specific subjectID if needed. 
-      // If your updateTask relies on activeSubjectId, this works fine for SubjectDetail but for Calendar 
-      // you might need to ensure updateTask finds the subject automatically or pass it.
-      // For now, assuming standard flow:
-      const targetSubjectId = activeSubjectId || subjects.find(s => s.tasks.some(t => t.id === editingItem.id))?.id;
-      if (targetSubjectId) {
-          updateTask(targetSubjectId, editingItem.id, { title: inputName, date: inputDate, type: inputType, priority: inputPriority });
-      }
+      // Add Task with PDF
+      addTask(activeSubjectId, { 
+          title: inputName, 
+          date: inputDate, 
+          type: inputType, 
+          priority: inputPriority,
+          pdfFile: taskFile,  // Save Base64
+          pdfName: taskFileName
+      });
+    } else if (activeModal === 'edit-task' && editingItem && activeSubjectId) {
+      // Update Task with PDF
+      updateTask(activeSubjectId, editingItem.id, { 
+          title: inputName, 
+          date: inputDate, 
+          type: inputType, 
+          priority: inputPriority,
+          pdfFile: taskFile,
+          pdfName: taskFileName
+      });
     } else if (activeModal === 'resource' && activeSubjectId) {
         addResource(activeSubjectId, { title: resTitle, url: resUrl });
         setResTitle(""); setResUrl("");
@@ -125,7 +165,7 @@ export default function App() {
           <main className="max-w-md mx-auto px-4 mt-6">
             <Routes>
               <Route path="/" element={<Dashboard controller={controller} openModal={openModal} />} />
-              <Route path="/calendar" element={<Calendar controller={controller} openModal={openModal} />} />
+              <Route path="/calendar" element={<Calendar controller={controller} />} />
               <Route path="/focus" element={<Focus controller={controller} />} />
               <Route path="/library" element={<Library controller={controller} />} />
               <Route path="/review" element={<Review controller={controller} openModal={openModal} />} />
@@ -140,7 +180,7 @@ export default function App() {
               <div className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom-10 border ${darkMode ? 'bg-[#2c333e] border-white/20' : 'bg-white border-white/50'}`}>
                 <div className="flex justify-between items-center mb-6">
                   <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                    {activeModal.replace('-', ' ').toUpperCase()}
+                    {activeModal.replace('-', ' ').toUpperCase()} {editingItem && activeModal !== 'manage-categories' ? '(EDIT)' : ''}
                   </h3>
                   <button onClick={() => setActiveModal(null)} className="text-slate-400"><X size={20}/></button>
                 </div>
@@ -156,7 +196,7 @@ export default function App() {
                     </div>
                     <div><label className="block text-xs font-bold text-slate-400 mb-1">Question</label><input autoFocus value={fcQuestion} onChange={(e) => setFcQuestion(e.target.value)} className={`w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-[#4a7a7d] ${darkMode ? 'bg-black/20 text-white' : 'bg-slate-100'}`}/></div>
                     <div><label className="block text-xs font-bold text-slate-400 mb-1">Answer</label><textarea value={fcAnswer} onChange={(e) => setFcAnswer(e.target.value)} className={`w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-[#4a7a7d] ${darkMode ? 'bg-black/20 text-white' : 'bg-slate-100'}`}/></div>
-                    <Button onClick={handleSave} className="w-full mt-4">Add Card</Button>
+                    <Button onClick={handleSave} className="w-full mt-4">{editingItem ? 'Update Card' : 'Add Card'}</Button>
                   </div>
                 ) : activeModal === 'resource' ? (
                     <div className="space-y-4">
@@ -210,6 +250,21 @@ export default function App() {
                         <div>
                           <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Due Date</label>
                           <input type="datetime-local" value={inputDate} onChange={e => setInputDate(e.target.value)} className={`w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-[#4a7a7d] ${darkMode ? 'bg-black/20 text-white' : 'bg-slate-100'}`}/>
+                        </div>
+                        
+                        {/* --- NEW: ATTACH PDF SECTION --- */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Attach PDF (Optional)</label>
+                            <div className={`border-2 border-dashed rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-black/10 transition-colors ${taskFile ? 'border-[#4a7a7d]' : 'border-slate-300 dark:border-stone-600'}`} onClick={() => taskFileInputRef.current.click()}>
+                                <div className="p-2 bg-slate-100 dark:bg-black/20 rounded-lg">
+                                    {taskFile ? <FileText size={20} className="text-[#4a7a7d]" /> : <Upload size={20} className="text-slate-400" />}
+                                </div>
+                                <div className="flex-1 truncate">
+                                    <p className={`text-xs font-bold truncate ${taskFile ? 'text-[#4a7a7d]' : 'text-slate-500'}`}>{taskFileName || "Click to upload..."}</p>
+                                </div>
+                                {taskFile && <button onClick={(e) => { e.stopPropagation(); setTaskFile(null); setTaskFileName(""); }} className="text-slate-400 hover:text-rose-500"><X size={16}/></button>}
+                            </div>
+                            <input ref={taskFileInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleTaskFileChange} />
                         </div>
                       </>
                     )}

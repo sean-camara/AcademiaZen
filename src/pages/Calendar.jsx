@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, ArrowRight, FileText, X, Eye, FolderOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/UI';
 
 export default function Calendar({ controller, openModal }) {
   const { subjects, darkMode } = controller;
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // --- NEW: State for the "Choice Modal" ---
+  const [choiceTask, setChoiceTask] = useState(null);
 
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -21,7 +27,10 @@ export default function Calendar({ controller, openModal }) {
     const checkDate = new Date(year, month, day).toDateString();
     let tasks = [];
     subjects.forEach(s => s.tasks.forEach(t => {
-       if(new Date(t.date).toDateString() === checkDate && !t.completed) tasks.push({...t, subject: s.name});
+       if(new Date(t.date).toDateString() === checkDate && !t.completed) {
+           // We need subjectId for navigation
+           tasks.push({...t, subject: s.name, subjectId: s.id}); 
+       }
     }));
     return tasks;
   };
@@ -31,16 +40,94 @@ export default function Calendar({ controller, openModal }) {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1));
 
-  // Helper to determine priority color
   const getPriorityColor = (p) => {
     if (p === 'High') return 'bg-rose-500';
     if (p === 'Medium') return 'bg-amber-500';
     return 'bg-[#4a7a7d]';
   };
 
+  // --- ACTIONS ---
+
+  const handleTaskClick = (task) => {
+      // If it has a PDF, ask the user what to do
+      if (task.pdfFile) {
+          setChoiceTask(task);
+      } else {
+          // If no PDF, go straight to subject
+          navigate(`/subject/${task.subjectId}`);
+      }
+  };
+
+  const handleViewPdf = () => {
+      if (!choiceTask?.pdfFile) return;
+      try {
+        // Blob Logic to avoid black screen on mobile
+        const base64 = choiceTask.pdfFile;
+        const byteCharacters = atob(base64.split(',')[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const newWindow = window.open(blobUrl, '_blank');
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+            alert("Please allow popups to view this file.");
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (e) {
+          console.error("PDF Open Error:", e);
+          alert("Could not open PDF.");
+      }
+      setChoiceTask(null);
+  };
+
+  const handleGoToSubject = () => {
+      if (choiceTask) {
+          navigate(`/subject/${choiceTask.subjectId}`);
+          setChoiceTask(null);
+      }
+  };
+
   return (
-    <div className="animate-in fade-in duration-500 pb-24">
+    <div className="animate-in fade-in duration-500 pb-24 relative">
       
+      {/* --- CHOICE MODAL (Only shows when a task with PDF is clicked) --- */}
+      {choiceTask && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChoiceTask(null)}></div>
+              <div className={`relative w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 ${darkMode ? 'bg-[#2c333e]' : 'bg-white'}`}>
+                  <button onClick={() => setChoiceTask(null)} className="absolute top-4 right-4 text-slate-400"><X size={20}/></button>
+                  
+                  <div className="text-center mb-6">
+                      <div className="mx-auto w-12 h-12 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center mb-3">
+                          <FileText size={24} />
+                      </div>
+                      <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Task Options</h3>
+                      <p className="text-xs text-slate-400 mt-1">"{choiceTask.title}" has an attachment.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                      <Button onClick={handleViewPdf} className="w-full gap-2 py-3 bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20">
+                          <Eye size={18}/> View PDF Document
+                      </Button>
+                      
+                      <div className="relative flex py-1 items-center">
+                          <div className="flex-grow border-t border-slate-200 dark:border-stone-700"></div>
+                          <span className="flex-shrink-0 mx-2 text-[10px] text-slate-400 uppercase font-bold">Or</span>
+                          <div className="flex-grow border-t border-slate-200 dark:border-stone-700"></div>
+                      </div>
+
+                      <Button onClick={handleGoToSubject} variant="secondary" className="w-full gap-2 py-3 border border-slate-200 dark:border-stone-700">
+                          <FolderOpen size={18}/> Go to {choiceTask.subject}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* --- ELEGANT CALENDAR WIDGET --- */}
       <div className={`p-6 mb-8 rounded-3xl shadow-xl transition-all duration-300 ${darkMode ? 'bg-[#2c333e] shadow-black/20' : 'bg-white shadow-slate-200'}`}>
         
@@ -115,8 +202,8 @@ export default function Calendar({ controller, openModal }) {
           selectedTasks.map((t, idx) => (
             <div 
               key={idx}
-              // This onClick opens the Edit Modal
-              onClick={() => openModal('edit-task', t)}
+              // SMART CLICK ACTION
+              onClick={() => handleTaskClick(t)}
               className="animate-in slide-in-from-bottom-4 duration-500 fill-mode-backwards"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
@@ -130,8 +217,10 @@ export default function Calendar({ controller, openModal }) {
 
                 <div className="pl-3 flex flex-col gap-1">
                   <div className="flex justify-between items-start">
-                    <h4 className={`font-bold text-[15px] leading-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                    <h4 className={`font-bold text-[15px] leading-tight flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                       {t.title}
+                      {/* PDF Indicator Icon */}
+                      {t.pdfFile && <FileText size={14} className="text-rose-500" />}
                     </h4>
                     {/* Arrow hint that appears on hover */}
                     <ArrowRight size={16} className="text-[#4a7a7d] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
