@@ -49,27 +49,19 @@ export default function Library({ controller }) {
     }
   };
 
-  // Helper to convert Base64 to Blob (Fix for Mobile)
-  const base64ToBlob = (base64, type) => {
-    const byteCharacters = atob(base64.split(',')[1]);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: type });
-  };
-
-  // --- Smart Link Handler (FIXED) ---
+  // --- Smart Link Handler ---
+  // This ensures PC opens in new tab, but Mobile downloads to Gallery
   const handleOpenOriginal = (e) => {
-    e.preventDefault(); // Stop default anchor behavior immediately
-
+    // Check if mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     if (!isMobile) {
-      // DESKTOP: Open in new tab with custom viewer
+      // DESKTOP: Prevent download, open in new tab instead
+      e.preventDefault();
+      
       const newWindow = window.open();
       if (newWindow) {
+        // We write the content manually to bypass Chrome's "Not allowed to navigate top frame to data URL" security block
         newWindow.document.write(`
           <html>
             <head><title>${selectedFile.name}</title></head>
@@ -82,28 +74,10 @@ export default function Library({ controller }) {
           </html>
         `);
       }
-    } else {
-      // MOBILE: Convert to Blob Object URL
-      // This works around the "Data URI too long" issue on mobile browsers
-      try {
-        const blob = base64ToBlob(selectedFile.data, selectedFile.type);
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // Create temporary link to trigger download/view
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = selectedFile.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Clean up memory
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      } catch (err) {
-        console.error("Mobile open error:", err);
-        alert("Could not open file on this device.");
-      }
     }
+    // MOBILE: We do nothing (allow default behavior). 
+    // The <a> tag has the 'download' attribute, so it will download the file.
+    // Once downloaded, the user can open it in their Gallery/Photos app.
   };
 
 
@@ -174,12 +148,14 @@ export default function Library({ controller }) {
             {/* Footer with Smart Action */}
              <div className={`px-6 py-3 border-t flex justify-between items-center ${darkMode ? 'border-stone-800 bg-stone-900' : 'border-slate-100 bg-white'}`}>
                  <span className="text-xs text-slate-400">Added on {formatDate(selectedFile.date)}</span>
-                 <button 
-                   onClick={handleOpenOriginal} // Updated handler
+                 <a 
+                   href={selectedFile.data} 
+                   download={selectedFile.name} // Essential for Mobile Gallery support
+                   onClick={handleOpenOriginal} // Intercepts for Desktop New Tab
                    className="text-sm font-medium text-[#4a7a7d] hover:text-[#3a6163] transition-colors flex items-center gap-2 cursor-pointer"
                  >
                    <Maximize2 size={16} /> Open Original
-                 </button>
+                 </a>
              </div>
           </div>
         </div>
