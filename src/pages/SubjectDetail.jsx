@@ -60,7 +60,7 @@ export default function SubjectDetail({ controller, openModal }) {
       if (e.key === 'Enter') handleTimerSave();
   };
 
-  // --- SMART PDF OPENER ---
+  // --- SMART PDF OPENER (VIEW ONLY - NO DOWNLOAD) ---
   const openPdfViewer = () => {
     if (!viewingTaskPdf?.pdfFile) return;
 
@@ -72,25 +72,35 @@ export default function SubjectDetail({ controller, openModal }) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
+        // Create Blob
         const blob = new Blob([byteArray], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
-        const newWindow = window.open(blobUrl, '_blank');
-
-        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-            alert("Please allow popups to view this file.");
-        }
+        
+        // Open in new tab/window (System Viewer)
+        // IMPORTANT: We do NOT set the 'download' attribute here.
+        // This tells the browser to display it, not save it.
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank'; 
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Cleanup memory
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
     } catch(e) { 
         console.error("PDF Open Error:", e);
-        alert("Could not open PDF. File might be corrupted."); 
+        alert("Could not open PDF."); 
     }
   };
 
   const handleTaskClick = (task) => {
+      // If task has PDF, show View/Complete Modal
       if (task.pdfFile) {
           setViewingTaskPdf(task);
       } else {
+          // If no PDF, just toggle complete directly
           toggleTaskComplete(activeSubject.id, task.id);
       }
   };
