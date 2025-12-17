@@ -54,7 +54,18 @@ export default function App() {
   const handleTaskFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 4500000) { alert("File too large (Max 4.5MB)"); return; }
+      // 1. Strict pdf check
+      if (file.type !== "application/pdf") { 
+        alert("Only PDF files are allowed."); 
+        return; 
+      }
+
+      // 2. Strict size check (Max 0.5MB)
+      if (file.size > 500000) {
+        alert("File is too large (Max 0.5MB). Please use the Library tab for longer files, or compress this PDF.");
+        return;
+      }
+
       setTaskFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {

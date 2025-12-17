@@ -79,14 +79,20 @@ export default function SubjectDetail({ controller, openModal }) {
         // Open in new tab/window (System Viewer)
         // IMPORTANT: We do NOT set the 'download' attribute here.
         // This tells the browser to display it, not save it.
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.target = '_blank'; 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const newWindow = window.open(blobUrl, '_blank');
         
-        // Cleanup memory
+        // Fallback for popups
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+             // Second attempt: Create invisible link click (works better on some mobile browsers)
+             const link = document.createElement('a');
+             link.href = blobUrl;
+             link.target = '_blank';
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
+        }
+        
+        // Cleanup memory (give it time to load)
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
     } catch(e) { 
