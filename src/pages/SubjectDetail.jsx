@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil, FileText, X, Eye } from 'lucide-react';
+import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil, FileText, X, Download } from 'lucide-react';
 import { Card, Button } from '../components/UI';
 
 export default function SubjectDetail({ controller, openModal }) {
@@ -60,8 +60,8 @@ export default function SubjectDetail({ controller, openModal }) {
       if (e.key === 'Enter') handleTimerSave();
   };
 
-  // --- SMART PDF OPENER (VIEW ONLY - NO DOWNLOAD) ---
-  const openPdfViewer = () => {
+  // --- DOWNLOAD PDF LOGIC (Reliable Mobile Method) ---
+  const downloadPdf = () => {
     if (!viewingTaskPdf?.pdfFile) return;
 
     try {
@@ -72,32 +72,23 @@ export default function SubjectDetail({ controller, openModal }) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        // Create Blob
         const blob = new Blob([byteArray], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
         
-        // Open in new tab/window (System Viewer)
-        // IMPORTANT: We do NOT set the 'download' attribute here.
-        // This tells the browser to display it, not save it.
-        const newWindow = window.open(blobUrl, '_blank');
+        // Force Download
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = viewingTaskPdf.pdfName || "document.pdf"; // This forces the OS to handle it
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         
-        // Fallback for popups
-        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-             // Second attempt: Create invisible link click (works better on some mobile browsers)
-             const link = document.createElement('a');
-             link.href = blobUrl;
-             link.target = '_blank';
-             document.body.appendChild(link);
-             link.click();
-             document.body.removeChild(link);
-        }
-        
-        // Cleanup memory (give it time to load)
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        // Cleanup memory
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
     } catch(e) { 
-        console.error("PDF Open Error:", e);
-        alert("Could not open PDF."); 
+        console.error("PDF Download Error:", e);
+        alert("Could not download PDF."); 
     }
   };
 
@@ -147,8 +138,8 @@ export default function SubjectDetail({ controller, openModal }) {
                       <p className="text-xs text-slate-400 max-w-[200px]">Review the attached material before marking this task as complete.</p>
                   </div>
                   <div className="space-y-3">
-                      <Button onClick={openPdfViewer} variant="secondary" className="w-full gap-2 py-3 shadow-sm border border-slate-200 dark:border-stone-700">
-                          <Eye size={18}/> View Document
+                      <Button onClick={downloadPdf} variant="secondary" className="w-full gap-2 py-3 shadow-sm border border-slate-200 dark:border-stone-700">
+                          <Download size={18}/> Download / Open
                       </Button>
                       <Button onClick={handleCompleteFromModal} className="w-full gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-none shadow-lg">
                           <Check size={18}/> Mark as Done
