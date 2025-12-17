@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil, FileText, X, Download } from 'lucide-react';
+import { Target, Pause, Play, RotateCcw, Plus, Link as LinkIcon, Trash2, Save, Check, Clock, Pencil, FileText, X, Eye, Download } from 'lucide-react';
 import { Card, Button } from '../components/UI';
 
 export default function SubjectDetail({ controller, openModal }) {
@@ -60,8 +60,8 @@ export default function SubjectDetail({ controller, openModal }) {
       if (e.key === 'Enter') handleTimerSave();
   };
 
-  // --- DOWNLOAD PDF LOGIC (Reliable Mobile Method) ---
-  const downloadPdf = () => {
+  // --- SMART PDF OPENER (VIEW ONLY - NO DOWNLOAD LOOP) ---
+  const openPdfViewer = () => {
     if (!viewingTaskPdf?.pdfFile) return;
 
     try {
@@ -75,20 +75,25 @@ export default function SubjectDetail({ controller, openModal }) {
         const blob = new Blob([byteArray], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
         
-        // Force Download
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = viewingTaskPdf.pdfName || "document.pdf"; // This forces the OS to handle it
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Open in new tab/window (System Viewer)
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        // Fallback for popups: create a safe link
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+             const link = document.createElement('a');
+             link.href = blobUrl;
+             link.target = '_blank';
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
+        }
         
         // Cleanup memory
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
     } catch(e) { 
-        console.error("PDF Download Error:", e);
-        alert("Could not download PDF."); 
+        console.error("PDF Open Error:", e);
+        alert("Could not open PDF."); 
     }
   };
 
@@ -138,8 +143,8 @@ export default function SubjectDetail({ controller, openModal }) {
                       <p className="text-xs text-slate-400 max-w-[200px]">Review the attached material before marking this task as complete.</p>
                   </div>
                   <div className="space-y-3">
-                      <Button onClick={downloadPdf} variant="secondary" className="w-full gap-2 py-3 shadow-sm border border-slate-200 dark:border-stone-700">
-                          <Download size={18}/> Download / Open
+                      <Button onClick={openPdfViewer} variant="secondary" className="w-full gap-2 py-3 shadow-sm border border-slate-200 dark:border-stone-700">
+                          <Eye size={18}/> View Document
                       </Button>
                       <Button onClick={handleCompleteFromModal} className="w-full gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-none shadow-lg">
                           <Check size={18}/> Mark as Done
@@ -255,7 +260,7 @@ export default function SubjectDetail({ controller, openModal }) {
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${priorityColor}`}>{task.priority || "Medium"}</span>
                   {task.type && <span className="text-[10px] text-slate-400 font-medium">{task.type}</span>}
                   
-                  {/* PDF Badge */}
+                  {/* PDF Badge (Visible on Mobile too) */}
                   {task.pdfFile && (
                       <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded">
                           <FileText size={10} /> PDF

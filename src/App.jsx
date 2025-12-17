@@ -46,23 +46,23 @@ export default function App() {
   const [fcSubjectId, setFcSubjectId] = useState("");
 
   // Task File Input
-  const [taskFile, setTaskFile] = useState(null); // Base64 or null
-  const [taskFileName, setTaskFileName] = useState(""); // Name for UI
+  const [taskFile, setTaskFile] = useState(null); 
+  const [taskFileName, setTaskFileName] = useState(""); 
   const taskFileInputRef = useRef(null);
 
   // --- Helper to read file for task ---
   const handleTaskFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // 1. Strict pdf check
+      // 1. Strict PDF Check
       if (file.type !== "application/pdf") { 
         alert("Only PDF files are allowed."); 
         return; 
       }
 
-      // 2. Strict size check (Max 0.5MB)
+      // 2. Strict Size Check (Max 0.5MB)
       if (file.size > 500000) {
-        alert("File is too large (Max 0.5MB). Please use the Library tab for longer files, or compress this PDF.");
+        alert("File is too large (Max 0.5MB). Please use the Library tab for larger files, or compress this PDF.");
         return;
       }
 
@@ -113,48 +113,54 @@ export default function App() {
   };
 
   const handleSave = () => {
-    if (activeModal === 'flashcard') {
-      if (fcQuestion && fcAnswer && fcSubjectId) {
-        if (editingItem) updateFlashcard(editingItem.id, { question: fcQuestion, answer: fcAnswer, subjectId: fcSubjectId });
-        else addFlashcard(fcSubjectId, fcQuestion, fcAnswer);
-        setFcQuestion(""); setFcAnswer("");
+    // CRASH PREVENTION: Wrap in try/catch to handle Storage Full errors gracefully
+    try {
+      if (activeModal === 'flashcard') {
+        if (fcQuestion && fcAnswer && fcSubjectId) {
+          if (editingItem) updateFlashcard(editingItem.id, { question: fcQuestion, answer: fcAnswer, subjectId: fcSubjectId });
+          else addFlashcard(fcSubjectId, fcQuestion, fcAnswer);
+          setFcQuestion(""); setFcAnswer("");
+        }
+        setActiveModal(null);
+        return;
       }
-      setActiveModal(null);
-      return;
-    }
 
-    if (!inputName.trim() && activeModal !== 'resource' && activeModal !== 'manage-categories') return;
-    
-    if (activeModal === 'subject') {
-      addSubject(inputName);
-    } else if (activeModal === 'edit-subject' && editingItem) {
-      updateSubjectName(editingItem.id, inputName);
-    } else if (activeModal === 'task' && activeSubjectId) {
-      // Add Task with PDF
-      addTask(activeSubjectId, { 
-          title: inputName, 
-          date: inputDate, 
-          type: inputType, 
-          priority: inputPriority,
-          pdfFile: taskFile,  // Save Base64
-          pdfName: taskFileName
-      });
-    } else if (activeModal === 'edit-task' && editingItem && activeSubjectId) {
-      // Update Task with PDF
-      updateTask(activeSubjectId, editingItem.id, { 
-          title: inputName, 
-          date: inputDate, 
-          type: inputType, 
-          priority: inputPriority,
-          pdfFile: taskFile,
-          pdfName: taskFileName
-      });
-    } else if (activeModal === 'resource' && activeSubjectId) {
-        addResource(activeSubjectId, { title: resTitle, url: resUrl });
-        setResTitle(""); setResUrl("");
+      if (!inputName.trim() && activeModal !== 'resource' && activeModal !== 'manage-categories') return;
+      
+      if (activeModal === 'subject') {
+        addSubject(inputName);
+      } else if (activeModal === 'edit-subject' && editingItem) {
+        updateSubjectName(editingItem.id, inputName);
+      } else if (activeModal === 'task' && activeSubjectId) {
+        // Add Task with PDF
+        addTask(activeSubjectId, { 
+            title: inputName, 
+            date: inputDate, 
+            type: inputType, 
+            priority: inputPriority,
+            pdfFile: taskFile,  
+            pdfName: taskFileName
+        });
+      } else if (activeModal === 'edit-task' && editingItem && activeSubjectId) {
+        // Update Task with PDF
+        updateTask(activeSubjectId, editingItem.id, { 
+            title: inputName, 
+            date: inputDate, 
+            type: inputType, 
+            priority: inputPriority,
+            pdfFile: taskFile,
+            pdfName: taskFileName
+        });
+      } else if (activeModal === 'resource' && activeSubjectId) {
+          addResource(activeSubjectId, { title: resTitle, url: resUrl });
+          setResTitle(""); setResUrl("");
+      }
+      
+      setActiveModal(null);
+    } catch (error) {
+      console.error("Save failed:", error);
+      alert("Error: Storage is full! Please delete some items or try a smaller file.");
     }
-    
-    setActiveModal(null);
   };
 
   if (!controller.isLoaded) return <div className="min-h-screen bg-[#f5f5f4] dark:bg-[#1c2128]" />;
@@ -263,9 +269,9 @@ export default function App() {
                           <input type="datetime-local" value={inputDate} onChange={e => setInputDate(e.target.value)} className={`w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-[#4a7a7d] ${darkMode ? 'bg-black/20 text-white' : 'bg-slate-100'}`}/>
                         </div>
                         
-                        {/* --- NEW: ATTACH PDF SECTION --- */}
+                        {/* --- ATTACH PDF SECTION (SAFE MODE) --- */}
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Attach PDF (Optional)</label>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Attach PDF (Optional - Max 0.5MB)</label>
                             <div className={`border-2 border-dashed rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-black/10 transition-colors ${taskFile ? 'border-[#4a7a7d]' : 'border-slate-300 dark:border-stone-600'}`} onClick={() => taskFileInputRef.current.click()}>
                                 <div className="p-2 bg-slate-100 dark:bg-black/20 rounded-lg">
                                     {taskFile ? <FileText size={20} className="text-[#4a7a7d]" /> : <Upload size={20} className="text-slate-400" />}
