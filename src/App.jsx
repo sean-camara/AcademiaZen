@@ -50,7 +50,7 @@ export default function App() {
   const [taskFileName, setTaskFileName] = useState(""); 
   const taskFileInputRef = useRef(null);
 
-  // --- Helper to read file for task ---
+// --- Helper to read file for task ---
   const handleTaskFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -60,9 +60,9 @@ export default function App() {
         return; 
       }
 
-      // 2. Strict Size Check (Max 0.5MB)
-      if (file.size > 500000) {
-        alert("File is too large (Max 0.5MB). Please use the Library tab for larger files, or compress this PDF.");
+      // 2. ULTRA STRICT SIZE CHECK (Max 150KB for Mobile Safety)
+      if (file.size > 150000) {
+        alert("File is too large (Max 150KB). Mobile storage is very limited. Please compress your PDF or use the Library tab.");
         return;
       }
 

@@ -40,26 +40,32 @@ export const useAcademiaController = () => {
       const savedCards = localStorage.getItem('academiaZenFlashcards');
       if (savedCards) setFlashcards(JSON.parse(savedCards));
 
-    } catch (e) { console.error(e); } 
+    } catch (e) { console.error("Error loading data:", e); } 
     finally { setIsLoaded(true); }
   }, []);
 
-  // --- PERSISTENCE ---
+  // --- PERSISTENCE (SAFER) ---
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem('academiaZenData', JSON.stringify(subjects));
-    localStorage.setItem('academiaZenTheme', darkMode ? 'dark' : 'light');
-    localStorage.setItem('academiaZenCategories', JSON.stringify(categories));
-    localStorage.setItem('academiaZenFiles', JSON.stringify(libraryFiles));
-    localStorage.setItem('academiaZenFlashcards', JSON.stringify(flashcards));
+    
+    // We wrap this in a try-catch to prevent the "Blank Screen" crash 
+    // if LocalStorage is full (QuotaExceededError).
+    try {
+        localStorage.setItem('academiaZenData', JSON.stringify(subjects));
+        localStorage.setItem('academiaZenTheme', darkMode ? 'dark' : 'light');
+        localStorage.setItem('academiaZenCategories', JSON.stringify(categories));
+        localStorage.setItem('academiaZenFiles', JSON.stringify(libraryFiles));
+        localStorage.setItem('academiaZenFlashcards', JSON.stringify(flashcards));
+    } catch (e) {
+        console.error("Storage Save Failed (Quota Exceeded?):", e);
+        // Alert user only once to avoid spamming
+        // alert("Storage full! Some data may not be saved."); 
+    }
   }, [subjects, darkMode, categories, libraryFiles, flashcards, isLoaded]);
 
-  // --- NOTIFICATIONS LOGIC (FIXED) ---
+  // --- NOTIFICATIONS LOGIC ---
   const checkNotifications = (force = false) => {
-    // 1. Check if browser supports it
     if (!("Notification" in window)) return;
-    
-    // 2. Check if permission is granted
     if (Notification.permission !== "granted") return;
     
     const now = new Date();
@@ -68,23 +74,18 @@ export const useAcademiaController = () => {
 
     let updatesNeeded = false;
     
-    // 3. Scan tasks
     const updatedSubjects = subjects.map(sub => {
       let subUpdated = false;
       const updatedTasks = sub.tasks.map(task => {
         if (!task.completed && task.date) {
           const taskDate = new Date(task.date);
           
-          // Check if due within 3 days AND in the future
           if (taskDate > now && taskDate <= threeDaysFromNow) {
              const lastNotified = task.lastNotified || 0;
-             // Notify if: forced (user clicked enable), OR 2 hours (7200000ms) passed since last
              if (force || Date.now() - lastNotified > 7200000) { 
-                 
                  try {
                     new Notification(`Upcoming: ${sub.name}`, { 
                         body: `${task.title} is due on ${taskDate.toLocaleDateString()}`,
-                        // Note: Icons depend on browser/OS support
                         icon: '/icon-192.png' 
                     });
                     if(audioRef.current) audioRef.current.play().catch(() => {});
@@ -106,25 +107,19 @@ export const useAcademiaController = () => {
     if (updatesNeeded) setSubjects(updatedSubjects);
   };
 
-  // Run check every minute automatically
   useEffect(() => {
     const interval = setInterval(() => checkNotifications(false), 60000); 
     return () => clearInterval(interval);
   }, [subjects]);
 
-  // Manual Trigger for the UI Button
   const enableNotifications = async () => {
       if (!("Notification" in window)) {
           alert("This browser does not support notifications.");
           return;
       }
-      
       const permission = await Notification.requestPermission();
-      
       if (permission === "granted") {
-          // Send a test notification immediately to prove it works
           new Notification("Notifications Enabled", { body: "You will be alerted 3 days before tasks are due." });
-          // Check for actual tasks immediately
           checkNotifications(true); 
       }
   };
@@ -143,18 +138,48 @@ export const useAcademiaController = () => {
     setSubjects(subjects.filter(s => s.id !== id));
   };
 
+  // UPDATED: Now supports PDF file attachment with Safety Check
   const addTask = (subjectId, task) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
-      ...s, 
-      tasks: [...s.tasks, { ...task, id: Date.now().toString(), completed: false }]
-    } : s));
+    try {
+        // Attempt to create the new state
+        const newSubjects = subjects.map(s => s.id === subjectId ? {
+          ...s, 
+          tasks: [...s.tasks, { ...task, id: Date.now().toString(), completed: false }]
+        } : s);
+
+        // Test if this new state fits in storage (Pre-check)
+        // If this throws, the catch block runs, and state is NOT updated.
+        // This prevents the "White Screen" because React never sees the corrupted state.
+        const testString = JSON.stringify(newSubjects);
+        localStorage.setItem('academiaZenData_TEST', testString); 
+        localStorage.removeItem('academiaZenData_TEST'); // Clean up test
+
+        // If successful, update real state
+        setSubjects(newSubjects);
+
+    } catch (e) {
+        console.error("Storage Full on Add Task:", e);
+        alert("Storage Full! Cannot add this task (PDF might be too big). Try removing the attachment.");
+    }
   };
 
   const updateTask = (subjectId, taskId, updates) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
-      ...s,
-      tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
-    } : s));
+    try {
+        const newSubjects = subjects.map(s => s.id === subjectId ? {
+          ...s,
+          tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
+        } : s);
+
+        // Safety Check
+        const testString = JSON.stringify(newSubjects);
+        localStorage.setItem('academiaZenData_TEST', testString);
+        localStorage.removeItem('academiaZenData_TEST');
+
+        setSubjects(newSubjects);
+    } catch (e) {
+        console.error("Storage Full on Update Task:", e);
+        alert("Storage Full! Cannot update this task. File too big?");
+    }
   };
 
   const deleteTask = (subjectId, taskId) => {
@@ -204,7 +229,17 @@ export const useAcademiaController = () => {
   // --- LIBRARY & FLASHCARD ACTIONS ---
 
   const addFile = (fileObj) => {
-    setLibraryFiles([...libraryFiles, { ...fileObj, id: Date.now().toString() }]);
+    try {
+        const newFiles = [...libraryFiles, { ...fileObj, id: Date.now().toString() }];
+        // Safety Check
+        const testString = JSON.stringify(newFiles);
+        localStorage.setItem('academiaZenFiles_TEST', testString);
+        localStorage.removeItem('academiaZenFiles_TEST');
+
+        setLibraryFiles(newFiles);
+    } catch (e) {
+        alert("Library Storage Full! Cannot add file.");
+    }
   };
 
   const deleteFile = (fileId) => {
@@ -229,23 +264,16 @@ export const useAcademiaController = () => {
   };
 
   return {
-    // State
     subjects, categories, darkMode, setDarkMode, isLoaded,
     activeSubjectId, setActiveSubjectId, 
     activeModal, setActiveModal, openModal, editingItem,
     libraryFiles, flashcards,
-    
-    // Core Actions
     addSubject, updateSubjectName, deleteSubject, 
     addTask, updateTask, deleteTask, toggleTaskComplete,
     updateNote, addResource, deleteResource, updateGrade,
     addCategory, deleteCategory,
-    
-    // Feature Actions
     addFile, deleteFile,
     addFlashcard, updateFlashcard, deleteFlashcard,
-    
-    // Notification Actions
     enableNotifications
   };
 };
