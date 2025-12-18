@@ -1,261 +1,287 @@
 import { useState, useEffect, useRef } from 'react';
+import api from '../api/axios'; 
+import { useAuth } from '../context/AuthContext'; 
 
 export const useAcademiaController = () => {
-  // --- STATE MANAGEMENT ---
+  const { user } = useAuth(); 
+  
+  // --- STATE ---
   const [subjects, setSubjects] = useState([]);
   const [categories, setCategories] = useState(["Homework", "Exam", "Reading"]);
-  const [darkMode, setDarkMode] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  
-  // New Features State
   const [libraryFiles, setLibraryFiles] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
+  const [libraryFolders, setLibraryFolders] = useState([]); 
+  
+  // NEW: User Profile State (Initialized from Auth Context or Defaults)
+  const [userProfile, setUserProfile] = useState({
+      displayName: user?.displayName || "Student",
+      photo: user?.photo || null
+  });
 
-  // Modal & Navigation State
+  const [darkMode, setDarkMode] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Navigation State
   const [activeSubjectId, setActiveSubjectId] = useState(null);
   const [activeModal, setActiveModal] = useState(null); 
   const [editingItem, setEditingItem] = useState(null);
 
   const audioRef = useRef(null);
 
-  // --- INITIALIZATION ---
+  // --- 1. LOAD DATA ---
   useEffect(() => {
-    // Preload notification sound
-    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-    audioRef.current.volume = 0.5;
-
-    try {
-      const savedData = localStorage.getItem('academiaZenData');
-      if (savedData) setSubjects(JSON.parse(savedData));
-      
-      const savedTheme = localStorage.getItem('academiaZenTheme');
-      if (savedTheme === 'dark') setDarkMode(true);
-      
-      const savedCategories = localStorage.getItem('academiaZenCategories');
-      if (savedCategories) setCategories(JSON.parse(savedCategories));
-
-      const savedFiles = localStorage.getItem('academiaZenFiles');
-      if (savedFiles) setLibraryFiles(JSON.parse(savedFiles));
-
-      const savedCards = localStorage.getItem('academiaZenFlashcards');
-      if (savedCards) setFlashcards(JSON.parse(savedCards));
-
-    } catch (e) { console.error("Error loading data:", e); } 
-    finally { setIsLoaded(true); }
-  }, []);
-
-  // --- PERSISTENCE (SAFER) ---
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    // We wrap this in a try-catch to prevent the "Blank Screen" crash 
-    // if LocalStorage is full (QuotaExceededError).
-    try {
-        localStorage.setItem('academiaZenData', JSON.stringify(subjects));
-        localStorage.setItem('academiaZenTheme', darkMode ? 'dark' : 'light');
-        localStorage.setItem('academiaZenCategories', JSON.stringify(categories));
-        localStorage.setItem('academiaZenFiles', JSON.stringify(libraryFiles));
-        localStorage.setItem('academiaZenFlashcards', JSON.stringify(flashcards));
-    } catch (e) {
-        console.error("Storage Save Failed (Quota Exceeded?):", e);
-        // Alert user only once to avoid spamming
-        // alert("Storage full! Some data may not be saved."); 
+    // Safety check for audio
+    if (typeof Audio !== "undefined") {
+        audioRef.current = new Audio("/rain.mp3");
     }
-  }, [subjects, darkMode, categories, libraryFiles, flashcards, isLoaded]);
 
-  // --- NOTIFICATIONS LOGIC ---
-  const checkNotifications = (force = false) => {
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    
-    const now = new Date();
-    const threeDaysFromNow = new Date();
-    threeDaysFromNow.setDate(now.getDate() + 3);
+    // SAFETY TIMEOUT
+    const safetyTimer = setTimeout(() => {
+        setIsLoaded(true);
+    }, 2000);
 
-    let updatesNeeded = false;
-    
-    const updatedSubjects = subjects.map(sub => {
-      let subUpdated = false;
-      const updatedTasks = sub.tasks.map(task => {
-        if (!task.completed && task.date) {
-          const taskDate = new Date(task.date);
-          
-          if (taskDate > now && taskDate <= threeDaysFromNow) {
-             const lastNotified = task.lastNotified || 0;
-             if (force || Date.now() - lastNotified > 7200000) { 
-                 try {
-                    new Notification(`Upcoming: ${sub.name}`, { 
-                        body: `${task.title} is due on ${taskDate.toLocaleDateString()}`,
-                        icon: '/icon-192.png' 
-                    });
-                    if(audioRef.current) audioRef.current.play().catch(() => {});
-                 } catch(e) { console.log("Notify error", e); }
-
-                 subUpdated = true;
-                 updatesNeeded = true;
-                 return { ...task, lastNotified: Date.now() }; 
-             }
-          }
+    const fetchData = async () => {
+        if (!user) {
+            setIsLoaded(true);
+            return;
         }
-        return task;
-      });
-      
-      if (subUpdated) return { ...sub, tasks: updatedTasks };
-      return sub;
-    });
 
-    if (updatesNeeded) setSubjects(updatedSubjects);
+        try {
+            const savedTheme = localStorage.getItem('academiaZenTheme');
+            if (savedTheme === 'dark') setDarkMode(true);
+
+            // Sync User Profile from Auth Context (Backend source of truth)
+            if (user) {
+                setUserProfile({
+                    displayName: user.displayName || "Student",
+                    photo: user.photo || null
+                });
+            }
+
+            // GET request for app data
+            // Note: Make sure your backend has a GET endpoint for this data too!
+            // If not, we rely on what was loaded during login or initial state.
+            // Assuming your previous /api/data endpoint still exists or handles this.
+             try {
+                const response = await api.get('/api/data');
+                const data = response.data;
+                if (data) {
+                    if (data.subjects) setSubjects(data.subjects);
+                    if (data.categories) setCategories(data.categories);
+                    if (data.libraryFiles) setLibraryFiles(data.libraryFiles);
+                    if (data.libraryFolders) setLibraryFolders(data.libraryFolders);
+                    if (data.flashcards) setFlashcards(data.flashcards);
+                }
+             } catch (err) {
+                 // It's okay if data fetch fails initially (new user), don't block app
+                 console.warn("Could not fetch app data (New user?):", err);
+             }
+
+        } catch (error) {
+            console.error("Data Load Error:", error);
+        } finally {
+            setIsLoaded(true);
+            clearTimeout(safetyTimer);
+        }
+    };
+
+    fetchData();
+  }, [user]); 
+
+  // --- 2. SAVE DATA (General App Data) ---
+  const saveData = async (dataToSave) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+          await api.post('/api/data', dataToSave);
+      } catch (error) {
+          console.error("Save Failed:", error);
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const updateAndSave = (updates) => {
+      // Local Update
+      if (updates.subjects) setSubjects(updates.subjects);
+      if (updates.categories) setCategories(updates.categories);
+      if (updates.libraryFiles) setLibraryFiles(updates.libraryFiles);
+      if (updates.libraryFolders) setLibraryFolders(updates.libraryFolders);
+      if (updates.flashcards) setFlashcards(updates.flashcards);
+      // Note: We handle userProfile differently now (separate endpoint)
+
+      // Server Update (App Data)
+      const currentData = {
+          subjects: updates.subjects || subjects,
+          categories: updates.categories || categories,
+          libraryFiles: updates.libraryFiles || libraryFiles,
+          libraryFolders: updates.libraryFolders || libraryFolders,
+          flashcards: updates.flashcards || flashcards,
+      };
+      saveData(currentData);
+  };
+
+  // --- 3. UPDATE USER PROFILE ---
+  const updateUserProfile = async (newProfileData) => {
+      // 1. Optimistic UI Update (Instant feedback)
+      const updatedProfile = { ...userProfile, ...newProfileData };
+      setUserProfile(updatedProfile);
+
+      // 2. Send to Backend
+      try {
+          // This matches ChatGPT's route: router.post('/profile') mounted at /api/user
+          const res = await api.post('/api/user/profile', newProfileData);
+          
+          // 3. Confirm with Server Response
+          if (res.data) {
+              setUserProfile({
+                  displayName: res.data.displayName,
+                  photo: res.data.photo
+              });
+              // Update local cache too so it persists on reload even if offline
+              localStorage.setItem('academiaZenProfile', JSON.stringify({
+                  displayName: res.data.displayName,
+                  photo: res.data.photo
+              }));
+          }
+      } catch (error) {
+          console.error("Failed to update profile:", error);
+          alert("Failed to save profile changes. Please try again.");
+      }
   };
 
   useEffect(() => {
-    const interval = setInterval(() => checkNotifications(false), 60000); 
-    return () => clearInterval(interval);
-  }, [subjects]);
+    localStorage.setItem('academiaZenTheme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   const enableNotifications = async () => {
-      if (!("Notification" in window)) {
-          alert("This browser does not support notifications.");
-          return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-          new Notification("Notifications Enabled", { body: "You will be alerted 3 days before tasks are due." });
-          checkNotifications(true); 
-      }
+    if ("Notification" in window) {
+        const p = await Notification.requestPermission();
+        if(p==='granted') new Notification("Reminders On");
+    }
   };
 
   // --- CRUD ACTIONS ---
-
   const addSubject = (name) => {
-    setSubjects([...subjects, {id: Date.now().toString(), name, tasks: [], note: "", resources: [], grades: {target: '', current: ''}}]);
+    const newSubjects = [...subjects, {id: Date.now().toString(), name, tasks: [], note: "", resources: [], grades: {target: '', current: ''}}];
+    updateAndSave({ subjects: newSubjects });
   };
 
   const updateSubjectName = (id, name) => {
-    setSubjects(subjects.map(s => s.id === id ? { ...s, name } : s));
+    const newSubjects = subjects.map(s => s.id === id ? { ...s, name } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const deleteSubject = (id) => {
-    setSubjects(subjects.filter(s => s.id !== id));
+    const newSubjects = subjects.filter(s => s.id !== id);
+    updateAndSave({ subjects: newSubjects });
   };
 
-  // UPDATED: Now supports PDF file attachment with Safety Check
   const addTask = (subjectId, task) => {
-    try {
-        // Attempt to create the new state
-        const newSubjects = subjects.map(s => s.id === subjectId ? {
-          ...s, 
-          tasks: [...s.tasks, { ...task, id: Date.now().toString(), completed: false }]
-        } : s);
-
-        // Test if this new state fits in storage (Pre-check)
-        // If this throws, the catch block runs, and state is NOT updated.
-        // This prevents the "White Screen" because React never sees the corrupted state.
-        const testString = JSON.stringify(newSubjects);
-        localStorage.setItem('academiaZenData_TEST', testString); 
-        localStorage.removeItem('academiaZenData_TEST'); // Clean up test
-
-        // If successful, update real state
-        setSubjects(newSubjects);
-
-    } catch (e) {
-        console.error("Storage Full on Add Task:", e);
-        alert("Storage Full! Cannot add this task (PDF might be too big). Try removing the attachment.");
-    }
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
+      ...s, 
+      tasks: [...s.tasks, { ...task, id: Date.now().toString(), completed: false }]
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const updateTask = (subjectId, taskId, updates) => {
-    try {
-        const newSubjects = subjects.map(s => s.id === subjectId ? {
-          ...s,
-          tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
-        } : s);
-
-        // Safety Check
-        const testString = JSON.stringify(newSubjects);
-        localStorage.setItem('academiaZenData_TEST', testString);
-        localStorage.removeItem('academiaZenData_TEST');
-
-        setSubjects(newSubjects);
-    } catch (e) {
-        console.error("Storage Full on Update Task:", e);
-        alert("Storage Full! Cannot update this task. File too big?");
-    }
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
+      ...s,
+      tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const deleteTask = (subjectId, taskId) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
       ...s,
       tasks: s.tasks.filter(t => t.id !== taskId)
-    } : s));
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const toggleTaskComplete = (subjectId, taskId) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
       ...s,
       tasks: s.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
-    } : s));
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const updateNote = (subjectId, note) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? { ...s, note } : s));
+    const newSubjects = subjects.map(s => s.id === subjectId ? { ...s, note } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const addResource = (subjectId, resource) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
       ...s, resources: [...(s.resources || []), { ...resource, id: Date.now() }]
-    } : s));
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const deleteResource = (subjectId, resourceId) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? {
+    const newSubjects = subjects.map(s => s.id === subjectId ? {
       ...s, resources: (s.resources || []).filter(r => r.id !== resourceId)
-    } : s));
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const updateGrade = (subjectId, type, value) => {
-    setSubjects(subjects.map(s => s.id === subjectId ? { 
+    const newSubjects = subjects.map(s => s.id === subjectId ? { 
       ...s, grades: { ...s.grades, [type]: value } 
-    } : s));
+    } : s);
+    updateAndSave({ subjects: newSubjects });
   };
 
   const addCategory = (cat) => {
-    if (cat.trim() && !categories.includes(cat.trim())) setCategories([...categories, cat.trim()]);
-  };
-
-  const deleteCategory = (cat) => {
-    if (categories.length > 1) setCategories(categories.filter(c => c !== cat));
-  };
-
-  // --- LIBRARY & FLASHCARD ACTIONS ---
-
-  const addFile = (fileObj) => {
-    try {
-        const newFiles = [...libraryFiles, { ...fileObj, id: Date.now().toString() }];
-        // Safety Check
-        const testString = JSON.stringify(newFiles);
-        localStorage.setItem('academiaZenFiles_TEST', testString);
-        localStorage.removeItem('academiaZenFiles_TEST');
-
-        setLibraryFiles(newFiles);
-    } catch (e) {
-        alert("Library Storage Full! Cannot add file.");
+    if (cat.trim() && !categories.includes(cat.trim())) {
+        updateAndSave({ categories: [...categories, cat.trim()] });
     }
   };
 
+  const deleteCategory = (cat) => {
+    if (categories.length > 1) {
+        updateAndSave({ categories: categories.filter(c => c !== cat) });
+    }
+  };
+
+  const addLibraryFolder = (name) => {
+    const newFolders = [...libraryFolders, { id: Date.now().toString(), name }];
+    updateAndSave({ libraryFolders: newFolders });
+  };
+
+  const deleteLibraryFolder = (folderId) => {
+    const newFolders = libraryFolders.filter(f => f.id !== folderId);
+    const newFiles = libraryFiles.filter(f => f.folderId !== folderId);
+    updateAndSave({ libraryFolders: newFolders, libraryFiles: newFiles });
+  };
+
+  const addFile = (fileObj, folderId) => {
+    const newFiles = [...libraryFiles, { ...fileObj, folderId: folderId, id: Date.now().toString() }];
+    updateAndSave({ libraryFiles: newFiles });
+  };
+
   const deleteFile = (fileId) => {
-    setLibraryFiles(libraryFiles.filter(f => f.id !== fileId));
+    const newFiles = libraryFiles.filter(f => f.id !== fileId);
+    updateAndSave({ libraryFiles: newFiles });
   };
 
   const addFlashcard = (subjectId, question, answer) => {
-    setFlashcards([...flashcards, { id: Date.now().toString(), subjectId, question, answer, mastery: 0 }]);
+    const newCards = [...flashcards, { id: Date.now().toString(), subjectId, question, answer, mastery: 0 }];
+    updateAndSave({ flashcards: newCards });
   };
 
   const updateFlashcard = (cardId, updates) => {
-    setFlashcards(flashcards.map(c => c.id === cardId ? { ...c, ...updates } : c));
+    const newCards = flashcards.map(c => c.id === cardId ? { ...c, ...updates } : c);
+    updateAndSave({ flashcards: newCards });
   };
 
   const deleteFlashcard = (cardId) => {
-    setFlashcards(flashcards.filter(c => c.id !== cardId));
+    const newCards = flashcards.filter(c => c.id !== cardId);
+    updateAndSave({ flashcards: newCards });
   };
 
   const openModal = (type, item = null) => {
@@ -264,16 +290,19 @@ export const useAcademiaController = () => {
   };
 
   return {
-    subjects, categories, darkMode, setDarkMode, isLoaded,
+    subjects, categories, darkMode, setDarkMode, isLoaded, isSaving,
     activeSubjectId, setActiveSubjectId, 
     activeModal, setActiveModal, openModal, editingItem,
-    libraryFiles, flashcards,
+    libraryFiles, libraryFolders, flashcards,
+    userProfile, // Export user profile state
     addSubject, updateSubjectName, deleteSubject, 
     addTask, updateTask, deleteTask, toggleTaskComplete,
     updateNote, addResource, deleteResource, updateGrade,
     addCategory, deleteCategory,
+    addLibraryFolder, deleteLibraryFolder,
     addFile, deleteFile,
     addFlashcard, updateFlashcard, deleteFlashcard,
+    updateUserProfile, // Export update function
     enableNotifications
   };
 };
