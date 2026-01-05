@@ -37,6 +37,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
   const [time, setTime] = useState(getInitialTime());
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [pdf, setPdf] = useState<{ name: string; data: string } | undefined>(initialData?.pdf);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = (e: React.FormEvent) => {
@@ -50,18 +52,39 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPdf({
-            name: file.name,
-            data: event.target.result as string
-          });
-        }
-      };
-      reader.readAsDataURL(file);
+    setUploadError(null);
+    
+    if (!file) return;
+    
+    // Check file type
+    if (file.type !== 'application/pdf') {
+      setUploadError('Please select a PDF file');
+      return;
     }
+    
+    // Check file size (max 10MB for mobile compatibility)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('File too large. Max size is 10MB');
+      return;
+    }
+    
+    setIsUploadingPdf(true);
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setPdf({
+          name: file.name,
+          data: event.target.result as string
+        });
+        setIsUploadingPdf(false);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError('Failed to read file. Please try again.');
+      setIsUploadingPdf(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const triggerFileInput = () => {
@@ -139,14 +162,23 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
                   type="file" 
                   ref={fileInputRef} 
                   onChange={handleFileChange} 
-                  accept="application/pdf" 
+                  accept="application/pdf,.pdf" 
+                  capture={undefined}
                   className="hidden" 
                 />
-                {!pdf ? (
+                {uploadError && (
+                  <p className="text-zen-destructive text-xs">{uploadError}</p>
+                )}
+                {isUploadingPdf ? (
+                    <div className="w-full bg-zen-card border border-zen-surface rounded-xl p-4 flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm text-zen-text-secondary">Uploading...</span>
+                    </div>
+                ) : !pdf ? (
                     <button 
                         type="button"
                         onClick={triggerFileInput}
-                        className="w-full bg-zen-card border border-dashed border-zen-surface rounded-xl p-4 flex items-center justify-center gap-2 text-zen-text-secondary hover:text-zen-primary hover:border-zen-primary/50 transition-all group"
+                        className="w-full bg-zen-card border border-dashed border-zen-surface rounded-xl p-4 flex items-center justify-center gap-2 text-zen-text-secondary hover:text-zen-primary hover:border-zen-primary/50 transition-all group active:scale-[0.98]"
                     >
                         <IconPaperclip className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         <span className="text-sm">Attach PDF</span>

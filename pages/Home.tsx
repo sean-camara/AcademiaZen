@@ -12,11 +12,12 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
   const [totalPages, setTotalPages] = useState(0);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to open the full PDF in a new tab
+  // Helper to open the full PDF in a new tab/viewer
   const viewAll = () => {
     try {
       const base64Data = data.split(',')[1];
@@ -39,10 +40,23 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
   useEffect(() => {
     const loadPdf = async () => {
       try {
+        setIsLoading(true);
         setIsRendering(true);
+        
+        // Check if PDF.js is loaded
+        if (!(window as any).pdfjsLib) {
+          throw new Error('PDF library not loaded. Please refresh the page.');
+        }
+        
         // Base64 to Uint8Array
         const base64Parts = data.split(',');
         const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
+        
+        // Validate base64 data
+        if (!base64Data || base64Data.length < 100) {
+          throw new Error('Invalid PDF data');
+        }
+        
         const binaryString = atob(base64Data);
         const len = binaryString.length;
         const bytes = new Uint8Array(len);
@@ -54,15 +68,19 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
+        setIsLoading(false);
         renderPage(1, pdf);
       } catch (err: any) {
         console.error('PDF Load Error:', err);
-        setError('Failed to load study material.');
+        setError(err.message || 'Failed to load study material. Try using "View All" to open in browser.');
         setIsRendering(false);
+        setIsLoading(false);
       }
     };
 
-    loadPdf();
+    // Small delay to ensure PDF.js is loaded on mobile
+    const timer = setTimeout(loadPdf, 100);
+    return () => clearTimeout(timer);
   }, [data]);
 
   const renderPage = async (num: number, doc = pdfDoc) => {
@@ -135,13 +153,26 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
         ref={containerRef}
         className="flex-1 w-full bg-[#1e1e1e] relative flex items-center justify-center p-4 overflow-hidden"
       >
-        {error ? (
+        {isLoading && !error ? (
           <div className="text-center space-y-4 animate-reveal">
+            <div className="w-12 h-12 border-2 border-zen-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-zen-text-secondary text-sm">Loading PDF...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center space-y-4 animate-reveal px-4">
             <div className="w-16 h-16 bg-zen-destructive/10 text-zen-destructive rounded-full flex items-center justify-center mx-auto">
               <IconX className="w-8 h-8" />
             </div>
-            <p className="text-zen-text-secondary">{error}</p>
-            <button onClick={onClose} className="text-zen-primary text-sm font-medium">Close</button>
+            <p className="text-zen-text-secondary text-sm">{error}</p>
+            <div className="flex flex-col gap-2">
+              <button 
+                onClick={viewAll} 
+                className="bg-zen-primary text-zen-bg px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90"
+              >
+                Open in Browser
+              </button>
+              <button onClick={onClose} className="text-zen-text-secondary text-sm">Close</button>
+            </div>
           </div>
         ) : (
           <div className="relative group max-h-full">
@@ -153,7 +184,7 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
             <canvas 
               ref={canvasRef} 
               id="pdf-canvas"
-              className={`transition-opacity duration-300 ${isRendering ? 'opacity-50' : 'opacity-100'}`}
+              className={`transition-opacity duration-300 max-w-full ${isRendering ? 'opacity-50' : 'opacity-100'}`}
             />
           </div>
         )}
