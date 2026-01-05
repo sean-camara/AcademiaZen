@@ -31,6 +31,10 @@ interface ZenContextType {
   // Data Management
   exportData: () => string;
   clearData: () => void;
+  
+  // Navbar visibility
+  hideNavbar: boolean;
+  setHideNavbar: (hide: boolean) => void;
 }
 
 const ZenContext = createContext<ZenContextType | undefined>(undefined);
@@ -61,6 +65,9 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const timerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Navbar visibility state
+  const [hideNavbar, setHideNavbar] = useState(false);
 
   // Play a synthesized "Zen Bell" using Web Audio API
   const playZenBell = () => {
@@ -284,7 +291,9 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       resetTimer,
       setAmbience,
       exportData,
-      clearData
+      clearData,
+      hideNavbar,
+      setHideNavbar
     }}>
       {children}
     </ZenContext.Provider>

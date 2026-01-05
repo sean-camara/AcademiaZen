@@ -135,36 +135,17 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.API_KEY;
+            console.log('API Key present:', !!apiKey, apiKey?.substring(0, 10) + '...');
             
-            const parts: any[] = [];
-            
-            if (currentRefs.length > 0) {
-                let contextHeader = "CONTEXT PROVIDED BY STUDENT:\n\n";
-                currentRefs.forEach(ref => {
-                    if (ref.type === 'note') {
-                        contextHeader += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
-                    } else if (ref.type === 'pdf') {
-                        const base64Data = ref.content.split(',')[1] || ref.content;
-                        parts.push({
-                            inlineData: {
-                                mimeType: 'application/pdf',
-                                data: base64Data
-                            }
-                        });
-                        contextHeader += `[PDF File: ${ref.title} has been attached as binary context]\n`;
-                    }
-                });
-                parts.push({ text: contextHeader });
+            if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+                throw new Error('API key not configured');
             }
             
-            parts.push({ text: userQuery });
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: [{ role: 'user', parts }],
-                config: {
-                    systemInstruction: `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
+            const ai = new GoogleGenAI({ apiKey });
+            
+            // Build the prompt with system instructions
+            let fullPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
 
 FORMATTING RULES:
 1. Use '### ' for section headers.
@@ -174,15 +155,45 @@ FORMATTING RULES:
 5. Keep paragraphs concise with generous spacing.
 
 TONE:
-Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided. If the user asks you to use a Library PDF to solve a Task PDF, clearly label which document provides which evidence.`,
-                },
+Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.
+
+`;
+            
+            if (currentRefs.length > 0) {
+                fullPrompt += "CONTEXT PROVIDED BY STUDENT:\n\n";
+                currentRefs.forEach(ref => {
+                    if (ref.type === 'note') {
+                        fullPrompt += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
+                    } else if (ref.type === 'pdf') {
+                        fullPrompt += `[PDF File: ${ref.title} - Note: PDF binary content cannot be processed in this mode]\n`;
+                    }
+                });
+            }
+            
+            fullPrompt += `\nSTUDENT'S QUESTION:\n${userQuery}`;
+
+            console.log('Calling Gemini API...');
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-1.5-flash',
+                contents: fullPrompt,
             });
 
+            console.log('API Response:', response);
             const aiText = response.text || "I've analyzed the materials but couldn't generate a text summary.";
             setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Zen AI Error:", error);
-            setMessages(prev => [...prev, { role: 'ai', text: "### Connection Issue\nI encountered a technical error while processing your files. \n\n**Possible reasons:**\n- API limit reached\n- Large PDF file size\n- Unstable connection\n\nPlease try again with fewer attachments." }]);
+            let errorMessage: string;
+            
+            if (error.message?.includes('API key')) {
+                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **GEMINI_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env` file in the project root\n- Add: `GEMINI_API_KEY=your_api_key_here`\n\n**For Vercel deployment:**\n- Go to your project settings\n- Add the GEMINI_API_KEY in Environment Variables";
+            } else if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('RESOURCE_EXHAUSTED')) {
+                errorMessage = "### Rate Limit Reached\nYou've exceeded the free tier quota for the Gemini API.\n\n**Options:**\n- **Wait a moment** - The API suggested waiting ~12 seconds\n- **Try again later** - Daily limits reset at midnight Pacific Time\n- **Enable billing** - Visit [Google AI Studio](https://aistudio.google.com) to upgrade your plan\n\nThe free tier has limited requests per minute and per day.";
+            } else {
+                errorMessage = "### Connection Issue\nI encountered a technical error while processing your request. \n\n**Possible reasons:**\n- API limit reached\n- Large PDF file size\n- Unstable connection\n- Invalid API key\n\nPlease try again with fewer attachments or check your API configuration.";
+            }
+            setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
         } finally {
             setIsLoading(false);
         }

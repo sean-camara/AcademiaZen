@@ -414,7 +414,7 @@ const EditSubjectModal: React.FC<{
 };
 
 const Home: React.FC = () => {
-  const { state, toggleTask, addTask, addSubject, updateSubject, deleteSubject, updateTask, deleteTask } = useZen();
+  const { state, toggleTask, addTask, addSubject, updateSubject, deleteSubject, updateTask, deleteTask, setHideNavbar } = useZen();
   const { profile, tasks, subjects } = state;
   
   // Dashboard States
@@ -438,6 +438,12 @@ const Home: React.FC = () => {
   
   // Confirmation Dialog States
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'subject' | 'task'; id: string; name: string } | null>(null);
+
+  // Hide navbar when modals are open
+  useEffect(() => {
+    const hasModal = showAddTaskModal || viewingPdf !== null || confirmDelete !== null || editingSubject !== null || editingTask !== null;
+    setHideNavbar(hasModal);
+  }, [showAddTaskModal, viewingPdf, confirmDelete, editingSubject, editingTask, setHideNavbar]);
 
   const selectedSubject = subjects.find(s => s.id === (selectedSubjectId || loadingSubjectId));
 

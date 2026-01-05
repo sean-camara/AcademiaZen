@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
 import { IconChevronLeft, IconChevronRight, IconX, IconCheck } from '../components/Icons';
 import { isSameDay, generateId } from '../utils/helpers';
@@ -7,10 +7,15 @@ import { Task } from '../types';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const Calendar: React.FC = () => {
-  const { state, addTask, toggleTask } = useZen();
+  const { state, addTask, toggleTask, setHideNavbar } = useZen();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+
+  // Hide navbar when date detail panel is open
+  useEffect(() => {
+    setHideNavbar(selectedDate !== null);
+  }, [selectedDate, setHideNavbar]);
 
   // Calendar Grid Logic
   const getDaysInMonth = (date: Date) => {

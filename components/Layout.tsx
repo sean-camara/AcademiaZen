@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tab, ZenState } from '../types';
 import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot } from './Icons';
 import Home from '../pages/Home';
@@ -16,7 +16,28 @@ const Layout: React.FC<LayoutProps> = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Home);
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
-  const { focusSession } = useZen();
+  const { focusSession, hideNavbar, setHideNavbar } = useZen();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Detect keyboard visibility using visualViewport API
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.visualViewport) {
+        const keyboardOpen = window.visualViewport.height < window.innerHeight * 0.75;
+        setKeyboardVisible(keyboardOpen);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  // Hide navbar when modals are open
+  useEffect(() => {
+    setHideNavbar(showSettings || showAI);
+  }, [showSettings, showAI, setHideNavbar]);
 
   const navItems = [
     { tab: Tab.Home, icon: IconHome, label: 'Home' },
@@ -54,7 +75,7 @@ const Layout: React.FC<LayoutProps> = () => {
       </header>
 
       {/* Main Content - Using display:none for persistence with entry animations */}
-      <main className="flex-1 overflow-y-auto no-scrollbar relative">
+      <main className="flex-1 overflow-y-auto no-scrollbar relative pb-24">
         <div className={activeTab === Tab.Home ? 'block h-full animate-reveal' : 'hidden h-full'}><Home /></div>
         <div className={activeTab === Tab.Calendar ? 'block h-full animate-reveal' : 'hidden h-full'}><Calendar /></div>
         <div className={activeTab === Tab.Review ? 'block h-full animate-reveal' : 'hidden h-full'}><Review /></div>
@@ -62,8 +83,8 @@ const Layout: React.FC<LayoutProps> = () => {
         <div className={activeTab === Tab.Library ? 'block h-full animate-reveal' : 'hidden h-full'}><Library /></div>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="bg-zen-bg/95 backdrop-blur-md border-t border-zen-surface px-4 py-2 pb-6 flex justify-around items-center z-20">
+      {/* Floating Bottom Navigation */}
+      <nav className={`fixed bottom-0 left-0 right-0 bg-zen-bg/95 backdrop-blur-md border-t border-zen-surface px-4 py-2 pb-6 flex justify-around items-center z-20 transition-transform duration-300 ${hideNavbar || keyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
         {navItems.map((item) => {
           const isActive = activeTab === item.tab;
           const isFocusRunning = item.tab === Tab.Focus && focusSession.isActive;

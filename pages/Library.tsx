@@ -96,7 +96,7 @@ const PdfPageRenderer: React.FC<{ data: string; pageNum: number; onDocumentLoad:
 };
 
 const Library: React.FC = () => {
-  const { state, addFolder, deleteFolder, addItemToFolder, deleteItemFromFolder } = useZen();
+  const { state, addFolder, deleteFolder, addItemToFolder, deleteItemFromFolder, setHideNavbar } = useZen();
   const { folders } = state;
   
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -115,6 +115,12 @@ const Library: React.FC = () => {
 
   const activeFolder = folders.find(f => f.id === activeFolderId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Hide navbar when viewing documents or adding items
+  useEffect(() => {
+    const hasModal = activeDoc !== null || isAddingItem;
+    setHideNavbar(hasModal);
+  }, [activeDoc, isAddingItem, setHideNavbar]);
 
   // Sync total pages for text notes whenever a document is opened
   useEffect(() => {

@@ -5,7 +5,7 @@ import { IconPlus, IconRefresh, IconChevronLeft, IconChevronRight, IconCheck } f
 import { Flashcard, Subject } from '../types';
 
 const Review: React.FC = () => {
-  const { state, addFlashcard, updateFlashcard, addSubject } = useZen();
+  const { state, addFlashcard, updateFlashcard, addSubject, setHideNavbar } = useZen();
   const { flashcards, subjects } = state;
   
   // Navigation States
@@ -23,6 +23,11 @@ const Review: React.FC = () => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
+
+  // Hide navbar during review session or creating cards
+  useEffect(() => {
+    setHideNavbar(sessionActive || isCreatingCard);
+  }, [sessionActive, isCreatingCard, setHideNavbar]);
 
   const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
   const filteredFlashcards = flashcards.filter(f => f.subjectId === selectedSubjectId);
