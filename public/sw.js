@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   '/icons/icon.svg',
   '/icons/icon-192x192.svg',
   '/icons/icon-512x512.svg',
-  '/sounds/notification.mp3',
+  '/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3',
 ];
 
 // External resources to cache

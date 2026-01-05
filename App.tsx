@@ -7,7 +7,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Create audio element for notification sound
-    audioRef.current = new Audio('/sounds/notification.mp3');
+    audioRef.current = new Audio('/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3');
     audioRef.current.volume = 0.7;
 
     // Listen for messages from Service Worker
