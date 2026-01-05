@@ -318,6 +318,41 @@ export async function scheduleNotification(
 }
 
 /**
+ * Sync tasks with backend for deadline reminders
+ * Tasks due within 3 days will trigger notifications every 2 hours
+ */
+export async function syncTasksWithBackend(
+  tasks: Array<{ id: string; title: string; dueDate: string; completed: boolean }>
+): Promise<boolean> {
+  try {
+    const subscription = await getCurrentSubscription();
+    if (!subscription) {
+      console.log('[Push] No subscription, skipping task sync');
+      return false;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/sync-tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tasks,
+        subscriptionEndpoint: subscription.endpoint,
+      }),
+    });
+
+    if (response.ok) {
+      console.log('[Push] Tasks synced with backend for deadline reminders');
+    }
+    return response.ok;
+  } catch (error) {
+    console.error('[Push] Failed to sync tasks:', error);
+    return false;
+  }
+}
+
+/**
  * Notification types for the app
  */
 export type ZenNotificationType = 

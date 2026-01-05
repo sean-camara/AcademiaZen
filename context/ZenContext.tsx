@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { ZenState, Task, Subject, Flashcard, Folder, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
-import { showLocalNotification, sendZenNotification, getPermissionStatus } from '../utils/pushNotifications';
+import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend } from '../utils/pushNotifications';
 
 interface ZenContextType {
   state: ZenState;
@@ -89,6 +89,13 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Sync tasks with backend for deadline reminders whenever tasks change
+  useEffect(() => {
+    if (state.settings.notifications && state.settings.deadlineAlerts) {
+      syncTasksWithBackend(state.tasks);
+    }
+  }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts]);
 
   useEffect(() => {
     if (audioRef.current) {
