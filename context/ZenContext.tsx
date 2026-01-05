@@ -41,11 +41,11 @@ const ZenContext = createContext<ZenContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_KEY = 'zen_app_data';
 
-// Updated Ambience Audio Map with more accurate soundscapes
+// Updated Ambience Audio Map with reliable free soundscape URLs
 const AMBIENCE_URLS: Record<string, string> = {
-  rain: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg',
-  lofi: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808737487.mp3?filename=lofi-study-112191.mp3',
-  forest: 'https://actions.google.com/sounds/v1/foley/forest_ambience.ogg',
+  rain: 'https://cdn.freesound.org/previews/531/531947_2931078-lq.mp3',
+  lofi: 'https://cdn.freesound.org/previews/456/456389_9159316-lq.mp3',
+  forest: 'https://cdn.freesound.org/previews/378/378178_6393979-lq.mp3',
 };
 
 export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -65,12 +65,33 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const timerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const bellAudioRef = useRef<HTMLAudioElement | null>(null);
   
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
 
-  // Play a synthesized "Zen Bell" using Web Audio API
+  // Play notification sound when focus session completes
   const playZenBell = () => {
+    try {
+      // Use the notification sound file
+      if (!bellAudioRef.current) {
+        bellAudioRef.current = new Audio('/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3');
+      }
+      bellAudioRef.current.currentTime = 0;
+      bellAudioRef.current.volume = 0.8;
+      bellAudioRef.current.play().catch(e => {
+        console.warn('Audio playback blocked:', e);
+        // Fallback to Web Audio API synthesis
+        playFallbackBell();
+      });
+    } catch (e) {
+      console.warn('Audio playback inhibited by browser policy:', e);
+      playFallbackBell();
+    }
+  };
+
+  // Fallback synthesized bell sound
+  const playFallbackBell = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
@@ -92,7 +113,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       osc.start();
       osc.stop(ctx.currentTime + 3);
     } catch (e) {
-      console.warn('Audio playback inhibited by browser policy:', e);
+      console.warn('Fallback bell failed:', e);
     }
   };
 
