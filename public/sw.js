@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v3';
-const STATIC_CACHE = 'zen-static-v3';
-const DYNAMIC_CACHE = 'zen-dynamic-v3';
+const CACHE_NAME = 'zen-cache-v4';
+const STATIC_CACHE = 'zen-static-v4';
+const DYNAMIC_CACHE = 'zen-dynamic-v4';
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   '/icons/icon.svg',
   '/icons/icon-192x192.svg',
   '/icons/icon-512x512.svg',
+  '/sounds/notification.mp3',
 ];
 
 // External resources to cache
@@ -192,7 +193,7 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon,
     badge: data.badge,
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200, 100, 200], // Stronger vibration pattern
     data: {
       url: data.url,
       dateOfArrival: Date.now(),
@@ -203,13 +204,34 @@ self.addEventListener('push', (event) => {
       { action: 'dismiss', title: 'Dismiss' }
     ],
     requireInteraction: false,
-    tag: data.tag || 'zen-notification', // Prevents duplicate notifications
-    renotify: true
+    tag: data.tag || 'zen-notification',
+    renotify: true,
+    silent: false // Allow system to play default sound
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      // Play custom notification sound
+      playNotificationSound()
+    ])
   );
+});
+
+// Play notification sound
+async function playNotificationSound() {
+  try {
+    // Get all clients (open windows/tabs)
+    const allClients = await clients.matchAll({ includeUncontrolled: true });
+    
+    // Send message to any open client to play sound
+    for (const client of allClients) {
+      client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND' });
+    }
+  } catch (e) {
+    console.log('[SW] Could not play notification sound:', e);
+  }
+}
 });
 
 // Handle notification clicks
