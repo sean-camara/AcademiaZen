@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v1';
-const STATIC_CACHE = 'zen-static-v1';
-const DYNAMIC_CACHE = 'zen-dynamic-v1';
+const CACHE_NAME = 'zen-cache-v2';
+const STATIC_CACHE = 'zen-static-v2';
+const DYNAMIC_CACHE = 'zen-dynamic-v2';
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -87,6 +87,26 @@ self.addEventListener('fetch', (event) => {
           return caches.match(request).then((cachedResponse) => {
             return cachedResponse || caches.match('/');
           });
+        })
+    );
+    return;
+  }
+
+  // Network-first for JS/TS modules to ensure fresh code
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.ts') || 
+      url.pathname.endsWith('.tsx') || url.pathname.endsWith('.jsx') ||
+      url.pathname.includes('/assets/') || url.pathname.includes('/@')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clonedResponse = response.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => {
+            cache.put(request, clonedResponse);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request);
         })
     );
     return;
