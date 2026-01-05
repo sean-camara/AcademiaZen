@@ -1,8 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck } from '../components/Icons';
-import { GoogleGenAI } from "@google/genai";
 import { useZen } from '../context/ZenContext';
+
+// OpenRouter API configuration
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'; // Free and capable model
 
 interface SelectedRef {
     id: string;
@@ -135,17 +138,15 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const apiKey = process.env.API_KEY;
-            console.log('API Key present:', !!apiKey, apiKey?.substring(0, 10) + '...');
+            const apiKey = OPENROUTER_API_KEY;
+            console.log('OpenRouter API Key present:', !!apiKey);
             
-            if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+            if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
                 throw new Error('API key not configured');
             }
             
-            const ai = new GoogleGenAI({ apiKey });
-            
-            // Build the prompt with system instructions
-            let fullPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
+            // Build the system prompt
+            const systemPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
 
 FORMATTING RULES:
 1. Use '### ' for section headers.
@@ -155,43 +156,66 @@ FORMATTING RULES:
 5. Keep paragraphs concise with generous spacing.
 
 TONE:
-Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.
+Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.`;
 
-`;
+            // Build user message with context
+            let userMessage = '';
             
             if (currentRefs.length > 0) {
-                fullPrompt += "CONTEXT PROVIDED BY STUDENT:\n\n";
+                userMessage += "CONTEXT PROVIDED BY STUDENT:\n\n";
                 currentRefs.forEach(ref => {
                     if (ref.type === 'note') {
-                        fullPrompt += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
+                        userMessage += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
                     } else if (ref.type === 'pdf') {
-                        fullPrompt += `[PDF File: ${ref.title} - Note: PDF binary content cannot be processed in this mode]\n`;
+                        userMessage += `[PDF File: ${ref.title} - Note: PDF content attached]\n`;
                     }
                 });
             }
             
-            fullPrompt += `\nSTUDENT'S QUESTION:\n${userQuery}`;
+            userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
 
-            console.log('Calling Gemini API...');
+            console.log('Calling OpenRouter API with model:', OPENROUTER_MODEL);
             
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: fullPrompt,
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'AcademiaZen'
+                },
+                body: JSON.stringify({
+                    model: OPENROUTER_MODEL,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ],
+                    max_tokens: 2048,
+                    temperature: 0.7
+                })
             });
 
-            console.log('API Response:', response);
-            const aiText = response.text || "I've analyzed the materials but couldn't generate a text summary.";
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('OpenRouter Error:', errorData);
+                throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('API Response:', data);
+            
+            const aiText = data.choices?.[0]?.message?.content || "I've analyzed the materials but couldn't generate a response.";
             setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
         } catch (error: any) {
             console.error("Zen AI Error:", error);
             let errorMessage: string;
             
-            if (error.message?.includes('API key')) {
-                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **GEMINI_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env` file in the project root\n- Add: `GEMINI_API_KEY=your_api_key_here`\n\n**For Vercel deployment:**\n- Go to your project settings\n- Add the GEMINI_API_KEY in Environment Variables";
-            } else if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('RESOURCE_EXHAUSTED')) {
-                errorMessage = "### Rate Limit Reached\nYou've exceeded the free tier quota for the Gemini API.\n\n**Options:**\n- **Wait a moment** - The API suggested waiting ~12 seconds\n- **Try again later** - Daily limits reset at midnight Pacific Time\n- **Enable billing** - Visit [Google AI Studio](https://aistudio.google.com) to upgrade your plan\n\nThe free tier has limited requests per minute and per day.";
+            if (error.message?.includes('API key') || error.message?.includes('401')) {
+                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **OPENROUTER_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env` file in the project root\n- Add: `OPENROUTER_API_KEY=your_key_here`\n\n**For Vercel deployment:**\n- Go to your project settings\n- Add the OPENROUTER_API_KEY in Environment Variables";
+            } else if (error.message?.includes('429') || error.message?.includes('rate')) {
+                errorMessage = "### Rate Limit Reached\nToo many requests. Please wait a moment and try again.\n\nThe free tier has limited requests per minute.";
             } else {
-                errorMessage = "### Connection Issue\nI encountered a technical error while processing your request. \n\n**Possible reasons:**\n- API limit reached\n- Large PDF file size\n- Unstable connection\n- Invalid API key\n\nPlease try again with fewer attachments or check your API configuration.";
+                errorMessage = "### Connection Issue\nI encountered a technical error while processing your request. \n\n**Possible reasons:**\n- API limit reached\n- Unstable connection\n- Service temporarily unavailable\n\nPlease try again in a moment.";
             }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
         } finally {
