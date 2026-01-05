@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v2';
-const STATIC_CACHE = 'zen-static-v2';
-const DYNAMIC_CACHE = 'zen-dynamic-v2';
+const CACHE_NAME = 'zen-cache-v3';
+const STATIC_CACHE = 'zen-static-v3';
+const DYNAMIC_CACHE = 'zen-dynamic-v3';
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
