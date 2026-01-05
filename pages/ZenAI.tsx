@@ -5,7 +5,7 @@ import { useZen } from '../context/ZenContext';
 
 // OpenRouter API configuration
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'; // Free and capable model
+const OPENROUTER_MODEL = 'nex-agi/deepseek-v3.1-nex-n1:free'; // Free DeepSeek V3.1 model
 
 interface SelectedRef {
     id: string;
