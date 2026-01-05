@@ -37,7 +37,6 @@ export const INITIAL_STATE: ZenState = {
 export const AMBIENCE_OPTIONS = [
   { id: 'silent', label: 'Silent', icon: '🔇' },
   { id: 'rain', label: 'Rain', icon: '🌧️' },
-  { id: 'lofi', label: 'Lofi', icon: '☕' },
   { id: 'forest', label: 'Forest', icon: '🌲' },
 ];
 

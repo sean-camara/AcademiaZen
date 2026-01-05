@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v5';
-const STATIC_CACHE = 'zen-static-v5';
-const DYNAMIC_CACHE = 'zen-dynamic-v5';
+const CACHE_NAME = 'zen-cache-v6';
+const STATIC_CACHE = 'zen-static-v6';
+const DYNAMIC_CACHE = 'zen-dynamic-v6';
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -11,6 +11,8 @@ const STATIC_ASSETS = [
   '/icons/icon-192x192.svg',
   '/icons/icon-512x512.svg',
   '/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3',
+  '/sounds/rain-ambience-gentle-downpour-vincentmets-1-01-50.mp3',
+  '/sounds/forest-ambience-light-birdsong-distant-rooster-vincentmets-1-03-38.mp3',
 ];
 
 // External resources to cache (will be cached on first use)
@@ -21,12 +23,8 @@ const EXTERNAL_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
 ];
 
-// Ambience sounds to cache when used
-const AMBIENCE_URLS = [
-  'https://cdn.freesound.org/previews/531/531947_2931078-lq.mp3',
-  'https://cdn.freesound.org/previews/456/456389_9159316-lq.mp3',
-  'https://cdn.freesound.org/previews/378/378178_6393979-lq.mp3',
-];
+// Local ambience sounds (already in STATIC_ASSETS)
+const AMBIENCE_URLS = [];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {

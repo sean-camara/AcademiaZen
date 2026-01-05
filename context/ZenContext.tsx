@@ -41,11 +41,10 @@ const ZenContext = createContext<ZenContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_KEY = 'zen_app_data';
 
-// Updated Ambience Audio Map with reliable free soundscape URLs
+// Ambience Audio Map using local sound files
 const AMBIENCE_URLS: Record<string, string> = {
-  rain: 'https://cdn.freesound.org/previews/531/531947_2931078-lq.mp3',
-  lofi: 'https://cdn.freesound.org/previews/456/456389_9159316-lq.mp3',
-  forest: 'https://cdn.freesound.org/previews/378/378178_6393979-lq.mp3',
+  rain: '/sounds/rain-ambience-gentle-downpour-vincentmets-1-01-50.mp3',
+  forest: '/sounds/forest-ambience-light-birdsong-distant-rooster-vincentmets-1-03-38.mp3',
 };
 
 export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
