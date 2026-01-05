@@ -26,14 +26,23 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
   // Handle push notification toggle
   const handlePushToggle = async () => {
-    if (isPushSubscribed) {
-      await unsubscribeFromPush();
-      updateSettings({ notifications: false });
-    } else {
-      const success = await subscribeToPush();
-      if (success) {
-        updateSettings({ notifications: true });
+    console.log('[Settings] Toggle clicked, isPushSubscribed:', isPushSubscribed);
+    try {
+      if (isPushSubscribed) {
+        console.log('[Settings] Unsubscribing...');
+        await unsubscribeFromPush();
+        updateSettings({ notifications: false });
+        console.log('[Settings] Unsubscribed successfully');
+      } else {
+        console.log('[Settings] Subscribing...');
+        const success = await subscribeToPush();
+        console.log('[Settings] Subscribe result:', success);
+        if (success) {
+          updateSettings({ notifications: true });
+        }
       }
+    } catch (err) {
+      console.error('[Settings] Toggle error:', err);
     }
   };
 
@@ -167,12 +176,21 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                           </div>
                         )}
 
+                        {/* Loading hint when toggle is in progress */}
+                        {pushLoading && (
+                          <div className="p-3 rounded-lg bg-zen-primary/10 border border-zen-primary/30">
+                            <p className="text-zen-primary text-sm">
+                              ⏳ Connecting to server... This may take a moment.
+                            </p>
+                          </div>
+                        )}
+
                         {/* Main Push Toggle */}
                         <div className="flex items-center justify-between">
                             <div>
                               <span className="text-zen-text-primary text-sm block">Push Notifications</span>
                               <span className="text-zen-text-disabled text-xs">
-                                {isPushSubscribed ? 'Subscribed' : 'Not subscribed'}
+                                {pushLoading ? 'Connecting...' : isPushSubscribed ? 'Subscribed' : 'Not subscribed'}
                               </span>
                             </div>
                             <button 
@@ -180,7 +198,11 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                                 disabled={pushLoading || !pushSupported || pushPermission === 'denied'}
                                 className={`w-12 h-6 rounded-full p-1 transition-colors disabled:opacity-50 ${isPushSubscribed ? 'bg-zen-primary' : 'bg-zen-surface'}`}
                             >
-                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isPushSubscribed ? 'translate-x-6' : ''}`} />
+                                {pushLoading ? (
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                                ) : (
+                                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isPushSubscribed ? 'translate-x-6' : ''}`} />
+                                )}
                             </button>
                         </div>
 

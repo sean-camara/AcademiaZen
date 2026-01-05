@@ -1,6 +1,8 @@
-const CACHE_NAME = 'zen-cache-v6';
-const STATIC_CACHE = 'zen-static-v6';
-const DYNAMIC_CACHE = 'zen-dynamic-v6';
+const CACHE_NAME = 'zen-cache-v8';
+const STATIC_CACHE = 'zen-static-v8';
+const DYNAMIC_CACHE = 'zen-dynamic-v8';
+
+console.log('[SW] Service Worker v8 loaded');
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -39,6 +41,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating service worker v8');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -49,9 +52,11 @@ self.addEventListener('activate', (event) => {
             return caches.delete(key);
           })
       );
+    }).then(() => {
+      console.log('[SW] Service worker v8 activated and claiming clients');
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network
@@ -65,16 +70,14 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http(s) requests
   if (!url.protocol.startsWith('http')) return;
 
-  // For API calls (like Google GenAI), always go to network
-  if (url.hostname.includes('generativelanguage.googleapis.com') || 
-      url.hostname.includes('esm.sh')) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        return new Response(JSON.stringify({ error: 'Offline' }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      })
-    );
+  // Skip API calls to our backend and external services - let them go directly to network
+  if (url.hostname.includes('academiazen-backend') || 
+      url.hostname.includes('render.com') ||
+      url.hostname.includes('openrouter.ai') ||
+      url.hostname.includes('generativelanguage.googleapis.com') || 
+      url.hostname.includes('esm.sh') ||
+      url.pathname.includes('/api/')) {
+    // Don't intercept - let browser handle directly
     return;
   }
 
@@ -266,7 +269,6 @@ async function playNotificationSound() {
     console.log('[SW] Could not play notification sound:', e);
   }
 }
-});
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {

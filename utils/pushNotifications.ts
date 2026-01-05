@@ -73,33 +73,75 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 }
 
 /**
+ * Fetch with timeout helper
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Get the VAPID public key from the backend
  */
 async function getVapidPublicKey(): Promise<string> {
   if (cachedVapidKey) {
+    console.log('[Push] Using cached VAPID key');
     return cachedVapidKey;
   }
 
+  console.log('[Push] Fetching VAPID key from backend (may take a moment if server is waking up)...');
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/vapid-public-key`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/api/vapid-public-key`, {}, 30000);
     if (!response.ok) {
       throw new Error('Failed to get VAPID key');
     }
     const data = await response.json();
     cachedVapidKey = data.publicKey;
+    console.log('[Push] VAPID key received successfully');
     return data.publicKey;
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[Push] Backend timeout - server may be sleeping');
+      throw new Error('Backend server is waking up. Please try again in a moment.');
+    }
     console.error('[Push] Failed to get VAPID key:', error);
     throw error;
   }
 }
 
 /**
- * Get the service worker registration
+ * Get the service worker registration with timeout
  */
 async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
-  const registration = await navigator.serviceWorker.ready;
-  return registration;
+  console.log('[Push] Waiting for service worker...');
+  
+  // Add timeout to prevent hanging forever
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Service worker not ready. Try refreshing the page.')), 10000);
+  });
+  
+  try {
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      timeoutPromise
+    ]);
+    console.log('[Push] Service worker is ready');
+    return registration;
+  } catch (error) {
+    console.error('[Push] Service worker timeout:', error);
+    throw error;
+  }
 }
 
 /**
@@ -135,16 +177,21 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
   }
 
   try {
+    console.log('[Push] Getting service worker registration...');
     const registration = await getServiceWorkerRegistration();
+    console.log('[Push] Service worker ready');
     
     // Check if already subscribed
     let subscription = await registration.pushManager.getSubscription();
+    console.log('[Push] Existing subscription:', subscription ? 'yes' : 'no');
     
     if (!subscription) {
       // Get VAPID key and subscribe
+      console.log('[Push] Creating new subscription...');
       const vapidPublicKey = await getVapidPublicKey();
       const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
+      console.log('[Push] Subscribing to push manager...');
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true, // Required: notifications must be visible to user
         applicationServerKey
@@ -190,25 +237,30 @@ export async function unsubscribeFromPush(): Promise<boolean> {
  * Send the subscription to the backend server
  */
 async function sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
+  console.log('[Push] Sending subscription to server...');
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/subscribe`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/api/subscribe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         subscription: subscription.toJSON(),
-        // You can add a userId here if you have user authentication
       }),
-    });
+    }, 15000);
 
     if (!response.ok) {
       throw new Error('Failed to register subscription on server');
     }
 
-    console.log('[Push] Subscription sent to server');
+    console.log('[Push] Subscription sent to server successfully');
   } catch (error) {
-    console.error('[Push] Failed to send subscription to server:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('[Push] Server timeout, but subscription created locally');
+    } else {
+      console.error('[Push] Failed to send subscription to server:', error);
+    }
     // Don't throw - subscription still works locally
   }
 }
@@ -217,14 +269,16 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
  * Remove subscription from the backend server
  */
 async function removeSubscriptionFromServer(endpoint: string): Promise<void> {
+  console.log('[Push] Removing subscription from server...');
+  
   try {
-    await fetch(`${API_BASE_URL}/api/unsubscribe`, {
+    await fetchWithTimeout(`${API_BASE_URL}/api/unsubscribe`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ endpoint }),
-    });
+    }, 10000);
   } catch (error) {
     console.error('[Push] Failed to remove subscription from server:', error);
   }

@@ -38,20 +38,32 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   // Check current subscription status
   const refreshStatus = useCallback(async () => {
+    console.log('[usePushNotifications] refreshStatus called, isSupported:', isSupported);
+    
     if (!isSupported) {
+      console.log('[usePushNotifications] Not supported, setting loading false');
       setIsLoading(false);
       return;
     }
 
     try {
-      setPermission(getPermissionStatus());
-      const subscription = await getCurrentSubscription();
+      const permStatus = getPermissionStatus();
+      console.log('[usePushNotifications] Permission status:', permStatus);
+      setPermission(permStatus);
+      
+      // Add timeout to prevent hanging on service worker
+      const subscriptionPromise = getCurrentSubscription();
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      
+      const subscription = await Promise.race([subscriptionPromise, timeoutPromise]);
+      console.log('[usePushNotifications] Subscription:', subscription ? 'exists' : 'none');
       setIsSubscribed(!!subscription);
       setError(null);
     } catch (err) {
       console.error('[usePushNotifications] Error checking status:', err);
       setError('Failed to check notification status');
     } finally {
+      console.log('[usePushNotifications] Setting loading false');
       setIsLoading(false);
     }
   }, [isSupported]);
@@ -72,9 +84,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     setError(null);
 
     try {
+      console.log('[usePushNotifications] Starting subscribe process...');
       const subscription = await subscribeToPush();
       
       if (subscription) {
+        console.log('[usePushNotifications] Subscribe successful!');
         setIsSubscribed(true);
         setPermission('granted');
         return true;
@@ -92,7 +106,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       }
     } catch (err) {
       console.error('[usePushNotifications] Subscribe error:', err);
-      setError('An error occurred while enabling notifications');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while enabling notifications';
+      setError(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
