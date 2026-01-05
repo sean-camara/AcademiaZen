@@ -5,14 +5,38 @@ interface AddTaskModalProps {
   onClose: () => void;
   onSave: (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => void;
   subjectName?: string;
+  editMode?: boolean;
+  initialData?: {
+    title: string;
+    date: string;
+    notes: string;
+    pdf?: { name: string; data: string };
+  };
 }
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectName }) => {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('12:00');
-  const [notes, setNotes] = useState('');
-  const [pdf, setPdf] = useState<{ name: string; data: string } | undefined>(undefined);
+const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectName, editMode = false, initialData }) => {
+  // Parse initial date and time from initialData if in edit mode
+  const getInitialDate = () => {
+    if (initialData?.date) {
+      const d = new Date(initialData.date);
+      return d.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+  
+  const getInitialTime = () => {
+    if (initialData?.date) {
+      const d = new Date(initialData.date);
+      return d.toTimeString().slice(0, 5);
+    }
+    return '12:00';
+  };
+
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [date, setDate] = useState(getInitialDate());
+  const [time, setTime] = useState(getInitialTime());
+  const [notes, setNotes] = useState(initialData?.notes || '');
+  const [pdf, setPdf] = useState<{ name: string; data: string } | undefined>(initialData?.pdf);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = (e: React.FormEvent) => {
@@ -51,7 +75,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-zen-surface">
             <div>
-                <h2 className="text-xl font-medium text-zen-text-primary">New Task</h2>
+                <h2 className="text-xl font-medium text-zen-text-primary">{editMode ? 'Edit Task' : 'New Task'}</h2>
                 {subjectName && <p className="text-sm text-zen-text-secondary">for {subjectName}</p>}
             </div>
             <button onClick={onClose} className="p-2 text-zen-text-secondary hover:text-zen-text-primary">
@@ -159,7 +183,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
                     type="submit" 
                     className="flex-1 py-3.5 rounded-xl bg-zen-primary text-zen-bg font-semibold hover:opacity-90 transition-opacity"
                 >
-                    Create Task
+                    {editMode ? 'Save Changes' : 'Create Task'}
                 </button>
             </div>
         </form>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useZen } from '../context/ZenContext';
 import { getGreeting, formatDateFull, generateId } from '../utils/helpers';
-import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink } from '../components/Icons';
+import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical } from '../components/Icons';
 import { Subject, Task } from '../types';
 import AddTaskModal from '../components/AddTaskModal';
 
@@ -194,8 +194,10 @@ const TaskActionModal: React.FC<{
     task: Task; 
     onClose: () => void; 
     onViewPdf: () => void; 
-    onToggleDone: () => void; 
-}> = ({ task, onClose, onViewPdf, onToggleDone }) => {
+    onToggleDone: () => void;
+    onEdit: () => void;
+    onDelete: () => void;
+}> = ({ task, onClose, onViewPdf, onToggleDone, onEdit, onDelete }) => {
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-6 animate-reveal" onClick={onClose}>
             <div 
@@ -238,6 +240,20 @@ const TaskActionModal: React.FC<{
                         )}
                     </button>
                     <button 
+                        onClick={onEdit}
+                        className="w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-zen-surface bg-zen-surface/50 text-zen-text-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                        <IconEdit className="w-5 h-5" />
+                        Edit Task
+                    </button>
+                    <button 
+                        onClick={onDelete}
+                        className="w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                        <IconTrash className="w-5 h-5" />
+                        Delete Task
+                    </button>
+                    <button 
                         onClick={onClose}
                         className="w-full py-3 text-zen-text-secondary text-sm font-medium hover:text-zen-text-primary transition-colors"
                     >
@@ -249,13 +265,138 @@ const TaskActionModal: React.FC<{
     );
 };
 
+// Confirmation Delete Modal
+const ConfirmDeleteModal: React.FC<{
+    type: 'subject' | 'task';
+    name: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+}> = ({ type, name, onConfirm, onCancel }) => {
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6 animate-reveal" onClick={onCancel}>
+            <div 
+                className="bg-zen-card w-full max-w-xs rounded-3xl border border-zen-surface shadow-2xl p-6 space-y-4 animate-scale-in"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="text-center space-y-2">
+                    <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <IconTrash className="w-7 h-7 text-red-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-zen-text-primary">Delete {type === 'subject' ? 'Subject' : 'Task'}?</h3>
+                    <p className="text-sm text-zen-text-secondary">
+                        Are you sure you want to delete "<span className="text-zen-text-primary font-medium">{name}</span>"?
+                        {type === 'subject' && (
+                            <span className="block mt-1 text-red-400 text-xs">This will also delete all tasks and flashcards in this subject.</span>
+                        )}
+                    </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                    <button 
+                        onClick={onCancel}
+                        className="flex-1 py-3 rounded-xl font-medium border border-zen-surface text-zen-text-secondary hover:text-zen-text-primary transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={onConfirm}
+                        className="flex-1 py-3 rounded-xl font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Edit Subject Modal
+const EditSubjectModal: React.FC<{
+    subject: Subject;
+    editName: string;
+    setEditName: (name: string) => void;
+    onSave: (e: React.FormEvent) => void;
+    onCancel: () => void;
+}> = ({ subject, editName, setEditName, onSave, onCancel }) => {
+    const colors = ['bg-zen-primary', 'bg-zen-secondary', 'bg-blue-400', 'bg-rose-400', 'bg-amber-400', 'bg-purple-400', 'bg-cyan-400', 'bg-orange-400'];
+    const [selectedColor, setSelectedColor] = useState(subject.color);
+    
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6 animate-reveal" onClick={onCancel}>
+            <div 
+                className="bg-zen-card w-full max-w-sm rounded-3xl border border-zen-surface shadow-2xl p-6 space-y-5 animate-scale-in"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="text-center">
+                    <h3 className="text-lg font-medium text-zen-text-primary">Edit Subject</h3>
+                </div>
+
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    onSave(e);
+                }} className="space-y-4">
+                    <div>
+                        <label className="text-xs text-zen-text-secondary uppercase tracking-wider font-bold mb-2 block">Subject Name</label>
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder="Subject Name..."
+                            className="w-full bg-zen-surface border border-zen-surface rounded-xl p-3 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-colors"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="text-xs text-zen-text-secondary uppercase tracking-wider font-bold mb-2 block">Color</label>
+                        <div className="flex flex-wrap gap-2">
+                            {colors.map(color => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setSelectedColor(color)}
+                                    className={`w-8 h-8 rounded-full ${color} transition-all ${selectedColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-zen-card scale-110' : 'hover:scale-105'}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button 
+                            type="button"
+                            onClick={onCancel}
+                            className="flex-1 py-3 rounded-xl font-medium border border-zen-surface text-zen-text-secondary hover:text-zen-text-primary transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            className="flex-1 py-3 rounded-xl font-medium bg-zen-primary text-zen-bg hover:opacity-90 transition-opacity"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 const Home: React.FC = () => {
-  const { state, toggleTask, addTask, addSubject } = useZen();
+  const { state, toggleTask, addTask, addSubject, updateSubject, deleteSubject, updateTask, deleteTask } = useZen();
   const { profile, tasks, subjects } = state;
   
   // Dashboard States
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
+  
+  // Edit Subject States
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editSubjectName, setEditSubjectName] = useState('');
+  const [showSubjectActions, setShowSubjectActions] = useState<string | null>(null);
+  
+  // Edit Task States
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   // Detail View States
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -263,6 +404,9 @@ const Home: React.FC = () => {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<{ name: string; data: string } | null>(null);
   const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
+  
+  // Confirmation Dialog States
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'subject' | 'task'; id: string; name: string } | null>(null);
 
   const selectedSubject = subjects.find(s => s.id === (selectedSubjectId || loadingSubjectId));
 
@@ -293,6 +437,52 @@ const Home: React.FC = () => {
     });
     setNewSubjectName('');
     setShowAddSubject(false);
+  };
+
+  const handleEditSubject = (subject: Subject) => {
+    setEditingSubject(subject);
+    setEditSubjectName(subject.name);
+    setShowSubjectActions(null);
+  };
+
+  const handleSaveSubjectEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSubject || !editSubjectName.trim()) return;
+    updateSubject({ ...editingSubject, name: editSubjectName.trim() });
+    setEditingSubject(null);
+    setEditSubjectName('');
+  };
+
+  const handleDeleteSubject = (id: string) => {
+    deleteSubject(id);
+    setConfirmDelete(null);
+    setShowSubjectActions(null);
+    if (selectedSubjectId === id) {
+      setSelectedSubjectId(null);
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setActiveActionTask(null);
+  };
+
+  const handleSaveTaskEdit = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
+    if (!editingTask) return;
+    updateTask({
+      ...editingTask,
+      title,
+      dueDate: date,
+      notes: notes || undefined,
+      pdfAttachment: pdf
+    });
+    setEditingTask(null);
+  };
+
+  const handleDeleteTask = (id: string) => {
+    deleteTask(id);
+    setConfirmDelete(null);
+    setActiveActionTask(null);
   };
 
   const handleSubjectClick = (id: string) => {
@@ -429,6 +619,21 @@ const Home: React.FC = () => {
             />
         )}
 
+        {editingTask && (
+            <AddTaskModal 
+                subjectName={selectedSubject.name}
+                onClose={() => setEditingTask(null)}
+                onSave={handleSaveTaskEdit}
+                editMode={true}
+                initialData={{
+                    title: editingTask.title,
+                    date: editingTask.dueDate.slice(0, 16), // Format for datetime-local input
+                    notes: editingTask.notes || '',
+                    pdf: editingTask.pdfAttachment
+                }}
+            />
+        )}
+
         {activeActionTask && (
             <TaskActionModal 
                 task={activeActionTask}
@@ -443,6 +648,23 @@ const Home: React.FC = () => {
                     }
                     setActiveActionTask(null);
                 }}
+                onEdit={() => handleEditTask(activeActionTask)}
+                onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })}
+            />
+        )}
+
+        {confirmDelete && (
+            <ConfirmDeleteModal 
+                type={confirmDelete.type}
+                name={confirmDelete.name}
+                onConfirm={() => {
+                    if (confirmDelete.type === 'task') {
+                        handleDeleteTask(confirmDelete.id);
+                    } else {
+                        handleDeleteSubject(confirmDelete.id);
+                    }
+                }}
+                onCancel={() => setConfirmDelete(null)}
             />
         )}
 
@@ -562,37 +784,82 @@ const Home: React.FC = () => {
             const completed = subjectTasks.filter(t => t.completed).length;
             const progress = total === 0 ? 0 : (completed / total) * 100;
             const isTarget = loadingSubjectId === subject.id;
+            const showActions = showSubjectActions === subject.id;
 
             return (
-              <button 
-                key={subject.id} 
-                onClick={() => handleSubjectClick(subject.id)}
-                className={`bg-zen-card p-5 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/50 transition-all text-left group hover:scale-[1.02] active:scale-[0.98] animate-reveal stagger-${Math.min(idx + 1, 5)} ${isTarget ? 'animate-bounce-subtle ring-1 ring-zen-primary' : ''}`}
+              <div 
+                key={subject.id}
+                className={`relative bg-zen-card p-5 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/50 transition-all text-left group animate-reveal stagger-${Math.min(idx + 1, 5)} ${isTarget ? 'animate-bounce-subtle ring-1 ring-zen-primary' : ''}`}
               >
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${subject.color.startsWith('#') ? '' : subject.color}`} style={subject.color.startsWith('#') ? {backgroundColor: subject.color} : {}} />
-                        <h4 className="font-medium text-zen-text-primary truncate group-hover:text-zen-primary transition-colors text-lg">{subject.name}</h4>
-                    </div>
-                    <p className="text-xs text-zen-text-disabled font-medium">
-                        {completed}/{total} Done
-                    </p>
+                {/* Main clickable area */}
+                <div 
+                  onClick={() => handleSubjectClick(subject.id)}
+                  className="cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-transform"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className={`w-3 h-3 rounded-full shrink-0 ${subject.color.startsWith('#') ? '' : subject.color}`} style={subject.color.startsWith('#') ? {backgroundColor: subject.color} : {}} />
+                          <h4 className="font-medium text-zen-text-primary truncate group-hover:text-zen-primary transition-colors text-lg">{subject.name}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-zen-text-disabled font-medium">
+                            {completed}/{total} Done
+                        </p>
+                        {/* Actions Menu Button */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSubjectActions(showActions ? null : subject.id);
+                          }}
+                          className="p-1.5 text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface rounded-lg transition-all"
+                        >
+                          <IconMoreVertical className="w-4 h-4" />
+                        </button>
+                      </div>
+                  </div>
+                  
+                  {/* Progress Bar Container */}
+                  <div className="w-full h-1.5 bg-zen-surface rounded-full overflow-hidden mb-1">
+                      <div 
+                          className={`h-full transition-all duration-700 ease-out ${subject.color.startsWith('#') ? '' : subject.color}`}
+                          style={{ 
+                              width: `${progress}%`,
+                              backgroundColor: subject.color.startsWith('#') ? subject.color : undefined 
+                          }} 
+                      />
+                  </div>
+                  <p className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">
+                      {Math.round(progress)}% Mastery
+                  </p>
                 </div>
-                
-                {/* Progress Bar Container */}
-                <div className="w-full h-1.5 bg-zen-surface rounded-full overflow-hidden mb-1">
-                    <div 
-                        className={`h-full transition-all duration-700 ease-out ${subject.color.startsWith('#') ? '' : subject.color}`}
-                        style={{ 
-                            width: `${progress}%`,
-                            backgroundColor: subject.color.startsWith('#') ? subject.color : undefined 
-                        }} 
-                    />
-                </div>
-                <p className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">
-                    {Math.round(progress)}% Mastery
-                </p>
-              </button>
+
+                {/* Actions Dropdown */}
+                {showActions && (
+                  <div className="absolute right-4 top-14 bg-zen-card border border-zen-surface rounded-xl shadow-xl z-20 overflow-hidden animate-scale-in">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditSubject(subject);
+                      }}
+                      className="w-full px-4 py-3 text-sm text-zen-text-primary hover:bg-zen-surface flex items-center gap-2 transition-colors"
+                    >
+                      <IconEdit className="w-4 h-4" />
+                      Edit Subject
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete({ type: 'subject', id: subject.id, name: subject.name });
+                        setShowSubjectActions(null);
+                      }}
+                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                    >
+                      <IconTrash className="w-4 h-4" />
+                      Delete Subject
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
           
@@ -603,6 +870,42 @@ const Home: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Edit Subject Modal */}
+      {editingSubject && (
+        <EditSubjectModal 
+          subject={editingSubject}
+          editName={editSubjectName}
+          setEditName={setEditSubjectName}
+          onSave={(e) => {
+            e.preventDefault();
+            if (!editSubjectName.trim()) return;
+            updateSubject({ ...editingSubject, name: editSubjectName.trim() });
+            setEditingSubject(null);
+            setEditSubjectName('');
+          }}
+          onCancel={() => {
+            setEditingSubject(null);
+            setEditSubjectName('');
+          }}
+        />
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmDelete && (
+        <ConfirmDeleteModal 
+          type={confirmDelete.type}
+          name={confirmDelete.name}
+          onConfirm={() => {
+            if (confirmDelete.type === 'task') {
+              handleDeleteTask(confirmDelete.id);
+            } else {
+              handleDeleteSubject(confirmDelete.id);
+            }
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 };

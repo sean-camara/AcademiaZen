@@ -9,7 +9,10 @@ interface ZenContextType {
   addTask: (task: Task) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  updateTask: (task: Task) => void;
   addSubject: (subject: Subject) => void;
+  updateSubject: (subject: Subject) => void;
+  deleteSubject: (id: string) => void;
   addFlashcard: (card: Flashcard) => void;
   updateFlashcard: (card: Flashcard) => void; 
   addFolder: (folder: Folder) => void;
@@ -176,7 +179,26 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     tasks: prev.tasks.filter(t => t.id !== id)
   }));
 
+  const updateTask = (updatedTask: Task) => setState(prev => ({
+    ...prev,
+    tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+  }));
+
   const addSubject = (subject: Subject) => setState(prev => ({ ...prev, subjects: [...prev.subjects, subject] }));
+
+  const updateSubject = (updatedSubject: Subject) => setState(prev => ({
+    ...prev,
+    subjects: prev.subjects.map(s => s.id === updatedSubject.id ? updatedSubject : s)
+  }));
+
+  const deleteSubject = (id: string) => setState(prev => ({
+    ...prev,
+    subjects: prev.subjects.filter(s => s.id !== id),
+    // Also delete all tasks associated with this subject
+    tasks: prev.tasks.filter(t => t.subjectId !== id),
+    // Also delete all flashcards associated with this subject
+    flashcards: prev.flashcards.filter(f => f.subjectId !== id)
+  }));
 
   const addFlashcard = (card: Flashcard) => setState(prev => ({ ...prev, flashcards: [...prev.flashcards, card] }));
 
@@ -245,7 +267,10 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addTask,
       toggleTask,
       deleteTask,
+      updateTask,
       addSubject,
+      updateSubject,
+      deleteSubject,
       addFlashcard,
       updateFlashcard,
       addFolder,
