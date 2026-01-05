@@ -318,6 +318,58 @@ export async function scheduleNotification(
 }
 
 /**
+ * Send immediate notification when a new task is added that's due within 3 days
+ * @param task - The newly added task
+ * @returns true if notification was sent, false otherwise
+ */
+export async function notifyNewTask(
+  task: { id: string; title: string; dueDate?: string }
+): Promise<boolean> {
+  try {
+    // Check if task has a due date
+    if (!task.dueDate) {
+      console.log('[Push] Task has no due date, skipping notification');
+      return false;
+    }
+
+    // Check if due within 3 days
+    const now = new Date();
+    const dueDate = new Date(task.dueDate);
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    if (dueDate <= now || dueDate > threeDaysFromNow) {
+      console.log('[Push] Task not within 3-day window, skipping immediate notification');
+      return false;
+    }
+
+    const subscription = await getCurrentSubscription();
+    if (!subscription) {
+      console.log('[Push] No subscription, skipping notification');
+      return false;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/notify-new-task`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        task,
+        subscriptionEndpoint: subscription.endpoint,
+      }),
+    });
+
+    if (response.ok) {
+      console.log('[Push] Immediate notification sent for new task');
+    }
+    return response.ok;
+  } catch (error) {
+    console.error('[Push] Failed to send immediate task notification:', error);
+    return false;
+  }
+}
+
+/**
  * Sync tasks with backend for deadline reminders
  * Tasks due within 3 days will trigger notifications every 2 hours
  */

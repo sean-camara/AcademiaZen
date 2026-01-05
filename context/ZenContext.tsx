@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { ZenState, Task, Subject, Flashcard, Folder, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
-import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend } from '../utils/pushNotifications';
+import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
 
 interface ZenContextType {
   state: ZenState;
@@ -174,7 +174,14 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [focusSession.isActive, focusSession.isPaused]);
 
   // Actions
-  const addTask = (task: Task) => setState(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
+  const addTask = (task: Task) => {
+    setState(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
+    
+    // Send immediate notification if task is due within 3 days and notifications are enabled
+    if (state.settings.notifications && state.settings.deadlineAlerts && task.dueDate) {
+      notifyNewTask({ id: task.id, title: task.title, dueDate: task.dueDate });
+    }
+  };
   
   const toggleTask = (id: string) => setState(prev => ({
     ...prev,
