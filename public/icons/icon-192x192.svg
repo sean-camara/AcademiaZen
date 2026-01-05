@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#0B0F14"/>
+  <circle cx="96" cy="75" r="30" fill="none" stroke="#64FFDA" stroke-width="4"/>
+  <path d="M96 105 L96 145" stroke="#64FFDA" stroke-width="4" stroke-linecap="round"/>
+  <path d="M81 130 L96 145 L111 130" stroke="#64FFDA" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="96" y="175" text-anchor="middle" fill="#64FFDA" font-family="sans-serif" font-size="20" font-weight="600">ZEN</text>
+</svg>
