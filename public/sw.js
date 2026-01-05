@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v4';
-const STATIC_CACHE = 'zen-static-v4';
-const DYNAMIC_CACHE = 'zen-dynamic-v4';
+const CACHE_NAME = 'zen-cache-v5';
+const STATIC_CACHE = 'zen-static-v5';
+const DYNAMIC_CACHE = 'zen-dynamic-v5';
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -13,12 +13,19 @@ const STATIC_ASSETS = [
   '/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3',
 ];
 
-// External resources to cache
+// External resources to cache (will be cached on first use)
 const EXTERNAL_ASSETS = [
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+];
+
+// Ambience sounds to cache when used
+const AMBIENCE_URLS = [
+  'https://cdn.freesound.org/previews/531/531947_2931078-lq.mp3',
+  'https://cdn.freesound.org/previews/456/456389_9159316-lq.mp3',
+  'https://cdn.freesound.org/previews/378/378178_6393979-lq.mp3',
 ];
 
 // Install event - cache static assets
@@ -109,6 +116,35 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           return caches.match(request);
         })
+    );
+    return;
+  }
+
+  // Cache-first for audio files (ambience sounds)
+  if (request.destination === 'audio' || url.pathname.endsWith('.mp3') || url.pathname.endsWith('.ogg') ||
+      AMBIENCE_URLS.some(ambUrl => request.url.includes(ambUrl))) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          console.log('[SW] Serving cached audio:', url.pathname);
+          return cachedResponse;
+        }
+        return fetch(request)
+          .then((response) => {
+            if (response && response.status === 200) {
+              const clonedResponse = response.clone();
+              caches.open(DYNAMIC_CACHE).then((cache) => {
+                console.log('[SW] Caching audio for offline:', request.url);
+                cache.put(request, clonedResponse);
+              });
+            }
+            return response;
+          })
+          .catch(() => {
+            console.log('[SW] Audio unavailable offline:', request.url);
+            return new Response(null, { status: 404 });
+          });
+      })
     );
     return;
   }

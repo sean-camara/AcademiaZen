@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ZenProvider } from './context/ZenContext';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     // Create audio element for notification sound
@@ -17,10 +18,18 @@ const App: React.FC = () => {
       }
     };
 
+    // Listen for online/offline events
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
     navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -35,6 +44,12 @@ const App: React.FC = () => {
 
   return (
     <ZenProvider>
+      {/* Offline Indicator */}
+      {isOffline && (
+        <div className="fixed top-0 left-0 right-0 bg-amber-500/90 text-black text-xs font-medium py-1 px-4 text-center z-50 animate-fade-in">
+          📴 You're offline — Some features may be limited
+        </div>
+      )}
       <Layout />
     </ZenProvider>
   );

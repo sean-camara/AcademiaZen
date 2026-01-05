@@ -145,10 +145,15 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       audio.volume = 0.25; 
       audioRef.current = audio;
       
+      // Handle audio load error (offline or blocked)
+      audio.onerror = () => {
+        console.warn('Ambience audio failed to load (might be offline)');
+      };
+      
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((e) => {
-          console.debug('Ambience autoplay blocked by browser policy. Interaction required.', e);
+          console.debug('Ambience autoplay blocked or unavailable:', e);
         });
       }
     }

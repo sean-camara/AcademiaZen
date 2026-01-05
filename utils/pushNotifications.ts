@@ -15,6 +15,13 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://academia
 let cachedVapidKey: string | null = null;
 
 /**
+ * Check if the device is online
+ */
+export function isOnline(): boolean {
+  return navigator.onLine;
+}
+
+/**
  * Check if push notifications are supported in this browser
  */
 export function isPushSupported(): boolean {
@@ -326,6 +333,25 @@ export async function notifyNewTask(
   task: { id: string; title: string; dueDate?: string }
 ): Promise<boolean> {
   try {
+    // Check if offline
+    if (!isOnline()) {
+      console.log('[Push] Offline, skipping server notification');
+      // Still show local notification if possible
+      if (getPermissionStatus() === 'granted') {
+        const dueDate = new Date(task.dueDate || '');
+        const now = new Date();
+        const hoursUntilDue = Math.round((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+        const daysUntilDue = Math.round(hoursUntilDue / 24);
+        let timeText = daysUntilDue <= 1 ? 'tomorrow' : `in ${daysUntilDue} days`;
+        
+        await showLocalNotification('📋 New Task Added', {
+          body: `"${task.title}" is due ${timeText}`,
+          tag: `new-task-${task.id}`,
+        });
+      }
+      return false;
+    }
+
     // Check if task has a due date
     if (!task.dueDate) {
       console.log('[Push] Task has no due date, skipping notification');
