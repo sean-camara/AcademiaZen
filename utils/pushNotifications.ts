@@ -8,8 +8,8 @@
  * - Managing local notifications
  */
 
-// Backend API URL - change this in production
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
+// Backend API URL - uses env variable or falls back to production Render URL
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://academiazen-backend-g6to.onrender.com';
 
 // Cache the VAPID public key
 let cachedVapidKey: string | null = null;
