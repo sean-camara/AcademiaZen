@@ -50,6 +50,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
     onClose();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        handleSave(e as any);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setUploadError(null);
@@ -62,9 +68,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
       return;
     }
     
-    // Check file size (max 10MB for mobile compatibility)
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('File too large. Max size is 10MB');
+    // Check file size (max 2MB to prevent localStorage quota issues)
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError('File too large. Max size is 2MB to ensure smooth performance.');
       return;
     }
     
@@ -107,7 +113,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto">
+        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto" onKeyDown={handleKeyDown}>
             {/* Title */}
             <div className="space-y-2">
                 <label className="text-xs text-zen-text-secondary uppercase tracking-wider font-medium">Task Name</label>

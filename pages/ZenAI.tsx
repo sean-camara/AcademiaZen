@@ -2,10 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
+import { GoogleGenAI } from "@google/genai";
 
-// OpenRouter API configuration
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = 'nex-agi/deepseek-v3.1-nex-n1:free'; // Free DeepSeek V3.1 model
+// Gemini API configuration
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-1.5-flash";
 
 interface SelectedRef {
     id: string;
@@ -138,11 +139,11 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const apiKey = OPENROUTER_API_KEY;
-            console.log('OpenRouter API Key present:', !!apiKey);
+            const apiKey = GEMINI_API_KEY;
+            console.log('Gemini API Key present:', !!apiKey);
             
-            if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
-                throw new Error('API key not configured');
+            if (!apiKey) {
+                throw new Error('API key not configured. Please set GEMINI_API_KEY.');
             }
             
             // Build the system prompt
@@ -167,55 +168,54 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                     if (ref.type === 'note') {
                         userMessage += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
                     } else if (ref.type === 'pdf') {
-                        userMessage += `[PDF File: ${ref.title} - Note: PDF content attached]\n`;
+                         // Note: We are just passing the fact that there is a PDF.
+                         // To actually analyze the PDF content with Gemini, we would need to pass the base64 data as a 'part'.
+                         // For now, we are keeping the existing logic of just mentioning it unless we upgrade to multimodal input.
+                         // However, the previous implementation just mentioned it too.
+                         // Let's see if we can pass the content if available.
+                        userMessage += `[PDF File: ${ref.title}]\n(Note: PDF content analysis is limited in this text-only mode unless content is extracted)\n`;
                     }
                 });
             }
             
             userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
 
-            console.log('Calling OpenRouter API with model:', OPENROUTER_MODEL);
+            console.log('Calling Gemini API with model:', GEMINI_MODEL);
             
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'AcademiaZen'
-                },
-                body: JSON.stringify({
-                    model: OPENROUTER_MODEL,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userMessage }
-                    ],
-                    max_tokens: 2048,
-                    temperature: 0.7
-                })
+            // Using GoogleGenAI instead of GoogleGenerativeAI
+            const ai = new GoogleGenAI({ apiKey });
+
+            // Using the new client structure
+            const chat = ai.chats.create({
+                model: GEMINI_MODEL,
+                history: [
+                    {
+                        role: "user",
+                        parts: [{ text: systemPrompt }],
+                    },
+                    {
+                        role: "model",
+                        parts: [{ text: "Understood. I am Zen, your educational AI. I will follow your formatting rules and tone. How can I help you today?" }],
+                    },
+                ],
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('OpenRouter Error:', errorData);
-                throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('API Response:', data);
+            const result = await chat.sendMessage({
+                message: userMessage
+            });
+            const aiText = result.text;
             
-            const aiText = data.choices?.[0]?.message?.content || "I've analyzed the materials but couldn't generate a response.";
             setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
         } catch (error: any) {
             console.error("Zen AI Error:", error);
             let errorMessage: string;
             
             if (error.message?.includes('API key') || error.message?.includes('401')) {
-                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **OPENROUTER_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env` file in the project root\n- Add: `OPENROUTER_API_KEY=your_key_here`\n\n**For Vercel deployment:**\n- Go to your project settings\n- Add the OPENROUTER_API_KEY in Environment Variables";
+                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **GEMINI_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env.local` file in the project root\n- Add: `GEMINI_API_KEY=your_key_here`\n- Restart the dev server";
             } else if (error.message?.includes('429') || error.message?.includes('rate')) {
-                errorMessage = "### Rate Limit Reached\nToo many requests. Please wait a moment and try again.\n\nThe free tier has limited requests per minute.";
+                errorMessage = "### Rate Limit Reached\nToo many requests. Please wait a moment and try again.";
             } else {
-                errorMessage = "### Connection Issue\nI encountered a technical error while processing your request. \n\n**Possible reasons:**\n- API limit reached\n- Unstable connection\n- Service temporarily unavailable\n\nPlease try again in a moment.";
+                errorMessage = `### Connection Issue\nI encountered a technical error while processing your request: ${error.message || 'Unknown error'}.\n\nPlease try again in a moment.`;
             }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
         } finally {
@@ -241,10 +241,10 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                     </div>
                     <div>
                         <span className="font-semibold text-zen-text-primary block leading-none">Zen Intelligence</span>
-                        <span className="text-[9px] uppercase tracking-widest text-zen-primary font-bold mt-1 block">Contextual Assistant</span>
+                        <span className="text-[9px] uppercase tracking-widest text-zen-primary font-bold mt-1 block">Powered by Gemini</span>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-white transition-all active:scale-90">
+                <button onClick={onClose} className="p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-zen-text-primary transition-all active:scale-90">
                     <IconX className="w-6 h-6" />
                 </button>
             </div>

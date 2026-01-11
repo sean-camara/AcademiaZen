@@ -450,6 +450,15 @@ const Home: React.FC = () => {
   // Filtering Logic
   const completedCount = tasks.filter(t => t.completed).length;
   const pendingCount = tasks.filter(t => !t.completed).length;
+
+  const handleClearCompleted = () => {
+    // We need to implement deleteCompletedTasks in ZenContext ideally,
+    // but here we can just delete one by one or filter.
+    // However, exposing a method in Context is better.
+    // For now, let's just find completed tasks and delete them.
+    const completedTasks = tasks.filter(t => t.completed);
+    completedTasks.forEach(t => deleteTask(t.id));
+  };
   
   // Up Next Logic
   const now = new Date();
@@ -775,9 +784,18 @@ const Home: React.FC = () => {
 
       {/* Stats Section */}
       <section className="grid grid-cols-2 gap-4 animate-reveal stagger-2">
-        <div className="bg-zen-card p-4 rounded-2xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 hover:border-zen-primary/30 transition-colors">
-          <span className="text-2xl font-light text-zen-primary">{completedCount}</span>
-          <span className="text-xs text-zen-text-disabled uppercase tracking-wider">Completed</span>
+        <div
+            onClick={completedCount > 0 ? handleClearCompleted : undefined}
+            className={`bg-zen-card p-4 rounded-2xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 transition-colors relative group ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}
+            title={completedCount > 0 ? "Click to clear completed tasks" : ""}
+        >
+          {completedCount > 0 && (
+             <div className="absolute top-2 right-2 text-zen-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                 <IconTrash className="w-4 h-4" />
+             </div>
+          )}
+          <span className="text-2xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
+          <span className="text-xs text-zen-text-disabled uppercase tracking-wider group-hover:text-zen-destructive/70 transition-colors">{completedCount > 0 ? "Clear Completed" : "Completed"}</span>
         </div>
         <div className="bg-zen-card p-4 rounded-2xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 hover:border-zen-secondary/30 transition-colors">
           <span className="text-2xl font-light text-zen-text-secondary">{pendingCount}</span>
