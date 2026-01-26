@@ -13,6 +13,7 @@ import { auth } from '../firebase';
 
 // Cache the VAPID public key
 let cachedVapidKey: string | null = null;
+const DISABLE_LOCAL_NOTIFICATIONS = true;
 
 /**
  * Check if the device is online
@@ -281,6 +282,11 @@ export async function showLocalNotification(
   title: string,
   options?: NotificationOptions
 ): Promise<boolean> {
+  if (DISABLE_LOCAL_NOTIFICATIONS) {
+    console.log('[Push] Local notifications disabled');
+    return false;
+  }
+
   if (getPermissionStatus() !== 'granted') {
     const permission = await requestNotificationPermission();
     if (permission !== 'granted') {
