@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .glass {
+        @apply bg-opacity-70 backdrop-filter backdrop-blur-lg;
+    }
+}
+
+/* Custom Scrollbar for desktop where explicit scrolling is needed */
+.desktop-scroll-area::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.desktop-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+.desktop-scroll-area::-webkit-scrollbar-thumb {
+    background-color: #21262D;
+    border-radius: 20px;
+}
+.desktop-scroll-area::-webkit-scrollbar-thumb:hover {
+    background-color: #30363d;
+}

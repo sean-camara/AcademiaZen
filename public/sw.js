@@ -1,6 +1,6 @@
-const CACHE_NAME = 'zen-cache-v8';
-const STATIC_CACHE = 'zen-static-v8';
-const DYNAMIC_CACHE = 'zen-dynamic-v8';
+const CACHE_NAME = 'zen-cache-v9';
+const STATIC_CACHE = 'zen-static-v9';
+const DYNAMIC_CACHE = 'zen-dynamic-v9';
 
 console.log('[SW] Service Worker v8 loaded');
 
@@ -19,7 +19,6 @@ const STATIC_ASSETS = [
 
 // External resources to cache (will be cached on first use)
 const EXTERNAL_ASSETS = [
-  'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',

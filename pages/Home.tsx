@@ -17,7 +17,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to open the full PDF in a new tab/viewer
   const viewAll = () => {
     try {
       const base64Data = data.split(',')[1];
@@ -36,23 +35,19 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
     }
   };
 
-  // Initialize PDF
   useEffect(() => {
     const loadPdf = async () => {
       try {
         setIsLoading(true);
         setIsRendering(true);
         
-        // Check if PDF.js is loaded
         if (!(window as any).pdfjsLib) {
           throw new Error('PDF library not loaded. Please refresh the page.');
         }
         
-        // Base64 to Uint8Array
         const base64Parts = data.split(',');
         const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
         
-        // Validate base64 data
         if (!base64Data || base64Data.length < 100) {
           throw new Error('Invalid PDF data');
         }
@@ -78,7 +73,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
       }
     };
 
-    // Small delay to ensure PDF.js is loaded on mobile
     const timer = setTimeout(loadPdf, 100);
     return () => clearTimeout(timer);
   }, [data]);
@@ -92,11 +86,10 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       
-      // Calculate scale to fit container width
       const viewport = page.getViewport({ scale: 1 });
       const containerWidth = containerRef.current?.clientWidth || 600;
-      const scale = (containerWidth - 40) / viewport.width; // 40px padding
-      const scaledViewport = page.getViewport({ scale: Math.min(scale, 2) }); // Cap at 2x for quality
+      const scale = (containerWidth - 40) / viewport.width; 
+      const scaledViewport = page.getViewport({ scale: Math.min(scale, 2) });
 
       canvas.height = scaledViewport.height;
       canvas.width = scaledViewport.width;
@@ -128,7 +121,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
 
   return (
     <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[70] flex flex-col animate-reveal overflow-hidden">
-      {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-zen-surface bg-zen-bg/80 shrink-0">
         <div className="flex-1 min-w-0 pr-4">
            <h3 className="text-sm font-medium text-zen-text-primary truncate">{name}</h3>
@@ -148,7 +140,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
         </div>
       </div>
 
-      {/* Content Area - Page-based only, no scrolling */}
       <div 
         ref={containerRef}
         className="flex-1 w-full bg-[#1e1e1e] relative flex items-center justify-center p-4 overflow-hidden"
@@ -190,7 +181,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
         )}
       </div>
 
-      {/* Footer Page Indicator & Navigation */}
       <div className="bg-zen-bg/95 border-t border-zen-surface p-4 pb-8 flex justify-center items-center gap-8 shrink-0">
           <button 
             onClick={handlePrevPage}
@@ -220,7 +210,6 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
   );
 };
 
-// Task Action Choice Modal
 const TaskActionModal: React.FC<{ 
     task: Task; 
     onClose: () => void; 
@@ -296,7 +285,6 @@ const TaskActionModal: React.FC<{
     );
 };
 
-// Confirmation Delete Modal
 const ConfirmDeleteModal: React.FC<{
     type: 'subject' | 'task';
     name: string;
@@ -341,7 +329,6 @@ const ConfirmDeleteModal: React.FC<{
     );
 };
 
-// Edit Subject Modal
 const EditSubjectModal: React.FC<{
     subject: Subject;
     editName: string;
@@ -417,50 +404,33 @@ const Home: React.FC = () => {
   const { state, toggleTask, addTask, addSubject, updateSubject, deleteSubject, updateTask, deleteTask, setHideNavbar } = useZen();
   const { profile, tasks, subjects } = state;
   
-  // Dashboard States
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
-  
-  // Edit Subject States
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [editSubjectName, setEditSubjectName] = useState('');
   const [showSubjectActions, setShowSubjectActions] = useState<string | null>(null);
-  
-  // Edit Task States
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
-  // Detail View States
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [loadingSubjectId, setLoadingSubjectId] = useState<string | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<{ name: string; data: string } | null>(null);
   const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
-  
-  // Confirmation Dialog States
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'subject' | 'task'; id: string; name: string } | null>(null);
 
-  // Hide navbar when modals are open
   useEffect(() => {
     const hasModal = showAddTaskModal || viewingPdf !== null || confirmDelete !== null || editingSubject !== null || editingTask !== null;
     setHideNavbar(hasModal);
   }, [showAddTaskModal, viewingPdf, confirmDelete, editingSubject, editingTask, setHideNavbar]);
 
   const selectedSubject = subjects.find(s => s.id === (selectedSubjectId || loadingSubjectId));
-
-  // Filtering Logic
   const completedCount = tasks.filter(t => t.completed).length;
   const pendingCount = tasks.filter(t => !t.completed).length;
 
   const handleClearCompleted = () => {
-    // We need to implement deleteCompletedTasks in ZenContext ideally,
-    // but here we can just delete one by one or filter.
-    // However, exposing a method in Context is better.
-    // For now, let's just find completed tasks and delete them.
     const completedTasks = tasks.filter(t => t.completed);
     completedTasks.forEach(t => deleteTask(t.id));
   };
   
-  // Up Next Logic
   const now = new Date();
   const next72h = new Date(now.getTime() + 72 * 60 * 60 * 1000);
   const upNextTasks = tasks.filter(t => {
@@ -469,18 +439,12 @@ const Home: React.FC = () => {
     return due >= now && due <= next72h;
   }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
-  // Handlers
   const handleCreateSubject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubjectName.trim()) return;
     const colors = ['bg-zen-primary', 'bg-zen-secondary', 'bg-blue-400', 'bg-rose-400', 'bg-amber-400'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    
-    addSubject({
-      id: generateId(),
-      name: newSubjectName,
-      color: randomColor
-    });
+    addSubject({ id: generateId(), name: newSubjectName, color: randomColor });
     setNewSubjectName('');
     setShowAddSubject(false);
   };
@@ -491,21 +455,11 @@ const Home: React.FC = () => {
     setShowSubjectActions(null);
   };
 
-  const handleSaveSubjectEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSubject || !editSubjectName.trim()) return;
-    updateSubject({ ...editingSubject, name: editSubjectName.trim() });
-    setEditingSubject(null);
-    setEditSubjectName('');
-  };
-
   const handleDeleteSubject = (id: string) => {
     deleteSubject(id);
     setConfirmDelete(null);
     setShowSubjectActions(null);
-    if (selectedSubjectId === id) {
-      setSelectedSubjectId(null);
-    }
+    if (selectedSubjectId === id) setSelectedSubjectId(null);
   };
 
   const handleEditTask = (task: Task) => {
@@ -515,13 +469,7 @@ const Home: React.FC = () => {
 
   const handleSaveTaskEdit = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
     if (!editingTask) return;
-    updateTask({
-      ...editingTask,
-      title,
-      dueDate: date,
-      notes: notes || undefined,
-      pdfAttachment: pdf
-    });
+    updateTask({ ...editingTask, title, dueDate: date, notes: notes || undefined, pdfAttachment: pdf });
     setEditingTask(null);
   };
 
@@ -536,26 +484,14 @@ const Home: React.FC = () => {
     setTimeout(() => {
         setSelectedSubjectId(id);
         setLoadingSubjectId(null);
-    }, 600);
+    }, 400);
   };
 
   const handleCreateTask = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
     if (!selectedSubjectId) return;
-    
-    const newTask: Task = {
-      id: generateId(),
-      title,
-      dueDate: date,
-      completed: false,
-      subjectId: selectedSubjectId,
-      notes: notes || undefined,
-      pdfAttachment: pdf
-    };
-    
-    addTask(newTask);
+    addTask({ id: generateId(), title, dueDate: date, completed: false, subjectId: selectedSubjectId, notes: notes || undefined, pdfAttachment: pdf });
   };
 
-  // --- SUBJECT DETAIL VIEW ---
   if (selectedSubjectId && selectedSubject) {
     const subjectTasks = tasks.filter(t => t.subjectId === selectedSubject.id);
     const pendingSubjectTasks = subjectTasks.filter(t => !t.completed);
@@ -563,404 +499,239 @@ const Home: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col relative bg-zen-bg animate-reveal">
-        {/* Header */}
-        <div className="p-6 pb-2 sticky top-0 bg-zen-bg/95 backdrop-blur z-10">
-          <button 
-            onClick={() => setSelectedSubjectId(null)}
-            className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary transition-all mb-4 group active:scale-95"
-          >
-            <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium">Back to Dashboard</span>
-          </button>
-          
-          <div className="flex items-center gap-3">
-             <div className={`w-4 h-4 rounded-full ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`} style={selectedSubject.color.startsWith('#') ? {backgroundColor: selectedSubject.color} : {}} />
-             <h2 className="text-3xl font-light text-zen-text-primary">{selectedSubject.name}</h2>
+        
+        {/* Mobile Header (Sticky) */}
+        <div className="pt-6 px-4 md:px-10 pb-4 sticky top-0 bg-zen-bg/95 backdrop-blur-xl z-20 flex flex-col gap-6 border-b border-zen-surface/20 md:border-none">
+          <div className="max-w-4xl mx-auto w-full">
+            <button 
+                onClick={() => setSelectedSubjectId(null)} 
+                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary transition-all w-fit group active:scale-95 py-1 px-3 -ml-3 rounded-lg hover:bg-zen-surface/50 mb-2"
+            >
+                <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                <span className="text-sm font-medium">Dashboard</span>
+            </button>
+            
+            <div className="flex items-center gap-5">
+                <div className="relative">
+                    <div className={`w-2.5 h-10 rounded-full ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`} style={selectedSubject.color.startsWith('#') ? {backgroundColor: selectedSubject.color} : {}} />
+                    <div className={`absolute -right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-[3px] border-zen-bg shadow-lg ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`} style={selectedSubject.color.startsWith('#') ? {backgroundColor: selectedSubject.color} : {}} />
+                </div>
+                <div className="min-w-0">
+                    <h2 className="text-2xl md:text-5xl font-light text-zen-text-primary leading-tight tracking-tight truncate">{selectedSubject.name}</h2>
+                    <p className="text-[10px] md:text-xs text-zen-text-disabled font-black uppercase tracking-[0.2em] mt-1">{pendingSubjectTasks.length} Pending Actions</p>
+                </div>
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 pt-2 pb-24 space-y-8 no-scrollbar">
-            {/* Stats */}
-            <div className="flex gap-4">
-                 <div className="bg-zen-card px-4 py-3 rounded-xl border border-zen-surface flex items-center gap-2 animate-reveal stagger-1">
-                     <span className="text-lg font-medium text-zen-primary">{pendingSubjectTasks.length}</span>
-                     <span className="text-xs text-zen-text-secondary uppercase tracking-wide">Pending</span>
-                 </div>
-                 <div className="bg-zen-card px-4 py-3 rounded-xl border border-zen-surface flex items-center gap-2 animate-reveal stagger-2">
-                     <span className="text-lg font-medium text-zen-text-disabled">{completedSubjectTasks.length}</span>
-                     <span className="text-xs text-zen-text-secondary uppercase tracking-wide">Done</span>
-                 </div>
-            </div>
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-32">
+            <div className="max-w-4xl mx-auto w-full px-4 md:px-10">
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 gap-4 py-8">
+                    <div className="bg-zen-card p-6 rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all flex flex-col items-center justify-center gap-2 shadow-sm">
+                        <span className="text-3xl font-light text-zen-text-primary">{pendingSubjectTasks.length}</span>
+                        <span className="text-[9px] text-zen-text-disabled uppercase tracking-[0.2em] font-black">Active</span>
+                    </div>
+                    <div className="bg-zen-card p-6 rounded-[2rem] border border-zen-surface transition-all flex flex-col items-center justify-center gap-2 shadow-sm opacity-50">
+                        <span className="text-3xl font-light text-zen-text-disabled">{completedSubjectTasks.length}</span>
+                        <span className="text-[9px] text-zen-text-disabled uppercase tracking-[0.2em] font-black">Resolved</span>
+                    </div>
+                </div>
 
-            {/* Task List */}
-            <div className="space-y-4">
-                <h3 className="text-lg font-medium text-zen-text-primary border-b border-zen-surface pb-2">Tasks</h3>
-                
-                {subjectTasks.length > 0 ? (
-                  <ul className="space-y-3">
-                    {subjectTasks.map((task, idx) => (
-                      <li 
-                        key={task.id} 
-                        onClick={() => setActiveActionTask(task)}
-                        className={`group bg-zen-card p-4 rounded-xl border border-zen-surface/50 hover:border-zen-surface transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] animate-reveal stagger-${Math.min(idx + 1, 5)}`}
-                      >
-                         <div className="flex items-start gap-3">
-                            <button 
-                              onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleTask(task.id);
-                              }}
-                              className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center transition-all ${task.completed ? 'bg-zen-primary border-zen-primary scale-110' : 'border-zen-text-secondary hover:border-zen-primary'}`}
-                            >
-                              {task.completed && <IconCheck className="w-3 h-3 text-zen-bg" />}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                                <h4 className={`text-base font-medium truncate transition-all ${task.completed ? 'text-zen-text-disabled line-through opacity-60' : 'text-zen-text-primary'}`}>
-                                    {task.title}
-                                </h4>
-                                <div className="flex items-center gap-3 mt-1 text-xs text-zen-text-secondary">
-                                    <span>{new Date(task.dueDate).toLocaleDateString()} &bull; {new Date(task.dueDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                    {task.pdfAttachment && (
-                                        <span className="flex items-center gap-1 text-zen-primary bg-zen-primary/10 px-2 py-0.5 rounded transition-all">
-                                            <IconPaperclip className="w-3 h-3" />
-                                            <span>PDF</span>
+                {/* Tasks List */}
+                <div className="space-y-10">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black text-zen-text-disabled uppercase tracking-[0.25em]">Registry</h3>
+                        <div className="h-[1px] flex-1 bg-zen-surface ml-6 opacity-20"></div>
+                    </div>
+
+                    {subjectTasks.length > 0 ? (
+                    <ul className="space-y-4 pb-10">
+                        {subjectTasks.map((task, idx) => (
+                        <li 
+                            key={task.id} 
+                            onClick={() => setActiveActionTask(task)} 
+                            className="group bg-zen-card p-6 rounded-3xl border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer active:scale-[0.98] animate-reveal" 
+                            style={{ animationDelay: `${idx * 0.05}s` }}
+                        >
+                            <div className="flex items-center gap-5">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} 
+                                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-zen-primary border-zen-primary shadow-glow' : 'border-zen-surface-brighter hover:border-zen-primary'}`}
+                                >
+                                {task.completed && <IconCheck className="w-4 h-4 text-zen-bg stroke-[4]" />}
+                                </button>
+                                
+                                <div className="flex-1 min-w-0">
+                                    <h4 className={`text-lg font-medium leading-tight transition-all truncate ${task.completed ? 'text-zen-text-disabled line-through opacity-50' : 'text-zen-text-primary'}`}>
+                                        {task.title}
+                                    </h4>
+                                    
+                                    <div className="flex items-center gap-4 mt-2">
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-400' : 'text-zen-text-disabled'}`}>
+                                            {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </span>
+                                        {task.pdfAttachment && (
+                                            <span className="flex items-center gap-1.5 text-zen-primary font-black text-[9px] uppercase tracking-[0.15em]">
+                                                <IconPaperclip className="w-3 h-3" />
+                                                Data Attached
+                                            </span>
+                                        )}
+                                    </div>
+                                    
+                                    {task.notes && (
+                                        <p className="text-sm text-zen-text-secondary line-clamp-1 mt-3 pl-3 border-l-2 border-zen-surface/50">
+                                            {task.notes}
+                                        </p>
                                     )}
                                 </div>
-                                {task.notes && (
-                                    <p className="mt-2 text-xs text-zen-text-secondary line-clamp-2 leading-relaxed bg-zen-surface/30 p-2 rounded-lg">
-                                        {task.notes}
-                                    </p>
-                                )}
                             </div>
-                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="py-12 text-center opacity-60 animate-reveal">
-                      <p className="text-zen-text-disabled">No tasks yet. Clear mind.</p>
-                  </div>
-                )}
+                        </li>
+                        ))}
+                    </ul>
+                    ) : (
+                    <div className="py-24 flex flex-col items-center justify-center gap-6 opacity-60 animate-reveal">
+                        <div className="w-24 h-24 bg-zen-surface/50 rounded-[2.5rem] flex items-center justify-center rotate-3 border border-zen-surface">
+                            <IconCheck className="w-10 h-10 text-zen-primary/40" />
+                        </div>
+                        <p className="text-zen-text-disabled font-light text-lg tracking-tight">No actions logged in memory.</p>
+                    </div>
+                    )}
+                </div>
             </div>
         </div>
 
-        {/* Floating Action Button */}
-        <div className="absolute bottom-6 right-6 z-20">
+        {/* Floating Action Button (FAB) */}
+        <div className="fixed bottom-[110px] right-6 md:right-10 z-30">
             <button 
-                onClick={() => setShowAddTaskModal(true)}
-                className="w-14 h-14 bg-zen-primary text-zen-bg rounded-full shadow-lg shadow-zen-primary/20 flex items-center justify-center hover:scale-110 transition-transform active:scale-90"
+                onClick={() => setShowAddTaskModal(true)} 
+                className="w-16 h-16 bg-zen-primary text-zen-bg rounded-[1.5rem] shadow-[0_15px_30px_-5px_rgba(var(--zen-primary-rgb),0.3)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all group"
             >
-                <IconPlus className="w-8 h-8" />
+                <IconPlus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-500" />
             </button>
         </div>
 
-        {/* Modals */}
-        {showAddTaskModal && (
-            <AddTaskModal 
-                subjectName={selectedSubject.name}
-                onClose={() => setShowAddTaskModal(false)}
-                onSave={handleCreateTask}
-            />
-        )}
-
-        {editingTask && (
-            <AddTaskModal 
-                subjectName={selectedSubject.name}
-                onClose={() => setEditingTask(null)}
-                onSave={handleSaveTaskEdit}
-                editMode={true}
-                initialData={{
-                    title: editingTask.title,
-                    date: editingTask.dueDate.slice(0, 16), // Format for datetime-local input
-                    notes: editingTask.notes || '',
-                    pdf: editingTask.pdfAttachment
-                }}
-            />
-        )}
-
-        {activeActionTask && (
-            <TaskActionModal 
-                task={activeActionTask}
-                onClose={() => setActiveActionTask(null)}
-                onToggleDone={() => {
-                    toggleTask(activeActionTask.id);
-                    setActiveActionTask(null);
-                }}
-                onViewPdf={() => {
-                    if (activeActionTask.pdfAttachment) {
-                        setViewingPdf(activeActionTask.pdfAttachment);
-                    }
-                    setActiveActionTask(null);
-                }}
-                onEdit={() => handleEditTask(activeActionTask)}
-                onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })}
-            />
-        )}
-
-        {confirmDelete && (
-            <ConfirmDeleteModal 
-                type={confirmDelete.type}
-                name={confirmDelete.name}
-                onConfirm={() => {
-                    if (confirmDelete.type === 'task') {
-                        handleDeleteTask(confirmDelete.id);
-                    } else {
-                        handleDeleteSubject(confirmDelete.id);
-                    }
-                }}
-                onCancel={() => setConfirmDelete(null)}
-            />
-        )}
-
-        {viewingPdf && (
-            <PDFViewer 
-                name={viewingPdf.name} 
-                data={viewingPdf.data} 
-                onClose={() => setViewingPdf(null)} 
-            />
-        )}
+        {showAddTaskModal && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setShowAddTaskModal(false)} onSave={handleCreateTask} />}
+        {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate.slice(0, 16), notes: editingTask.notes || '', pdf: editingTask.pdfAttachment }} />}
+        {activeActionTask && <TaskActionModal task={activeActionTask} onClose={() => setActiveActionTask(null)} onToggleDone={() => { toggleTask(activeActionTask.id); setActiveActionTask(null); }} onViewPdf={() => { if (activeActionTask.pdfAttachment) setViewingPdf(activeActionTask.pdfAttachment); setActiveActionTask(null); }} onEdit={() => handleEditTask(activeActionTask)} onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })} />}
+        {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
+        {viewingPdf && <PDFViewer name={viewingPdf.name} data={viewingPdf.data} onClose={() => setViewingPdf(null)} />}
       </div>
     );
   }
 
-  // --- DASHBOARD VIEW ---
   return (
-    <div className="px-6 py-4 space-y-8 animate-reveal pb-20 relative min-h-full no-scrollbar overflow-y-auto">
-      
-      {/* Loading Overlay */}
+    <div className="h-full w-full overflow-hidden flex flex-col relative animate-reveal">
       {loadingSubjectId && (
           <div className="fixed inset-0 bg-zen-bg/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center animate-fade-in">
               <div className="w-16 h-16 border-2 border-zen-primary border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-zen-primary font-medium tracking-widest uppercase text-xs animate-pulse">Focusing on {selectedSubject?.name}...</p>
           </div>
       )}
 
-      {/* Greeting Section */}
-      <section className="space-y-1">
-        <h2 className="text-3xl font-light text-zen-text-primary">
-          {getGreeting(profile.name)}
-        </h2>
-        <p className="text-zen-text-secondary font-light text-sm">
-          {formatDateFull(new Date())}
-        </p>
-      </section>
-
-      {/* Up Next Card */}
-      <section className="animate-reveal stagger-1">
-        <div className="flex justify-between items-baseline mb-3">
-           <h3 className="text-lg font-medium text-zen-text-primary">Up Next</h3>
-        </div>
-        <div className="bg-zen-card rounded-2xl p-5 shadow-lg border border-zen-surface/30">
-          {upNextTasks.length > 0 ? (
-            <ul className="space-y-4">
-              {upNextTasks.slice(0, 3).map((task, idx) => (
-                <li key={task.id} className={`flex items-center gap-3 group animate-reveal stagger-${idx + 1}`}>
-                  <button 
-                    onClick={() => toggleTask(task.id)}
-                    className="w-5 h-5 rounded-full border border-zen-text-secondary flex items-center justify-center hover:border-zen-primary transition-all active:scale-90"
-                  >
-                    {task.completed && <div className="w-3.5 h-3.5 bg-zen-primary rounded-full animate-scale-in" />}
-                  </button>
-                  <div className="flex-1">
-                    <p className="text-sm text-zen-text-primary group-hover:text-white transition-colors">
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-zen-text-disabled">
-                       {new Date(task.dueDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="py-4 text-center">
-              <p className="text-zen-text-secondary text-sm">No urgent tasks. Enjoy your peace.</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="grid grid-cols-2 gap-4 animate-reveal stagger-2">
-        <div
-            onClick={completedCount > 0 ? handleClearCompleted : undefined}
-            className={`bg-zen-card p-4 rounded-2xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 transition-colors relative group ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}
-            title={completedCount > 0 ? "Click to clear completed tasks" : ""}
-        >
-          {completedCount > 0 && (
-             <div className="absolute top-2 right-2 text-zen-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                 <IconTrash className="w-4 h-4" />
-             </div>
-          )}
-          <span className="text-2xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
-          <span className="text-xs text-zen-text-disabled uppercase tracking-wider group-hover:text-zen-destructive/70 transition-colors">{completedCount > 0 ? "Clear Completed" : "Completed"}</span>
-        </div>
-        <div className="bg-zen-card p-4 rounded-2xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 hover:border-zen-secondary/30 transition-colors">
-          <span className="text-2xl font-light text-zen-text-secondary">{pendingCount}</span>
-          <span className="text-xs text-zen-text-disabled uppercase tracking-wider">Pending</span>
-        </div>
-      </section>
-
-      {/* Subjects Section */}
-      <section className="animate-reveal stagger-3">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-zen-text-primary">Subjects</h3>
-          <button 
-            onClick={() => setShowAddSubject(true)}
-            className="text-zen-primary text-sm hover:underline active:scale-95 transition-transform"
-          >
-            + Add
-          </button>
-        </div>
-
-        {showAddSubject && (
-            <form onSubmit={handleCreateSubject} className="mb-4 bg-zen-card p-4 rounded-xl animate-reveal">
-                <input 
-                    autoFocus
-                    type="text" 
-                    placeholder="Subject Name..."
-                    className="w-full bg-transparent border-b border-zen-surface p-2 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-colors"
-                    value={newSubjectName}
-                    onChange={e => setNewSubjectName(e.target.value)}
-                />
-                <div className="flex justify-end gap-2 mt-3">
-                    <button type="button" onClick={() => setShowAddSubject(false)} className="text-xs text-zen-text-secondary px-3 py-2">Cancel</button>
-                    <button type="submit" className="text-xs bg-zen-surface text-zen-primary px-3 py-2 rounded-lg">Create</button>
+      <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar desktop-scroll-area p-6 lg:p-10 pb-24 lg:pb-10">
+          <div className="max-w-7xl mx-auto space-y-8">
+             
+             <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="space-y-1">
+                   <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary tracking-tight">{getGreeting(profile.name)}</h2>
+                   <p className="text-zen-text-secondary md:text-lg font-light">{formatDateFull(new Date())}</p>
                 </div>
-            </form>
-        )}
+             </header>
 
-        <div className="flex flex-col gap-4">
-          {subjects.map((subject, idx) => {
-            const subjectTasks = tasks.filter(t => t.subjectId === subject.id);
-            const total = subjectTasks.length;
-            const completed = subjectTasks.filter(t => t.completed).length;
-            const progress = total === 0 ? 0 : (completed / total) * 100;
-            const isTarget = loadingSubjectId === subject.id;
-            const showActions = showSubjectActions === subject.id;
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <div className="lg:col-span-8 space-y-6">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div onClick={completedCount > 0 ? handleClearCompleted : undefined} className={`bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 transition-all relative group h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}>
+                          <span className="text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
+                          <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors">Completed</span>
+                      </div>
+                      <div className="bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 h-32">
+                          <span className="text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
+                          <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium">Pending</span>
+                      </div>
+                   </div>
 
-            return (
-              <div 
-                key={subject.id}
-                className={`relative bg-zen-card p-5 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/50 transition-all text-left group animate-reveal stagger-${Math.min(idx + 1, 5)} ${isTarget ? 'animate-bounce-subtle ring-1 ring-zen-primary' : ''}`}
-              >
-                {/* Main clickable area */}
-                <div 
-                  onClick={() => handleSubjectClick(subject.id)}
-                  className="cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-transform"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`w-3 h-3 rounded-full shrink-0 ${subject.color.startsWith('#') ? '' : subject.color}`} style={subject.color.startsWith('#') ? {backgroundColor: subject.color} : {}} />
-                          <h4 className="font-medium text-zen-text-primary truncate group-hover:text-zen-primary transition-colors text-lg">{subject.name}</h4>
+                   <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-3xl p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-zen-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-zen-secondary/20 transition-colors duration-1000"></div>
+                      <div className="relative z-10">
+                        <h3 className="text-lg font-medium text-zen-text-primary mb-6 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-zen-secondary"></div>Up Next</h3>
+                        
+                        {upNextTasks.length > 0 ? (
+                            <div className="grid gap-4">
+                            {upNextTasks.slice(0, 3).map((task, idx) => (
+                                <div key={task.id} className="flex items-center gap-4 bg-zen-bg/50 p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={() => setActiveActionTask(task)}>
+                                    <div className={`w-1 h-12 rounded-full ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-zen-text-primary font-medium truncate">{task.title}</h4>
+                                        <p className="text-xs text-zen-text-secondary mt-1">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} className="p-2 text-zen-text-disabled hover:text-zen-primary transition-colors"><IconCheck className="w-5 h-5" /></button>
+                                </div>
+                            ))}
+                            </div>
+                        ) : (
+                            <div className="py-8 text-center"><p className="text-zen-text-secondary">All caught up. Breathe.</p></div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-zen-text-disabled font-medium">
-                            {completed}/{total} Done
-                        </p>
-                        {/* Actions Menu Button */}
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowSubjectActions(showActions ? null : subject.id);
-                          }}
-                          className="p-1.5 text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface rounded-lg transition-all"
-                        >
-                          <IconMoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                  </div>
-                  
-                  {/* Progress Bar Container */}
-                  <div className="w-full h-1.5 bg-zen-surface rounded-full overflow-hidden mb-1">
-                      <div 
-                          className={`h-full transition-all duration-700 ease-out ${subject.color.startsWith('#') ? '' : subject.color}`}
-                          style={{ 
-                              width: `${progress}%`,
-                              backgroundColor: subject.color.startsWith('#') ? subject.color : undefined 
-                          }} 
-                      />
-                  </div>
-                  <p className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">
-                      {Math.round(progress)}% Mastery
-                  </p>
+                   </section>
                 </div>
+                
+                <div className="lg:col-span-4 space-y-6">
+                    <div className="bg-zen-card/50 backdrop-blur-sm rounded-3xl p-6 border border-zen-surface h-full min-h-[400px]">
+                       <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-xl font-bold text-zen-text-primary tracking-tight">Subjects</h3>
+                          <button onClick={() => setShowAddSubject(true)} className="p-2 hover:bg-zen-surface rounded-full text-zen-primary transition-colors hover:rotate-90 duration-300"><IconPlus className="w-5 h-5" /></button>
+                       </div>
+                       
+                       {showAddSubject && (
+                            <form onSubmit={handleCreateSubject} className="mb-6 bg-zen-bg p-4 rounded-2xl border border-zen-surface animate-reveal">
+                                <input autoFocus type="text" placeholder="Subject Name..." className="w-full bg-transparent border-b border-zen-surface p-2 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-colors mb-3" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} />
+                                <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowAddSubject(false)} className="text-xs text-zen-text-secondary px-3 py-2">Cancel</button><button type="submit" className="text-xs bg-zen-surface text-zen-primary px-3 py-2 rounded-lg font-medium">Create</button></div>
+                            </form>
+                        )}
 
-                {/* Actions Dropdown */}
-                {showActions && (
-                  <div className="absolute right-4 top-14 bg-zen-card border border-zen-surface rounded-xl shadow-xl z-20 overflow-hidden animate-scale-in">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditSubject(subject);
-                      }}
-                      className="w-full px-4 py-3 text-sm text-zen-text-primary hover:bg-zen-surface flex items-center gap-2 transition-colors"
-                    >
-                      <IconEdit className="w-4 h-4" />
-                      Edit Subject
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDelete({ type: 'subject', id: subject.id, name: subject.name });
-                        setShowSubjectActions(null);
-                      }}
-                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                    >
-                      <IconTrash className="w-4 h-4" />
-                      Delete Subject
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          
-          {subjects.length === 0 && !showAddSubject && (
-             <div className="py-12 text-center border border-dashed border-zen-surface rounded-2xl animate-reveal">
-                 <p className="text-sm text-zen-text-disabled">No subjects yet</p>
+                       <div className="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar pr-1">
+                          {subjects.map((subject, idx) => {
+                            const total = tasks.filter(t => t.subjectId === subject.id).length;
+                            const completed = tasks.filter(t => t.subjectId === subject.id && t.completed).length;
+                            const progress = total === 0 ? 0 : (completed / total) * 100;
+                            const showActions = showSubjectActions === subject.id;
+
+                            return (
+                                <div key={subject.id} className="relative group animate-reveal stagger-1">
+                                    <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative overflow-hidden">
+                                        <div className="flex justify-between items-center mb-2 z-10 relative">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-8 rounded-full ${subject.color}`} />
+                                                <h4 className="font-medium text-zen-text-primary">{subject.name}</h4>
+                                            </div>
+                                            <button onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-3">
+                                            <div className="flex-1 h-1 bg-zen-surface rounded-full overflow-hidden"><div className={`h-full ${subject.color} opacity-70`} style={{ width: `${progress}%` }} /></div>
+                                            <span className="text-[10px] text-zen-text-disabled font-mono">{Math.round(progress)}%</span>
+                                        </div>
+                                    </div>
+                                    {showActions && (
+                                        <div className="absolute right-2 top-10 bg-zen-surface border border-zen-text-disabled/20 rounded-xl shadow-2xl z-20 overflow-hidden animate-scale-in w-32">
+                                            <button onClick={(e) => { e.stopPropagation(); handleEditSubject(subject); }} className="w-full px-4 py-2 text-xs text-zen-text-primary hover:bg-white/5 flex items-center gap-2 text-left">Edit</button>
+                                            <button onClick={(e) => { e.stopPropagation(); setConfirmDelete({ type: 'subject', id: subject.id, name: subject.name }); setShowSubjectActions(null); }} className="w-full px-4 py-2 text-xs text-red-400 hover:bg-white/5 flex items-center gap-2 text-left">Delete</button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                          })}
+                          {subjects.length === 0 && !showAddSubject && <div className="py-8 text-center opacity-50"><p className="text-sm text-zen-text-disabled">Nothing here yet</p></div>}
+                       </div>
+                    </div>
+                </div>
              </div>
-          )}
-        </div>
-      </section>
+          </div>
+      </div>
 
-      {/* Edit Subject Modal */}
-      {editingSubject && (
-        <EditSubjectModal 
-          subject={editingSubject}
-          editName={editSubjectName}
-          setEditName={setEditSubjectName}
-          onSave={(e) => {
-            e.preventDefault();
-            if (!editSubjectName.trim()) return;
-            updateSubject({ ...editingSubject, name: editSubjectName.trim() });
-            setEditingSubject(null);
-            setEditSubjectName('');
-          }}
-          onCancel={() => {
-            setEditingSubject(null);
-            setEditSubjectName('');
-          }}
-        />
-      )}
-
-      {/* Confirm Delete Modal */}
-      {confirmDelete && (
-        <ConfirmDeleteModal 
-          type={confirmDelete.type}
-          name={confirmDelete.name}
-          onConfirm={() => {
-            if (confirmDelete.type === 'task') {
-              handleDeleteTask(confirmDelete.id);
-            } else {
-              handleDeleteSubject(confirmDelete.id);
-            }
-          }}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
+      {editingSubject && <EditSubjectModal subject={editingSubject} editName={editSubjectName} setEditName={setEditSubjectName} onSave={(e) => { e.preventDefault(); if (!editSubjectName.trim()) return; updateSubject({ ...editingSubject, name: editSubjectName.trim() }); setEditingSubject(null); setEditSubjectName(''); }} onCancel={() => { setEditingSubject(null); setEditSubjectName(''); }} />}
+      {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
     </div>
   );
 };

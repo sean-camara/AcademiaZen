@@ -75,6 +75,16 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
 
+  const isWithinThreeDays = (dueDate?: string) => {
+    if (!dueDate) return false;
+    const due = new Date(dueDate);
+    if (Number.isNaN(due.getTime())) return false;
+    const now = new Date();
+    const diffMs = due.getTime() - now.getTime();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return diffMs > 0 && diffMs <= threeDaysMs;
+  };
+
   // Play notification sound when focus session completes
   const playZenBell = () => {
     try {
@@ -265,7 +275,13 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setState(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
     
     // Send immediate notification if task is due within 3 days and notifications are enabled
-    if (user?.emailVerified && state.settings.notifications && state.settings.deadlineAlerts && task.dueDate) {
+    if (
+      user?.emailVerified &&
+      state.settings.notifications &&
+      state.settings.deadlineAlerts &&
+      task.dueDate &&
+      isWithinThreeDays(task.dueDate)
+    ) {
       notifyNewTask({ id: task.id, title: task.title, dueDate: task.dueDate });
     }
   };
@@ -280,10 +296,27 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     tasks: prev.tasks.filter(t => t.id !== id)
   }));
 
-  const updateTask = (updatedTask: Task) => setState(prev => ({
-    ...prev,
-    tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
-  }));
+  const updateTask = (updatedTask: Task) => {
+    const prevTask = state.tasks.find(t => t.id === updatedTask.id);
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+    }));
+
+    const shouldNotify = Boolean(
+      user?.emailVerified &&
+      state.settings.notifications &&
+      state.settings.deadlineAlerts &&
+      updatedTask.dueDate &&
+      !updatedTask.completed &&
+      isWithinThreeDays(updatedTask.dueDate) &&
+      (prevTask?.dueDate !== updatedTask.dueDate || prevTask?.completed !== updatedTask.completed)
+    );
+
+    if (shouldNotify) {
+      notifyNewTask({ id: updatedTask.id, title: updatedTask.title, dueDate: updatedTask.dueDate });
+    }
+  };
 
   const addSubject = (subject: Subject) => setState(prev => ({ ...prev, subjects: [...prev.subjects, subject] }));
 
