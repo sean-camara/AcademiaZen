@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useRe
 import { ZenState, Task, Subject, Flashcard, Folder, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
+import { useAuth } from './AuthContext';
+import { apiFetch } from '../utils/api';
 
 interface ZenContextType {
   state: ZenState;
@@ -48,6 +50,9 @@ const AMBIENCE_URLS: Record<string, string> = {
 };
 
 export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [isHydrated, setIsHydrated] = useState(false);
+
   // Load initial state
   const [state, setState] = useState<ZenState>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -65,6 +70,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const timerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const bellAudioRef = useRef<HTMLAudioElement | null>(null);
+  const syncTimeoutRef = useRef<number | null>(null);
   
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
@@ -120,12 +126,68 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  // Load remote state once user is authenticated
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRemoteState = async () => {
+      if (!user || !user.emailVerified) {
+        setIsHydrated(true);
+        return;
+      }
+      try {
+        const response = await apiFetch('/api/state');
+        if (!response.ok) throw new Error('Failed to load state');
+        const data = await response.json();
+        if (!cancelled && data?.state) {
+          setState(data.state as ZenState);
+        }
+      } catch (err) {
+        console.warn('[Zen] Failed to load remote state, using local cache', err);
+      } finally {
+        if (!cancelled) setIsHydrated(true);
+      }
+    };
+
+    loadRemoteState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, user?.emailVerified]);
+
+  // Debounced sync to backend when state changes
+  useEffect(() => {
+    if (!user || !user.emailVerified) return;
+    if (!isHydrated) return;
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        await apiFetch('/api/state', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state }),
+        });
+      } catch (err) {
+        console.warn('[Zen] Failed to sync state', err);
+      }
+    }, 1000);
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, [state, user?.uid, user?.emailVerified, isHydrated]);
+
   // Sync tasks with backend for deadline reminders whenever tasks change
   useEffect(() => {
-    if (state.settings.notifications && state.settings.deadlineAlerts) {
+    if (user?.emailVerified && state.settings.notifications && state.settings.deadlineAlerts) {
       syncTasksWithBackend(state.tasks);
     }
-  }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts]);
+  }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts, user?.emailVerified]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -203,7 +265,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setState(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
     
     // Send immediate notification if task is due within 3 days and notifications are enabled
-    if (state.settings.notifications && state.settings.deadlineAlerts && task.dueDate) {
+    if (user?.emailVerified && state.settings.notifications && state.settings.deadlineAlerts && task.dueDate) {
       notifyNewTask({ id: task.id, title: task.title, dueDate: task.dueDate });
     }
   };

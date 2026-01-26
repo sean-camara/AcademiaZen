@@ -2,11 +2,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
-import { GoogleGenAI } from "@google/genai";
+import { apiFetch } from '../utils/api';
 
-// Gemini API configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-1.5-flash";
+// AI model handled by backend
 
 interface SelectedRef {
     id: string;
@@ -139,13 +137,6 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const apiKey = GEMINI_API_KEY;
-            console.log('Gemini API Key present:', !!apiKey);
-            
-            if (!apiKey) {
-                throw new Error('API key not configured. Please set GEMINI_API_KEY.');
-            }
-            
             // Build the system prompt
             const systemPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
 
@@ -180,38 +171,30 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             
             userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
 
-            console.log('Calling Gemini API with model:', GEMINI_MODEL);
-            
-            // Using GoogleGenAI instead of GoogleGenerativeAI
-            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `${systemPrompt}\n\n${userMessage}`;
 
-            // Using the new client structure
-            const chat = ai.chats.create({
-                model: GEMINI_MODEL,
-                history: [
-                    {
-                        role: "user",
-                        parts: [{ text: systemPrompt }],
-                    },
-                    {
-                        role: "model",
-                        parts: [{ text: "Understood. I am Zen, your educational AI. I will follow your formatting rules and tone. How can I help you today?" }],
-                    },
-                ],
+            const response = await apiFetch('/api/ai/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt }),
             });
 
-            const result = await chat.sendMessage({
-                message: userMessage
-            });
-            const aiText = result.text;
+            if (!response.ok) {
+                throw new Error(`AI request failed (${response.status})`);
+            }
+
+            const data = await response.json();
+            const aiText = data.text || 'No response from AI.';
             
             setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
         } catch (error: any) {
             console.error("Zen AI Error:", error);
             let errorMessage: string;
             
-            if (error.message?.includes('API key') || error.message?.includes('401')) {
-                errorMessage = "### Configuration Required\nThe AI service is not properly configured. Please ensure your **GEMINI_API_KEY** environment variable is set.\n\n**For local development:**\n- Create a `.env.local` file in the project root\n- Add: `GEMINI_API_KEY=your_key_here`\n- Restart the dev server";
+            if (error.message?.includes('401')) {
+                errorMessage = "### Authentication Required\nPlease sign in again to continue using Zen AI.";
             } else if (error.message?.includes('429') || error.message?.includes('rate')) {
                 errorMessage = "### Rate Limit Reached\nToo many requests. Please wait a moment and try again.";
             } else {

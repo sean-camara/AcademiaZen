@@ -3,6 +3,9 @@ import { useZen } from '../context/ZenContext';
 import { IconX } from '../components/Icons';
 import { AMBIENCE_OPTIONS, FOCUS_DURATIONS } from '../constants';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../utils/api';
+import { auth } from '../firebase';
 
 interface SettingsProps {
     onClose: () => void;
@@ -10,6 +13,7 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const { state, updateSettings, updateProfile, clearData } = useZen();
+  const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'focus' | 'profile' | 'notifications' | 'data'>('focus');
   
   // Push notifications hook
@@ -245,15 +249,46 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                 {/* Data Settings */}
                 {activeTab === 'data' && (
                     <div className="space-y-4">
-                        <button className="w-full py-3 rounded-xl bg-zen-card text-zen-text-primary border border-zen-surface hover:bg-zen-surface transition-colors text-sm">
-                            Export Data (JSON)
+                        <button
+                          onClick={() => {
+                            const data = JSON.stringify(state, null, 2);
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'academiazen-data.json';
+                            link.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="w-full py-3 rounded-xl bg-zen-card text-zen-text-primary border border-zen-surface hover:bg-zen-surface transition-colors text-sm"
+                        >
+                          Export Data (JSON)
                         </button>
-                         <button className="w-full py-3 rounded-xl bg-zen-card text-zen-text-primary border border-zen-surface hover:bg-zen-surface transition-colors text-sm">
-                            Clear Cache
+                        <button
+                          onClick={() => clearData()}
+                          className="w-full py-3 rounded-xl bg-zen-card text-zen-text-primary border border-zen-surface hover:bg-zen-surface transition-colors text-sm"
+                        >
+                          Clear Cache
                         </button>
                         <div className="pt-4 border-t border-zen-surface">
                              <button 
-                                onClick={() => { if(window.confirm('Are you sure? This cannot be undone.')) clearData(); }}
+                                onClick={async () => {
+                                  if (!window.confirm('Are you sure? This cannot be undone.')) return;
+                                  try {
+                                    await apiFetch('/api/account', { method: 'DELETE' });
+                                  } catch (err) {
+                                    console.warn('Failed to delete backend data', err);
+                                  }
+
+                                  try {
+                                    await auth.currentUser?.delete();
+                                  } catch (err) {
+                                    console.warn('Failed to delete Firebase account (reauth may be required)', err);
+                                  }
+
+                                  clearData();
+                                  await signOut();
+                                }}
                                 className="w-full py-3 rounded-xl bg-zen-destructive/10 text-zen-destructive border border-zen-destructive/30 hover:bg-zen-destructive/20 transition-colors text-sm font-medium"
                              >
                                 Delete Account & Data

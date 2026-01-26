@@ -1,5 +1,8 @@
 export const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 9);
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 10);
 };
 
 export const getGreeting = (name: string): string => {

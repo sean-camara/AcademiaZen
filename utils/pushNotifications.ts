@@ -8,8 +8,8 @@
  * - Managing local notifications
  */
 
-// Backend API URL - uses env variable or falls back to production Render URL
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://academiazen-backend-g6to.onrender.com';
+import { apiFetch, apiFetchWithTimeout } from './api';
+import { auth } from '../firebase';
 
 // Cache the VAPID public key
 let cachedVapidKey: string | null = null;
@@ -75,21 +75,6 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 /**
  * Fetch with timeout helper
  */
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 /**
  * Get the VAPID public key from the backend
  */
@@ -102,7 +87,7 @@ async function getVapidPublicKey(): Promise<string> {
   console.log('[Push] Fetching VAPID key from backend (may take a moment if server is waking up)...');
   
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/vapid-public-key`, {}, 30000);
+    const response = await apiFetchWithTimeout(`/api/vapid-public-key`, {}, 30000);
     if (!response.ok) {
       throw new Error('Failed to get VAPID key');
     }
@@ -166,6 +151,11 @@ export async function getCurrentSubscription(): Promise<PushSubscription | null>
 export async function subscribeToPush(): Promise<PushSubscription | null> {
   if (!isPushSupported()) {
     console.warn('[Push] Push notifications not supported');
+    return null;
+  }
+
+  if (!auth.currentUser) {
+    console.warn('[Push] User must be signed in to enable notifications');
     return null;
   }
 
@@ -240,7 +230,7 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
   console.log('[Push] Sending subscription to server...');
   
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/subscribe`, {
+    const response = await apiFetchWithTimeout(`/api/subscribe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -272,7 +262,7 @@ async function removeSubscriptionFromServer(endpoint: string): Promise<void> {
   console.log('[Push] Removing subscription from server...');
   
   try {
-    await fetchWithTimeout(`${API_BASE_URL}/api/unsubscribe`, {
+    await apiFetchWithTimeout(`/api/unsubscribe`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -326,7 +316,7 @@ export async function sendPushNotification(
   }
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/send-notification`, {
+    const response = await apiFetch(`/api/send-notification`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -358,7 +348,7 @@ export async function scheduleNotification(
   }
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/schedule-notification`, {
+    const response = await apiFetch(`/api/schedule-notification`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -428,14 +418,13 @@ export async function notifyNewTask(
       return false;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/notify-new-task`, {
+    const response = await apiFetch(`/api/notify-new-task`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         task,
-        subscriptionEndpoint: subscription.endpoint,
       }),
     });
 
@@ -463,14 +452,13 @@ export async function syncTasksWithBackend(
       return false;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/sync-tasks`, {
+    const response = await apiFetch(`/api/sync-tasks`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         tasks,
-        subscriptionEndpoint: subscription.endpoint,
       }),
     });
 
