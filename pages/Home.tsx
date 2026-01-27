@@ -652,21 +652,30 @@ const Home: React.FC = () => {
                       </div>
                    </div>
 
-                   <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-3xl p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
+                    <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-3xl p-5 sm:p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-zen-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-zen-secondary/20 transition-colors duration-1000"></div>
                       <div className="relative z-10">
-                        <h3 className="text-lg font-medium text-zen-text-primary mb-6 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-zen-secondary"></div>Up Next</h3>
+                        <h3 className="text-base sm:text-lg font-medium text-zen-text-primary mb-4 sm:mb-6 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-zen-secondary"></div>
+                          Up Next
+                        </h3>
                         
                         {upNextTasks.length > 0 ? (
-                            <div className="grid gap-4">
+                            <div className="grid gap-3 sm:gap-4">
                             {upNextTasks.slice(0, 3).map((task, idx) => (
-                                <div key={task.id} className="flex items-center gap-4 bg-zen-bg/50 p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={() => setActiveActionTask(task)}>
-                                    <div className={`w-1 h-12 rounded-full ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
+                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={() => setActiveActionTask(task)}>
+                                    <div className={`w-1.5 h-10 sm:h-12 rounded-full ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-zen-text-primary font-medium truncate">{task.title}</h4>
-                                        <p className="text-xs text-zen-text-secondary mt-1">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                        <h4 className="text-sm sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
+                                        <p className="text-[11px] sm:text-xs text-zen-text-secondary mt-0.5">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} className="p-2 text-zen-text-disabled hover:text-zen-primary transition-colors"><IconCheck className="w-5 h-5" /></button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+                                      className="p-2 text-zen-text-disabled hover:text-zen-primary transition-colors"
+                                      aria-label={`Mark ${task.title} complete`}
+                                    >
+                                      <IconCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
                                 </div>
                             ))}
                             </div>
