@@ -18,6 +18,7 @@ interface ZenContextType {
   addFlashcard: (card: Flashcard) => void;
   updateFlashcard: (card: Flashcard) => void; 
   addFolder: (folder: Folder) => void;
+  updateFolder: (folder: Folder) => void;
   deleteFolder: (id: string) => void;
   addItemToFolder: (folderId: string, item: { id: string; title: string; type: 'note' | 'pdf'; content?: string }) => void;
   deleteItemFromFolder: (folderId: string, itemId: string) => void;
@@ -343,6 +344,11 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Folder Actions
   const addFolder = (folder: Folder) => setState(prev => ({ ...prev, folders: [...prev.folders, folder] }));
+
+  const updateFolder = (updatedFolder: Folder) => setState(prev => ({
+    ...prev,
+    folders: prev.folders.map(f => f.id === updatedFolder.id ? updatedFolder : f)
+  }));
   
   const deleteFolder = (id: string) => setState(prev => ({
     ...prev,
@@ -408,6 +414,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addFlashcard,
       updateFlashcard,
       addFolder,
+      updateFolder,
       deleteFolder,
       addItemToFolder,
       deleteItemFromFolder,

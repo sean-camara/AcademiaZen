@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
 // Added IconLibrary to the imports from components/Icons
-import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary } from '../components/Icons';
+import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary, IconEdit } from '../components/Icons';
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -97,12 +97,15 @@ const PdfPageRenderer: React.FC<{ data: string; pageNum: number; onDocumentLoad:
 };
 
 const Library: React.FC = () => {
-  const { state, addFolder, deleteFolder, addItemToFolder, deleteItemFromFolder, setHideNavbar } = useZen();
+  const { state, addFolder, updateFolder, deleteFolder, addItemToFolder, deleteItemFromFolder, setHideNavbar } = useZen();
   const { folders } = state;
   
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [isEditingFolder, setIsEditingFolder] = useState(false);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
   
   // Confirmation State
   const [confirmState, setConfirmState] = useState<{
@@ -127,9 +130,9 @@ const Library: React.FC = () => {
 
   // Hide navbar when viewing documents or adding items
   useEffect(() => {
-    const hasModal = activeDoc !== null || isAddingItem || isAddingFolder;
+    const hasModal = activeDoc !== null || isAddingItem || isAddingFolder || isEditingFolder;
     setHideNavbar(hasModal);
-  }, [activeDoc, isAddingItem, isAddingFolder, setHideNavbar]);
+  }, [activeDoc, isAddingItem, isAddingFolder, isEditingFolder, setHideNavbar]);
 
   // Sync total pages for text notes whenever a document is opened
   useEffect(() => {
@@ -149,6 +152,23 @@ const Library: React.FC = () => {
       });
       setNewFolderName('');
       setIsAddingFolder(false);
+  };
+
+  const handleOpenEditFolder = (folderId: string, folderName: string) => {
+    setEditingFolderId(folderId);
+    setEditingFolderName(folderName);
+    setIsEditingFolder(true);
+  };
+
+  const handleUpdateFolder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFolderId || !editingFolderName.trim()) return;
+    const existing = folders.find(f => f.id === editingFolderId);
+    if (!existing) return;
+    updateFolder({ ...existing, name: editingFolderName.trim() });
+    setIsEditingFolder(false);
+    setEditingFolderId(null);
+    setEditingFolderName('');
   };
 
   const handleSaveItem = () => {
@@ -422,7 +442,48 @@ const Library: React.FC = () => {
     );
   }
 
-  // --- 2. Create Folder Modal ---
+  // --- 2. Edit Folder Modal ---
+  if (isEditingFolder) {
+    return (
+        <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-xl z-[60] flex items-center justify-center p-4 md:p-6 animate-reveal">
+            <div className="w-full max-w-md bg-zen-card p-6 md:p-8 rounded-[2rem] border border-zen-primary/30 shadow-2xl shadow-zen-primary/10">
+                <div className="flex justify-between items-center mb-6 md:mb-8">
+                    <h2 className="text-xl md:text-2xl font-light text-zen-text-primary">Edit Collection</h2>
+                    <button onClick={() => setIsEditingFolder(false)} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">
+                        <IconChevronLeft className="w-5 h-5 rotate-90" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleUpdateFolder} className="space-y-6 md:space-y-8">
+                    <div className="space-y-2 md:space-y-3">
+                        <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Collection Name</label>
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder="e.g., Thesis References..."
+                            className="w-full bg-zen-surface rounded-xl md:rounded-2xl p-3 md:p-4 text-base md:text-lg text-zen-text-primary focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface transition-all placeholder:text-zen-text-disabled/30"
+                            value={editingFolderName}
+                            onChange={e => setEditingFolderName(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex gap-4">
+                        <button type="button" onClick={() => setIsEditingFolder(false)} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
+                        <button 
+                            type="submit" 
+                            disabled={!editingFolderName.trim()} 
+                            className="flex-[2] py-3 md:py-4 rounded-xl bg-zen-primary text-zen-bg font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+  }
+
+  // --- 3. Create Folder Modal ---
   if (isAddingFolder) {
     return (
         <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-xl z-[60] flex items-center justify-center p-4 md:p-6 animate-reveal">
@@ -463,7 +524,7 @@ const Library: React.FC = () => {
     );
   }
 
-  // --- 3. Main Dashboard ---
+  // --- 4. Main Dashboard ---
   const totalItems = folders.reduce((acc, f) => acc + f.items.length, 0);
 
   return (
@@ -531,6 +592,37 @@ const Library: React.FC = () => {
                         className="group relative bg-zen-card hover:bg-zen-surface/40 p-6 md:p-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[100px] md:min-h-[300px]"
                         style={{ animationDelay: `${idx * 0.05}s` }}
                       >
+                        <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleOpenEditFolder(folder.id, folder.name);
+                                }}
+                                className="p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/10 transition-all"
+                                aria-label={`Edit ${folder.name}`}
+                            >
+                                <IconEdit className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setConfirmState({
+                                    isOpen: true,
+                                    title: 'Delete Collection',
+                                    message: `Permanently delete "${folder.name}" and all ${folder.items.length} documents?`,
+                                    action: () => deleteFolder(folder.id)
+                                  });
+                                }}
+                                className="p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                aria-label={`Delete ${folder.name}`}
+                            >
+                                <IconTrash className="w-4 h-4" />
+                            </button>
+                        </div>
                         <div className="w-12 h-12 md:w-24 md:h-24 bg-zen-surface rounded-2xl md:rounded-[2rem] flex items-center justify-center text-zen-primary/40 group-hover:text-zen-primary group-hover:bg-zen-primary/10 transition-all duration-500 relative shrink-0">
                             <IconFolder className="w-6 h-6 md:w-10 md:h-10" />
                             <div className="absolute -top-2 -right-2 bg-zen-primary text-zen-bg text-[10px] font-bold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full shadow-lg opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
