@@ -566,23 +566,23 @@ const Home: React.FC = () => {
                         <li 
                             key={task.id} 
                             onClick={() => setActiveActionTask(task)} 
-                            className="group bg-zen-card p-6 rounded-3xl border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer active:scale-[0.98] animate-reveal" 
+                            className="group bg-zen-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer active:scale-[0.98] animate-reveal" 
                             style={{ animationDelay: `${idx * 0.05}s` }}
                         >
-                            <div className="flex items-center gap-5">
+                            <div className="flex items-start gap-4 sm:gap-5">
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} 
-                                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-zen-primary border-zen-primary shadow-glow' : 'border-zen-surface-brighter hover:border-zen-primary'}`}
+                                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all mt-0.5 ${task.completed ? 'bg-zen-primary border-zen-primary shadow-glow' : 'border-zen-surface-brighter hover:border-zen-primary'}`}
                                 >
                                 {task.completed && <IconCheck className="w-4 h-4 text-zen-bg stroke-[4]" />}
                                 </button>
                                 
                                 <div className="flex-1 min-w-0">
-                                    <h4 className={`text-lg font-medium leading-tight transition-all truncate ${task.completed ? 'text-zen-text-disabled line-through opacity-50' : 'text-zen-text-primary'}`}>
+                                    <h4 className={`text-base sm:text-lg font-medium leading-tight transition-all line-clamp-2 sm:line-clamp-1 ${task.completed ? 'text-zen-text-disabled line-through opacity-50' : 'text-zen-text-primary'}`}>
                                         {task.title}
                                     </h4>
                                     
-                                    <div className="flex items-center gap-4 mt-2">
+                                    <div className="flex flex-wrap items-center gap-2 mt-2">
                                         <span className={`text-[10px] font-bold uppercase tracking-widest ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-400' : 'text-zen-text-disabled'}`}>
                                             {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </span>

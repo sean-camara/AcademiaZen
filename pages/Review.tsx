@@ -534,11 +534,11 @@ const Review: React.FC = () => {
                           <div 
                             key={subject.id} 
                             onClick={() => setSelectedSubjectId(subject.id)}
-                            className="group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-8 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-xl aspect-auto flex flex-col justify-between overflow-hidden animate-reveal min-h-[140px] md:min-h-[180px]"
+                            className="group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-8 pt-12 md:pt-8 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-xl aspect-auto flex flex-col justify-between overflow-hidden animate-reveal min-h-[160px] md:min-h-[180px]"
                             style={{ animationDelay: `${idx * 0.05}s` }}
                           >
                             {/* Actions (Always visible on mobile, Hover on desktop) */}
-                            <div className="absolute top-4 right-4 flex gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <div className="absolute top-3 right-3 md:top-4 md:right-4 flex gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setEditingSubjectId(subject.id); setEditSubjectName(subject.name); }}
                                     className="p-2 bg-zen-bg/80 text-zen-text-secondary hover:text-zen-primary rounded-full backdrop-blur-sm"

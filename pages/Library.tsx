@@ -650,10 +650,10 @@ const Library: React.FC = () => {
                              setActiveFolderId(folder.id);
                            }
                          }}
-                         className="group relative bg-zen-card hover:bg-zen-surface/40 p-6 md:p-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[100px] md:min-h-[300px] cursor-pointer"
+                         className="group relative bg-zen-card hover:bg-zen-surface/40 p-5 sm:p-6 md:p-10 pt-12 md:pt-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[120px] md:min-h-[300px] cursor-pointer"
                          style={{ animationDelay: `${idx * 0.05}s` }}
                        >
-                         <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                         <div className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
                              <button
                                  type="button"
                                  onClick={(e) => {

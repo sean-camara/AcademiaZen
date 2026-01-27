@@ -10,6 +10,7 @@ import Settings from '@/pages/Settings';
 import ZenAI from '@/pages/ZenAI';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../utils/api';
 
 interface LayoutProps {}
 
@@ -19,8 +20,37 @@ const Layout: React.FC<LayoutProps> = () => {
   const [showAI, setShowAI] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
   const { focusSession, hideNavbar, setHideNavbar } = useZen();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setIsPremium(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await apiFetch('/api/billing/status');
+        if (!active) return;
+        if (res.ok) {
+          const data = await res.json();
+          const plan = data?.billing?.effectivePlan || 'free';
+          setIsPremium(plan === 'premium');
+        } else {
+          setIsPremium(false);
+        }
+      } catch {
+        if (active) setIsPremium(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   // Detect keyboard visibility using visualViewport API
   useEffect(() => {
@@ -135,9 +165,16 @@ const Layout: React.FC<LayoutProps> = () => {
       <div className="flex-1 flex flex-col h-full relative min-w-0">
         
         {/* Mobile Header (Hidden on Desktop) */}
-        <header className="lg:hidden flex justify-between items-center px-6 py-5 bg-zen-bg z-10 sticky top-0 border-b border-zen-surface/20 backdrop-blur-md bg-zen-bg/90">
+        <header className="lg:hidden flex justify-between items-center px-6 py-4 bg-zen-bg z-10 sticky top-0 border-b border-zen-surface/20 backdrop-blur-md bg-zen-bg/90">
           <div className="flex items-center gap-2 group cursor-pointer">
-             <h1 className="text-xl font-medium tracking-wide text-zen-primary/90">ZEN</h1>
+             <div className="flex flex-col leading-tight">
+                <h1 className="text-xl font-medium tracking-wide text-zen-primary/90">ZEN</h1>
+                {isPremium && (
+                  <span className="text-[9px] uppercase tracking-[0.3em] text-zen-primary/80 font-black">
+                    Premium
+                  </span>
+                )}
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
