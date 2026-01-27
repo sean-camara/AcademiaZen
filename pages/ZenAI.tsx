@@ -562,7 +562,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 md:space-y-12 no-scrollbar relative z-[115]">
+            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6 no-scrollbar relative z-[115] w-full max-w-4xl mx-auto">
                 {!billingChecked && (
                     <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface/60 border border-zen-surface text-zen-text-secondary text-xs md:text-sm font-medium">
                         Checking your plan...
@@ -571,19 +571,19 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 
                 {/* Empty State / Splash */}
                 {messages.length === 0 && !isLoading && (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 animate-reveal py-10 md:py-20">
+                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 animate-reveal py-8 md:py-16">
                         <div className="relative">
                             <div className="absolute inset-0 bg-zen-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
-                            <IconBot className="w-16 h-16 md:w-20 md:h-20 text-zen-primary relative z-10" />
+                            <IconBot className="w-12 h-12 md:w-16 md:h-16 text-zen-primary relative z-10" />
                         </div>
-                        <div className="space-y-3 md:space-y-4 max-w-lg px-4">
-                            <h3 className="text-2xl md:text-4xl font-extralight text-zen-text-primary tracking-tight">How can I assist your discovery?</h3>
-                            <p className="text-sm md:text-lg text-zen-text-secondary font-light">
+                        <div className="space-y-2 md:space-y-3 max-w-lg px-4">
+                            <h3 className="text-xl md:text-3xl font-extralight text-zen-text-primary tracking-tight">How can I assist your discovery?</h3>
+                            <p className="text-xs md:text-base text-zen-text-secondary font-light">
                                 Reference your archive documents or ask any academic question. I am here to synthesize knowledge.
                             </p>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mt-8 md:mt-12 px-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mt-6 md:mt-10 px-4">
                             <button
                                 disabled={aiLocked}
                                 onClick={() => setInput("Explain the core concepts from my recent notes.")}
@@ -620,16 +620,16 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 ))}
                             </div>
                         )}
-                        <div className={`max-w-[95%] sm:max-w-[80%] p-6 sm:p-10 rounded-[2.5rem] text-lg leading-relaxed shadow-2xl relative ${
+                        <div className={`max-w-[88%] sm:max-w-[72%] lg:max-w-[62%] p-3 sm:p-4 md:p-5 rounded-2xl text-sm md:text-base leading-relaxed shadow-xl relative ${
                             msg.role === 'user' 
-                                ? 'bg-white text-black font-medium rounded-tr-none' 
-                                : 'bg-zen-card/80 backdrop-blur-md text-zen-text-primary border border-white/5 rounded-tl-none'
+                                ? 'bg-white text-black font-medium rounded-tr-md' 
+                                : 'bg-zen-card/80 backdrop-blur-md text-zen-text-primary border border-white/5 rounded-tl-md'
                         }`}>
                             {msg.role === 'ai' ? <FormattedAIResponse text={msg.text} /> : msg.text}
                             
                             {/* Accent indicator for AI messages */}
                             {msg.role === 'ai' && (
-                                <div className="absolute top-0 left-0 -translate-x-1/2 translate-y-8 w-1 h-8 bg-zen-primary rounded-full blur-[2px] opacity-50" />
+                                <div className="absolute top-0 left-0 -translate-x-1/2 translate-y-6 w-0.5 h-6 bg-zen-primary rounded-full blur-[1px] opacity-50" />
                             )}
                         </div>
                     </div>
@@ -637,7 +637,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
                 {isLoading && (
                     <div className="flex justify-start animate-reveal">
-                        <div className="bg-zen-card/80 backdrop-blur-sm p-8 rounded-[2.5rem] rounded-tl-none border border-zen-surface shadow-2xl space-y-4 min-w-[300px]">
+                        <div className="bg-zen-card/80 backdrop-blur-sm p-4 rounded-2xl rounded-tl-md border border-zen-surface shadow-xl space-y-3 min-w-[220px]">
                             <div className="flex gap-2.5 items-center">
                                 <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce" />
                                 <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce [animation-delay:0.2s]" />
@@ -759,8 +759,8 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Input Bar Section */}
-            <div className="p-4 md:p-10 border-t border-white/5 bg-zen-bg/95 backdrop-blur-2xl relative z-[130] safe-area-bottom">
-                <div className="max-w-5xl mx-auto space-y-4 md:space-y-6">
+            <div className="p-3 md:p-6 border-t border-white/5 bg-zen-bg/95 backdrop-blur-2xl relative z-[130] safe-area-bottom">
+                <div className="max-w-3xl mx-auto space-y-3 md:space-y-4">
                     
                     {/* Active Context Tokens */}
                     {selectedRefs.length > 0 && (
@@ -778,8 +778,8 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                     )}
 
                     <form ref={formRef} onSubmit={handleSend} className="relative group">
-                        <div className="absolute inset-0 bg-zen-primary/5 blur-xl group-focus-within:bg-zen-primary/10 transition-colors rounded-full" />
-                        <div className="relative flex items-end gap-2 md:gap-4 bg-zen-card/80 border border-zen-surface rounded-[2rem] md:rounded-[2.5rem] p-2 md:p-3 pl-3 md:pl-4 pr-2 md:pr-3 focus-within:border-zen-primary/50 transition-all shadow-2xl">
+                        <div className="absolute inset-0 bg-zen-primary/5 blur-xl group-focus-within:bg-zen-primary/10 transition-colors rounded-2xl" />
+                        <div className="relative flex items-end gap-2 md:gap-3 bg-zen-card/80 border border-zen-surface rounded-2xl p-2 md:p-2.5 pl-3 md:pl-3.5 pr-2 md:pr-2.5 focus-within:border-zen-primary/50 transition-all shadow-xl">
                             <button 
                                 type="button"
                                 onClick={() => {
@@ -790,7 +790,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                     setShowSelector(true);
                                 }}
                                 disabled={aiLocked}
-                                className={`w-10 h-10 md:w-14 md:h-14 rounded-[1.2rem] md:rounded-[1.8rem] transition-all flex items-center justify-center border ${
+                                className={`w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl transition-all flex items-center justify-center border ${
                                     aiLocked
                                         ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60'
                                         : selectedRefs.length > 0
@@ -798,7 +798,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                             : 'bg-zen-surface/50 border-zen-surface text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/5'
                                 }`}
                             >
-                                <IconPaperclip className="w-5 h-5 md:w-6 md:h-6" />
+                                <IconPaperclip className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
                             
                             <textarea
@@ -809,16 +809,16 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
                                 disabled={isLoading || aiLocked}
                                 rows={1}
-                                className="flex-1 bg-transparent border-none text-base md:text-xl text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0 resize-none leading-relaxed py-2 md:py-3 max-h-40"
+                                className="flex-1 bg-transparent border-none text-sm md:text-base text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0 resize-none leading-relaxed py-1.5 md:py-2 max-h-32"
                             />
 
                             <button 
                                 type="submit"
                                 disabled={!input.trim() || isLoading || aiLocked} 
-                                className="h-10 md:h-14 px-4 md:px-8 bg-white text-black rounded-[1.2rem] md:rounded-[1.8rem] font-black uppercase tracking-[0.2em] text-[10px] disabled:opacity-5 shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                className="h-9 md:h-12 px-3 md:px-6 bg-white text-black rounded-xl md:rounded-2xl font-black uppercase tracking-[0.2em] text-[9px] disabled:opacity-5 shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
                                 {isLoading ? (
-                                    <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-4 h-4 md:w-4 md:h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
                                 ) : (
                                     <>
                                         <span className="hidden md:inline">Transmit</span>
