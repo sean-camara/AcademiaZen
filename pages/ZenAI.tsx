@@ -125,6 +125,9 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const MAX_PDF_TEXT_CHARS = 8000;
     const MAX_CONTEXT_CHARS = 9000;
     const MIN_CONTEXT_CHARS_PER_DOC = 1200;
+    const MAX_OCR_PAGES = 2;
+    const MAX_OCR_TEXT_CHARS = 4000;
+    const OCR_SCALE = 1.25;
     const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
     const MAX_SAVED_MESSAGES = 60;
 
@@ -273,8 +276,42 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                     break;
                 }
             }
-            const cleaned = fullText.replace(/\s+/g, ' ').trim();
-            pdfTextCacheRef.current.set(cacheKey, cleaned);
+            let cleaned = fullText.replace(/\s+/g, ' ').trim();
+            if (cleaned) {
+                pdfTextCacheRef.current.set(cacheKey, cleaned);
+                return cleaned;
+            }
+
+            const Tesseract = (window as any).Tesseract;
+            if (!Tesseract) return '';
+
+            setThinkingContext('No text found, running OCR on scanned pages...');
+            const ocrPages = Math.min(pdf.numPages || 0, MAX_OCR_PAGES);
+            let ocrText = '';
+            for (let pageNum = 1; pageNum <= ocrPages; pageNum += 1) {
+                setThinkingContext(`Running OCR on page ${pageNum}/${ocrPages}...`);
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: OCR_SCALE });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                if (!context) continue;
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: context, viewport }).promise;
+
+                const dataUrl = canvas.toDataURL('image/png');
+                const result = await Tesseract.recognize(dataUrl, 'eng');
+                ocrText += `${result?.data?.text || ''}\n`;
+                if (ocrText.length >= MAX_OCR_TEXT_CHARS) {
+                    ocrText = ocrText.slice(0, MAX_OCR_TEXT_CHARS);
+                    break;
+                }
+            }
+
+            cleaned = ocrText.replace(/\s+/g, ' ').trim();
+            if (cleaned) {
+                pdfTextCacheRef.current.set(cacheKey, cleaned);
+            }
             return cleaned;
         } catch (err) {
             return '';
@@ -365,7 +402,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
                     if (ref.type === 'pdf') {
                         if (!content) {
-                            content = "No extractable text found in this PDF. If this is a scanned document, ask the student to provide a text-based PDF or paste key sections.";
+                            content = "No readable text could be extracted from this PDF (including OCR). If this is a scanned document, try an OCR-exported PDF or paste key sections so I can help.";
                         }
                     }
 
@@ -377,6 +414,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 });
             }
             
+            setThinkingContext('Formulating response...');
             userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
 
             const prompt = `${systemPrompt}\n\n${userMessage}`;
