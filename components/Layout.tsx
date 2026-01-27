@@ -56,7 +56,6 @@ const Layout: React.FC<LayoutProps> = () => {
       <aside className="hidden lg:flex flex-col w-72 h-full border-r border-zen-surface bg-zen-bg z-30 transition-all duration-300">
         <div className="p-8 pb-4">
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zen-primary to-zen-secondary opacity-90 blur-[1px]"></div>
              <h1 className="text-2xl font-bold tracking-wide text-zen-primary">ZEN</h1>
           </div>
           <p className="text-xs text-zen-text-disabled mt-2 ml-1 tracking-wider uppercase">Student Dashboard</p>
