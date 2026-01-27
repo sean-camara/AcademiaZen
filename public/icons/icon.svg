@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0B0F14"/>
-  <circle cx="256" cy="200" r="80" fill="none" stroke="#64FFDA" stroke-width="8"/>
-  <path d="M256 280 L256 380" stroke="#64FFDA" stroke-width="8" stroke-linecap="round"/>
-  <path d="M216 340 L256 380 L296 340" stroke="#64FFDA" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <text x="256" y="450" text-anchor="middle" fill="#64FFDA" font-family="Inter, sans-serif" font-size="48" font-weight="600">ZEN</text>
+  <defs>
+    <clipPath id="clip">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <circle cx="256" cy="256" r="256" fill="#0B0F14"/>
+    <circle cx="256" cy="200" r="80" fill="none" stroke="#64FFDA" stroke-width="8"/>
+    <path d="M256 280 L256 380" stroke="#64FFDA" stroke-width="8" stroke-linecap="round"/>
+    <path d="M216 340 L256 380 L296 340" stroke="#64FFDA" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="256" y="450" text-anchor="middle" fill="#64FFDA" font-family="Inter, sans-serif" font-size="48" font-weight="600">ZEN</text>
+  </g>
 </svg>
