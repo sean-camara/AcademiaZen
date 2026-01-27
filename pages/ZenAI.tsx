@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck } from '../components/Icons';
+import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
 import { apiFetch } from '../utils/api';
 
@@ -116,6 +116,16 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const upgradeCtaRef = useRef<HTMLButtonElement>(null);
     const hasShownUpgradeOnceRef = useRef(false);
+    const pdfTextCacheRef = useRef<Map<string, string>>(new Map());
+    const hasLoadedChatRef = useRef(false);
+
+    const allowFreeAI = (import.meta as any).env?.VITE_AI_FREE_MODE !== 'false';
+    const MAX_PDF_PAGES = 8;
+    const MAX_PDF_TEXT_CHARS = 8000;
+    const MAX_CONTEXT_CHARS = 9000;
+    const MIN_CONTEXT_CHARS_PER_DOC = 1200;
+    const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
+    const MAX_SAVED_MESSAGES = 60;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,6 +136,52 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     }, [messages, isLoading]);
 
     useEffect(() => {
+        try {
+            const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    setMessages(parsed);
+                }
+            }
+        } catch (_) {
+            // Ignore corrupted cache
+        } finally {
+            hasLoadedChatRef.current = true;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!hasLoadedChatRef.current) return;
+        const trimmed = messages.slice(-MAX_SAVED_MESSAGES);
+        try {
+            localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(trimmed));
+        } catch (_) {
+            // Storage may be full; skip caching in that case.
+        }
+    }, [messages]);
+
+    useEffect(() => {
+        const onStorage = (event: StorageEvent) => {
+            if (event.key !== CHAT_STORAGE_KEY) return;
+            if (!event.newValue) {
+                setMessages([]);
+                return;
+            }
+            try {
+                const parsed = JSON.parse(event.newValue);
+                if (Array.isArray(parsed)) {
+                    setMessages(parsed);
+                }
+            } catch (_) {
+                // Ignore invalid payloads.
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
+
+    useEffect(() => {
         if (!textareaRef.current) return;
         textareaRef.current.style.height = '0px';
         const next = Math.min(textareaRef.current.scrollHeight, 160);
@@ -133,6 +189,11 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     }, [input]);
 
     useEffect(() => {
+        if (allowFreeAI) {
+            setIsPremium(true);
+            setBillingChecked(true);
+            return;
+        }
         let active = true;
         apiFetch('/api/billing/status')
             .then(async (res) => {
@@ -153,20 +214,70 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         return () => {
             active = false;
         };
-    }, []);
+    }, [allowFreeAI]);
 
-    const aiLocked = billingChecked ? !isPremium : true;
+    const aiLocked = allowFreeAI ? false : (billingChecked ? !isPremium : true);
 
     useEffect(() => {
+        if (allowFreeAI) return;
         if (!billingChecked || !aiLocked) return;
         if (hasShownUpgradeOnceRef.current) return;
         hasShownUpgradeOnceRef.current = true;
         setShowUpgradeModal(true);
-    }, [billingChecked, aiLocked]);
+    }, [allowFreeAI, billingChecked, aiLocked]);
 
     const openBilling = () => {
         onClose();
         window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'billing' } }));
+    };
+
+    const clearChat = () => {
+        setMessages([]);
+        setInput('');
+        setSelectedRefs([]);
+        try {
+            localStorage.removeItem(CHAT_STORAGE_KEY);
+        } catch (_) {
+            // Ignore storage errors
+        }
+    };
+
+    const extractPdfText = async (dataUrl: string, cacheKey: string) => {
+        if (pdfTextCacheRef.current.has(cacheKey)) {
+            return pdfTextCacheRef.current.get(cacheKey) || '';
+        }
+        try {
+            const pdfjsLib = (window as any).pdfjsLib;
+            if (!pdfjsLib) return '';
+            const base64 = dataUrl.split(',')[1] || '';
+            if (!base64) return '';
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            const loadingTask = pdfjsLib.getDocument({ data: bytes });
+            const pdf = await loadingTask.promise;
+            const totalPages = Math.min(pdf.numPages || 0, MAX_PDF_PAGES);
+            let fullText = '';
+            for (let pageNum = 1; pageNum <= totalPages; pageNum += 1) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = (textContent.items || [])
+                    .map((item: any) => item?.str || '')
+                    .join(' ');
+                fullText += `${pageText}\n`;
+                if (fullText.length >= MAX_PDF_TEXT_CHARS) {
+                    fullText = fullText.slice(0, MAX_PDF_TEXT_CHARS);
+                    break;
+                }
+            }
+            const cleaned = fullText.replace(/\s+/g, ' ').trim();
+            pdfTextCacheRef.current.set(cacheKey, cleaned);
+            return cleaned;
+        } catch (err) {
+            return '';
+        }
     };
 
     useEffect(() => {
@@ -231,11 +342,36 @@ TONE:
 Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.`;
 
             let userMessage = '';
-            
+
             if (currentRefs.length > 0) {
+                const resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
+                    if (ref.type !== 'pdf') return ref;
+                    const rawContent = ref.content || '';
+                    if (!rawContent.startsWith('data:')) return ref;
+                    const extracted = await extractPdfText(rawContent, ref.id);
+                    return { ...ref, content: extracted };
+                }));
+
+                const perDocLimit = Math.max(
+                    MIN_CONTEXT_CHARS_PER_DOC,
+                    Math.floor(MAX_CONTEXT_CHARS / Math.max(resolvedRefs.length, 1))
+                );
+
                 userMessage += "CONTEXT PROVIDED BY STUDENT:\n\n";
-                currentRefs.forEach(ref => {
-                    userMessage += `[Document Title: ${ref.title}]\nCONTENT:\n${ref.content}\n--- End of Document ---\n\n`;
+                resolvedRefs.forEach(ref => {
+                    let content = (ref.content || '').trim();
+
+                    if (ref.type === 'pdf') {
+                        if (!content) {
+                            content = "No extractable text found in this PDF. If this is a scanned document, ask the student to provide a text-based PDF or paste key sections.";
+                        }
+                    }
+
+                    if (content.length > perDocLimit) {
+                        content = `${content.slice(0, perDocLimit)}... [truncated]`;
+                    }
+
+                    userMessage += `[Document Title: ${ref.title}]\nTYPE: ${ref.type.toUpperCase()}\nCONTENT:\n${content}\n--- End of Document ---\n\n`;
                 });
             }
             
@@ -309,9 +445,18 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         </div>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 md:p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-red-400 hover:bg-red-400/10 transition-all active:scale-90">
-                    <IconX className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={clearChat}
+                        className="p-2 md:p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/10 transition-all active:scale-90"
+                        aria-label="Clear chat"
+                    >
+                        <IconTrash className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                    <button onClick={onClose} className="p-2 md:p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-red-400 hover:bg-red-400/10 transition-all active:scale-90" aria-label="Close">
+                        <IconX className="w-5 h-5 md:w-6 md:h-6" />
+                    </button>
+                </div>
             </header>
 
             {showUpgradeModal && aiLocked && (
