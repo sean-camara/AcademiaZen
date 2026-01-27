@@ -117,6 +117,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [billingChecked, setBillingChecked] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [thinkingContext, setThinkingContext] = useState('Formulating response...');
+    const [analysisMode, setAnalysisMode] = useState<'fast' | 'deep'>('fast');
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
@@ -137,6 +138,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const OCR_LANGUAGE = (import.meta as any).env?.VITE_OCR_LANG || 'eng';
     const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
     const MAX_SAVED_MESSAGES = 60;
+    const ANALYSIS_MODE_KEY = 'zen_ai_analysis_mode_v1';
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -161,6 +163,25 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             hasLoadedChatRef.current = true;
         }
     }, []);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(ANALYSIS_MODE_KEY);
+            if (saved === 'deep' || saved === 'fast') {
+                setAnalysisMode(saved);
+            }
+        } catch (_) {
+            // Ignore
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(ANALYSIS_MODE_KEY, analysisMode);
+        } catch (_) {
+            // Ignore
+        }
+    }, [analysisMode]);
 
     useEffect(() => {
         if (!hasLoadedChatRef.current) return;
@@ -297,13 +318,17 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             const Tesseract = (window as any).Tesseract;
             if (!Tesseract) return '';
 
+            const ocrPreset = analysisMode === 'deep'
+                ? { pages: MAX_OCR_PAGES, scale: OCR_SCALE, maxChars: MAX_OCR_TEXT_CHARS }
+                : { pages: 2, scale: 1.5, maxChars: 4000 };
+
             setThinkingContext('No text found, running OCR on scanned pages...');
-            const ocrPages = Math.min(pdf.numPages || 0, MAX_OCR_PAGES);
+            const ocrPages = Math.min(pdf.numPages || 0, ocrPreset.pages);
             let ocrText = '';
             for (let pageNum = 1; pageNum <= ocrPages; pageNum += 1) {
                 setThinkingContext(`Running OCR on page ${pageNum}/${ocrPages}...`);
                 const page = await pdf.getPage(pageNum);
-                const viewport = page.getViewport({ scale: OCR_SCALE });
+                const viewport = page.getViewport({ scale: ocrPreset.scale });
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 if (!context) continue;
@@ -314,8 +339,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                 const dataUrl = canvas.toDataURL('image/png');
                 const result = await Tesseract.recognize(dataUrl, OCR_LANGUAGE);
                 ocrText += `${result?.data?.text || ''}\n`;
-                if (ocrText.length >= MAX_OCR_TEXT_CHARS) {
-                    ocrText = ocrText.slice(0, MAX_OCR_TEXT_CHARS);
+                if (ocrText.length >= ocrPreset.maxChars) {
+                    ocrText = ocrText.slice(0, ocrPreset.maxChars);
                     break;
                 }
             }
@@ -489,7 +514,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt }),
+                body: JSON.stringify({ prompt, mode: analysisMode }),
             });
 
             if (!response.ok) {
@@ -962,9 +987,21 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         </div>
                     </form>
                     
-                    <p className="text-center text-[8px] md:text-[9px] uppercase font-black tracking-[0.4em] text-zen-text-disabled opacity-30 select-none pb-2 md:pb-0">
-                        Zen Synthetic Intelligence &bull; Adaptive Learning Context
-                    </p>
+                    <div className="flex items-center justify-center gap-3 text-[8px] md:text-[9px] uppercase font-black tracking-[0.35em] text-zen-text-disabled opacity-40 select-none pb-2 md:pb-0">
+                        <button
+                            type="button"
+                            onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
+                            className={`px-3 py-1 rounded-full border transition-all ${
+                                analysisMode === 'deep'
+                                    ? 'border-zen-primary/50 text-zen-primary bg-zen-primary/10'
+                                    : 'border-zen-surface text-zen-text-disabled hover:text-zen-text-primary'
+                            }`}
+                            aria-label="Toggle deep analysis"
+                        >
+                            {analysisMode === 'deep' ? 'Deep analysis' : 'Fast mode'}
+                        </button>
+                        <span>Zen Synthetic Intelligence &bull; Adaptive Learning Context</span>
+                    </div>
                 </div>
             </div>
         </div>
