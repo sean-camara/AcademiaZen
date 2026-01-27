@@ -68,8 +68,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
       setUploadError('Please select a PDF file');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadError('File size exceed limit. Max 2MB.');
+    if (file.size > 1 * 1024 * 1024) {
+      setUploadError('File size exceed limit. Max 1MB.');
       return;
     }
     

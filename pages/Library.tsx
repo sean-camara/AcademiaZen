@@ -120,6 +120,7 @@ const Library: React.FC = () => {
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemContent, setNewItemContent] = useState('');
   const [newItemPdf, setNewItemPdf] = useState<{ name: string; data: string } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [activeDoc, setActiveDoc] = useState<{ id: string; title: string; type: 'note' | 'pdf'; content?: string } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -180,7 +181,15 @@ const Library: React.FC = () => {
       content: itemType === 'note' ? newItemContent : newItemPdf?.data
     };
     addItemToFolder(activeFolderId, item);
-    setIsAddingItem(false); setNewItemTitle(''); setNewItemContent(''); setNewItemPdf(null);
+    setIsAddingItem(false); setNewItemTitle(''); setNewItemContent(''); setNewItemPdf(null); setUploadError(null);
+  };
+
+  const resetAddItem = () => {
+    setIsAddingItem(false);
+    setNewItemTitle('');
+    setNewItemContent('');
+    setNewItemPdf(null);
+    setUploadError(null);
   };
 
   const openInNewTab = () => {
@@ -321,7 +330,7 @@ const Library: React.FC = () => {
             <div className="bg-zen-card w-full max-w-xl rounded-[2rem] md:rounded-[2.5rem] border border-zen-primary/30 shadow-2xl p-6 md:p-8 space-y-6 md:space-y-8 animate-reveal overflow-y-auto max-h-full">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">Add Knowledge</h3>
-                <button onClick={() => setIsAddingItem(false)} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors"><IconX className="w-5 h-5 md:w-6 md:h-6" /></button>
+                <button onClick={resetAddItem} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors"><IconX className="w-5 h-5 md:w-6 md:h-6" /></button>
               </div>
               
               <div className="flex bg-zen-surface rounded-xl md:rounded-2xl p-1">
@@ -346,7 +355,16 @@ const Library: React.FC = () => {
                      <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 md:h-48 border-2 border-dashed border-zen-surface rounded-[1.5rem] md:rounded-[2rem] flex flex-col items-center justify-center gap-2 md:gap-4 cursor-pointer group hover:border-zen-primary/50 transition-all bg-zen-surface/30">
                         <input type="file" ref={fileInputRef} accept="application/pdf" onChange={(e) => {
                           const file = e.target.files?.[0];
+                          setUploadError(null);
                           if (file) {
+                            if (file.type !== 'application/pdf') {
+                              setUploadError('Please select a PDF file.');
+                              return;
+                            }
+                            if (file.size > 1 * 1024 * 1024) {
+                              setUploadError('File size exceed limit. Max 1MB.');
+                              return;
+                            }
                             const reader = new FileReader();
                             reader.onload = (ev) => {
                               setNewItemPdf({ name: file.name, data: ev.target?.result as string });
@@ -360,11 +378,14 @@ const Library: React.FC = () => {
                         </div>
                         <p className="text-xs md:text-sm font-medium text-zen-text-secondary px-6 truncate w-full text-center">{newItemPdf ? newItemPdf.name : 'Select or drop PDF document'}</p>
                       </div>
+                      {uploadError && (
+                        <p className="text-zen-destructive text-[10px] font-black uppercase tracking-wider mt-2 ml-1 animate-reveal">{uploadError}</p>
+                      )}
                   </div>
                 )}
                 
                 <div className="flex gap-4 pt-2 md:pt-4">
-                    <button onClick={() => setIsAddingItem(false)} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
+                    <button onClick={resetAddItem} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
                     <button onClick={handleSaveItem} disabled={!newItemTitle || (itemType === 'pdf' && !newItemPdf)} className="flex-[2] py-3 md:py-4 bg-zen-primary text-zen-bg font-bold uppercase tracking-widest text-xs md:text-sm rounded-xl shadow-lg shadow-zen-primary/20 active:scale-95 transition-all disabled:opacity-30">
                       Save to Collection
                     </button>
