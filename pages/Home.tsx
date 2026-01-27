@@ -2,24 +2,33 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useZen } from '../context/ZenContext';
 import { getGreeting, formatDateFull, generateId } from '../utils/helpers';
 import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical } from '../components/Icons';
-import { Subject, Task } from '../types';
+import { Subject, Task, PdfAttachment } from '../types';
 import AddTaskModal from '../components/AddTaskModal';
+import { getPdfSignedUrl } from '../utils/pdfStorage';
 
 // PDF Viewer Modal Component
-const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> = ({ name, data, onClose }) => {
+const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = ({ attachment, onClose }) => {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [pageNum, setPageNum] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sourceUrl, setSourceUrl] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const viewAll = () => {
+    if (!sourceUrl) return;
+    window.open(sourceUrl, '_blank');
+  };
+
+  const viewAllLegacy = () => {
+    const legacyData = (attachment as any)?.data;
+    if (!legacyData) return;
     try {
-      const base64Data = data.split(',')[1];
+      const base64Data = String(legacyData).split(',')[1] || '';
       const binaryString = atob(base64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
@@ -30,7 +39,7 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch (err) {
-      console.error('Error opening PDF in new tab:', err);
+      console.error('Error opening legacy PDF in new tab:', err);
       alert('Could not open full document. Please try again.');
     }
   };
@@ -38,6 +47,11 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
   useEffect(() => {
     const loadPdf = async () => {
       try {
+        if (!sourceUrl && attachment?.key) {
+          const url = attachment.url || await getPdfSignedUrl(attachment.key);
+          setSourceUrl(url);
+          return;
+        }
         setIsLoading(true);
         setIsRendering(true);
         
@@ -45,21 +59,22 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
           throw new Error('PDF library not loaded. Please refresh the page.');
         }
         
-        const base64Parts = data.split(',');
-        const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
-        
-        if (!base64Data || base64Data.length < 100) {
-          throw new Error('Invalid PDF data');
+        const legacyData = (attachment as any)?.data;
+        let loadingTask;
+        if (sourceUrl) {
+          loadingTask = (window as any).pdfjsLib.getDocument(sourceUrl);
+        } else if (legacyData && String(legacyData).startsWith('data:')) {
+          const base64Data = String(legacyData).split(',')[1] || '';
+          const binaryString = atob(base64Data);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          loadingTask = (window as any).pdfjsLib.getDocument({ data: bytes });
+        } else {
+          throw new Error('Failed to load PDF');
         }
-        
-        const binaryString = atob(base64Data);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const loadingTask = (window as any).pdfjsLib.getDocument({ data: bytes });
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
@@ -75,7 +90,7 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
 
     const timer = setTimeout(loadPdf, 100);
     return () => clearTimeout(timer);
-  }, [data]);
+  }, [attachment, sourceUrl]);
 
   const renderPage = async (num: number, doc = pdfDoc) => {
     if (!doc || !canvasRef.current) return;
@@ -123,11 +138,11 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
     <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[70] flex flex-col animate-reveal overflow-hidden">
       <div className="flex justify-between items-center p-4 border-b border-zen-surface bg-zen-bg/80 shrink-0">
         <div className="flex-1 min-w-0 pr-4">
-           <h3 className="text-sm font-medium text-zen-text-primary truncate">{name}</h3>
+           <h3 className="text-sm font-medium text-zen-text-primary truncate">{attachment.name}</h3>
         </div>
         <div className="flex items-center gap-2">
             <button 
-                onClick={viewAll}
+                onClick={sourceUrl ? viewAll : viewAllLegacy}
                 className="p-2 text-zen-primary hover:bg-zen-primary/10 rounded-lg transition-colors flex items-center gap-1.5 active:scale-95"
                 title="View Full Document"
             >
@@ -157,7 +172,7 @@ const PDFViewer: React.FC<{ name: string; data: string; onClose: () => void }> =
             <p className="text-zen-text-secondary text-sm">{error}</p>
             <div className="flex flex-col gap-2">
               <button 
-                onClick={viewAll} 
+                onClick={sourceUrl ? viewAll : viewAllLegacy} 
                 className="bg-zen-primary text-zen-bg px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90"
               >
                 Open in Browser
@@ -413,7 +428,7 @@ const Home: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [loadingSubjectId, setLoadingSubjectId] = useState<string | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [viewingPdf, setViewingPdf] = useState<{ name: string; data: string } | null>(null);
+  const [viewingPdf, setViewingPdf] = useState<PdfAttachment | null>(null);
   const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'subject' | 'task'; id: string; name: string } | null>(null);
 
@@ -615,7 +630,7 @@ const Home: React.FC = () => {
         {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate.slice(0, 16), notes: editingTask.notes || '', pdf: editingTask.pdfAttachment }} />}
         {activeActionTask && <TaskActionModal task={activeActionTask} onClose={() => setActiveActionTask(null)} onToggleDone={() => { toggleTask(activeActionTask.id); setActiveActionTask(null); }} onViewPdf={() => { if (activeActionTask.pdfAttachment) setViewingPdf(activeActionTask.pdfAttachment); setActiveActionTask(null); }} onEdit={() => handleEditTask(activeActionTask)} onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })} />}
         {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
-        {viewingPdf && <PDFViewer name={viewingPdf.name} data={viewingPdf.data} onClose={() => setViewingPdf(null)} />}
+        {viewingPdf && <PDFViewer attachment={viewingPdf} onClose={() => setViewingPdf(null)} />}
       </div>
     );
   }

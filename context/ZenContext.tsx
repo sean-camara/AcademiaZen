@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
-import { ZenState, Task, Subject, Flashcard, Folder, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
+import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
+import { uploadPdfDataUrlToR2 } from '../utils/pdfStorage';
 import { useAuth } from './AuthContext';
 import { apiFetch } from '../utils/api';
 
@@ -20,7 +21,7 @@ interface ZenContextType {
   addFolder: (folder: Folder) => void;
   updateFolder: (folder: Folder) => void;
   deleteFolder: (id: string) => void;
-  addItemToFolder: (folderId: string, item: { id: string; title: string; type: 'note' | 'pdf'; content?: string }) => void;
+  addItemToFolder: (folderId: string, item: FolderItem) => void;
   deleteItemFromFolder: (folderId: string, itemId: string) => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
@@ -72,6 +73,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const bellAudioRef = useRef<HTMLAudioElement | null>(null);
   const syncTimeoutRef = useRef<number | null>(null);
+  const legacyMigrationRef = useRef(false);
   
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
@@ -192,6 +194,64 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
   }, [state, user?.uid, user?.emailVerified, isHydrated]);
+
+  // Migrate legacy base64 PDFs to R2 after hydration
+  useEffect(() => {
+    if (!user || !user.emailVerified) return;
+    if (!isHydrated) return;
+    if (legacyMigrationRef.current) return;
+    legacyMigrationRef.current = true;
+
+    const migrateLegacyPdfs = async () => {
+      try {
+        let updatedTasks = [...state.tasks];
+        let updatedFolders = [...state.folders];
+        let didUpdate = false;
+
+        for (const task of state.tasks) {
+          const legacyData = (task as any)?.pdfAttachment?.data;
+          if (legacyData && String(legacyData).startsWith('data:application/pdf')) {
+            try {
+              const uploaded = await uploadPdfDataUrlToR2(legacyData, task.pdfAttachment?.name || `${task.title}.pdf`);
+              updatedTasks = updatedTasks.map(t => t.id === task.id ? { ...t, pdfAttachment: uploaded } : t);
+              didUpdate = true;
+            } catch (err) {
+              console.warn('[Zen] Legacy task PDF migration failed:', err);
+            }
+          }
+        }
+
+        for (const folder of state.folders) {
+          let folderUpdated = false;
+          const updatedItems = await Promise.all(folder.items.map(async (item) => {
+            if (item.type !== 'pdf') return item;
+            const legacyData = item.content && String(item.content).startsWith('data:application/pdf') ? item.content : '';
+            if (!legacyData) return item;
+            try {
+              const uploaded = await uploadPdfDataUrlToR2(legacyData, item.title || 'document.pdf');
+              folderUpdated = true;
+              return { ...item, content: '', file: uploaded };
+            } catch (err) {
+              console.warn('[Zen] Legacy folder PDF migration failed:', err);
+              return item;
+            }
+          }));
+          if (folderUpdated) {
+            updatedFolders = updatedFolders.map(f => f.id === folder.id ? { ...f, items: updatedItems } : f);
+            didUpdate = true;
+          }
+        }
+
+        if (didUpdate) {
+          setState(prev => ({ ...prev, tasks: updatedTasks, folders: updatedFolders }));
+        }
+      } catch (err) {
+        console.warn('[Zen] Legacy PDF migration failed:', err);
+      }
+    };
+
+    migrateLegacyPdfs();
+  }, [user?.uid, user?.emailVerified, isHydrated]);
 
   // Sync tasks with backend for deadline reminders whenever tasks change
   useEffect(() => {
@@ -355,7 +415,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     folders: prev.folders.filter(f => f.id !== id)
   }));
 
-  const addItemToFolder = (folderId: string, item: { id: string; title: string; type: 'note' | 'pdf'; content?: string }) => setState(prev => ({
+  const addItemToFolder = (folderId: string, item: FolderItem) => setState(prev => ({
     ...prev,
     folders: prev.folders.map(f => f.id === folderId ? { ...f, items: [...f.items, item] } : f)
   }));

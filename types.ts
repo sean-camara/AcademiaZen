@@ -1,4 +1,14 @@
 
+export interface PdfAttachment {
+  key: string;
+  name: string;
+  size: number;
+  contentType: string;
+  url?: string;
+  text?: string;
+  textUpdatedAt?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -6,10 +16,7 @@ export interface Task {
   completed: boolean;
   subjectId?: string;
   notes?: string;
-  pdfAttachment?: {
-    name: string;
-    data: string; // Base64 Data URL
-  };
+  pdfAttachment?: PdfAttachment;
 }
 
 export interface Subject {
@@ -27,12 +34,19 @@ export interface Flashcard {
   nextReviewDate: string; // ISO Date
 }
 
+export interface FolderItem {
+  id: string;
+  title: string;
+  type: 'note' | 'pdf';
+  content?: string;
+  file?: PdfAttachment;
+}
+
 export interface Folder {
   id: string;
   name: string;
   parentId?: string;
-  // In a real app, this would point to files. Here just UI placeholders.
-  items: Array<{ id: string; title: string; type: 'note' | 'pdf' }>;
+  items: FolderItem[];
 }
 
 export interface UserProfile {

@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
 import { apiFetch } from '../utils/api';
+import { getPdfSignedUrl } from '../utils/pdfStorage';
+import { PdfAttachment } from '../types';
 
 // AI model handled by backend
 
@@ -11,6 +13,10 @@ interface SelectedRef {
     title: string;
     type: 'note' | 'pdf';
     content: string;
+    source: 'task' | 'library';
+    folderId?: string;
+    file?: PdfAttachment;
+    legacyData?: string;
 }
 
 interface ZenAIProps {
@@ -100,7 +106,7 @@ const processInlines = (text: string) => {
 };
 
 const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
-    const { state } = useZen();
+    const { state, updateTask, updateFolder } = useZen();
     const [messages, setMessages] = useState<{role: 'user' | 'ai', text: string, refs?: string[]}[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -125,9 +131,10 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const MAX_PDF_TEXT_CHARS = 8000;
     const MAX_CONTEXT_CHARS = 9000;
     const MIN_CONTEXT_CHARS_PER_DOC = 1200;
-    const MAX_OCR_PAGES = 2;
-    const MAX_OCR_TEXT_CHARS = 4000;
-    const OCR_SCALE = 1.25;
+    const MAX_OCR_PAGES = 4;
+    const MAX_OCR_TEXT_CHARS = 8000;
+    const OCR_SCALE = 2.0;
+    const OCR_LANGUAGE = (import.meta as any).env?.VITE_OCR_LANG || 'eng';
     const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
     const MAX_SAVED_MESSAGES = 60;
 
@@ -246,21 +253,26 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         }
     };
 
-    const extractPdfText = async (dataUrl: string, cacheKey: string) => {
+    const extractPdfText = async (source: string, cacheKey: string) => {
         if (pdfTextCacheRef.current.has(cacheKey)) {
             return pdfTextCacheRef.current.get(cacheKey) || '';
         }
         try {
             const pdfjsLib = (window as any).pdfjsLib;
             if (!pdfjsLib) return '';
-            const base64 = dataUrl.split(',')[1] || '';
-            if (!base64) return '';
-            const binary = atob(base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i += 1) {
-                bytes[i] = binary.charCodeAt(i);
+            let loadingTask;
+            if (String(source).startsWith('data:')) {
+                const base64 = source.split(',')[1] || '';
+                if (!base64) return '';
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i += 1) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                loadingTask = pdfjsLib.getDocument({ data: bytes });
+            } else {
+                loadingTask = pdfjsLib.getDocument(source);
             }
-            const loadingTask = pdfjsLib.getDocument({ data: bytes });
             const pdf = await loadingTask.promise;
             const totalPages = Math.min(pdf.numPages || 0, MAX_PDF_PAGES);
             let fullText = '';
@@ -300,7 +312,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                 await page.render({ canvasContext: context, viewport }).promise;
 
                 const dataUrl = canvas.toDataURL('image/png');
-                const result = await Tesseract.recognize(dataUrl, 'eng');
+                const result = await Tesseract.recognize(dataUrl, OCR_LANGUAGE);
                 ocrText += `${result?.data?.text || ''}\n`;
                 if (ocrText.length >= MAX_OCR_TEXT_CHARS) {
                     ocrText = ocrText.slice(0, MAX_OCR_TEXT_CHARS);
@@ -315,6 +327,40 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             return cleaned;
         } catch (err) {
             return '';
+        }
+    };
+
+    const persistPdfText = (ref: SelectedRef, text: string) => {
+        const updatedAt = new Date().toISOString();
+        if (ref.source === 'task') {
+            const task = state.tasks.find(t => t.id === ref.id);
+            if (!task || !task.pdfAttachment) return;
+            updateTask({
+                ...task,
+                pdfAttachment: {
+                    ...task.pdfAttachment,
+                    text,
+                    textUpdatedAt: updatedAt,
+                },
+            });
+            return;
+        }
+        if (ref.source === 'library' && ref.folderId) {
+            const folder = state.folders.find(f => f.id === ref.folderId);
+            if (!folder) return;
+            const updatedItems = folder.items.map(item => {
+                if (item.id !== ref.id) return item;
+                if (!item.file) return item;
+                return {
+                    ...item,
+                    file: {
+                        ...item.file,
+                        text,
+                        textUpdatedAt: updatedAt,
+                    },
+                };
+            });
+            updateFolder({ ...folder, items: updatedItems });
         }
     };
 
@@ -385,9 +431,28 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             if (currentRefs.length > 0) {
                 const resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
                     if (ref.type !== 'pdf') return ref;
-                    const rawContent = ref.content || '';
-                    if (!rawContent.startsWith('data:')) return ref;
-                    const extracted = await extractPdfText(rawContent, ref.id);
+                    if (ref.content && ref.content.trim().length > 0) return ref;
+
+                    let extracted = '';
+                    if (ref.file?.text) {
+                        extracted = ref.file.text;
+                    } else if (ref.file?.key) {
+                        try {
+                            const url = ref.file.url || await getPdfSignedUrl(ref.file.key);
+                            extracted = await extractPdfText(url, ref.file.key || ref.id);
+                        } catch (_) {
+                            extracted = '';
+                        }
+                    } else if (ref.legacyData && ref.legacyData.startsWith('data:')) {
+                        extracted = await extractPdfText(ref.legacyData, ref.id);
+                    } else if (ref.content && ref.content.startsWith('data:')) {
+                        extracted = await extractPdfText(ref.content, ref.id);
+                    }
+
+                    if (extracted) {
+                        persistPdfText(ref, extracted);
+                    }
+
                     return { ...ref, content: extracted };
                 }));
 
@@ -456,8 +521,8 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
     const toggleRef = (ref: SelectedRef) => {
         setSelectedRefs(prev => 
-            prev.find(r => r.id === ref.id) 
-                ? prev.filter(r => r.id !== ref.id)
+            prev.find(r => r.id === ref.id && r.source === ref.source && r.folderId === ref.folderId) 
+                ? prev.filter(r => !(r.id === ref.id && r.source === ref.source && r.folderId === ref.folderId))
                 : [...prev, ref]
         );
     };
@@ -737,10 +802,23 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                         <div className="grid grid-cols-1 gap-2 md:gap-3">
                                             {folder.items.map(item => {
                                                 const isSelected = !!selectedRefs.find(r => r.id === item.id);
+                                                const legacyData = item.type === 'pdf' && item.content && item.content.startsWith('data:')
+                                                    ? item.content
+                                                    : undefined;
+                                                const refPayload: SelectedRef = {
+                                                    id: item.id,
+                                                    title: item.title,
+                                                    type: item.type,
+                                                    content: item.type === 'pdf' ? (item.file?.text || '') : (item.content || ''),
+                                                    source: 'library',
+                                                    folderId: folder.id,
+                                                    file: item.type === 'pdf' ? item.file : undefined,
+                                                    legacyData,
+                                                };
                                                 return (
                                                     <button 
                                                         key={item.id}
-                                                        onClick={() => toggleRef({ id: item.id, title: item.title, type: item.type, content: item.content || '' })}
+                                                        onClick={() => toggleRef(refPayload)}
                                                         className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl border transition-all ${isSelected ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary ring-1 ring-zen-primary/20' : 'bg-zen-surface/30 border-zen-surface text-zen-text-secondary hover:border-zen-surface-brighter'}`}
                                                     >
                                                         <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
@@ -763,10 +841,20 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 <div className="grid grid-cols-1 gap-2 md:gap-3">
                                     {state.tasks.filter(t => t.pdfAttachment).map(task => {
                                         const isSelected = !!selectedRefs.find(r => r.id === task.id);
+                                        const legacyData = (task.pdfAttachment as any)?.data;
+                                        const refPayload: SelectedRef = {
+                                            id: task.id,
+                                            title: task.pdfAttachment!.name,
+                                            type: 'pdf',
+                                            content: task.pdfAttachment!.text || '',
+                                            source: 'task',
+                                            file: task.pdfAttachment!,
+                                            legacyData: legacyData && String(legacyData).startsWith('data:') ? legacyData : undefined,
+                                        };
                                         return (
                                             <button 
                                                 key={task.id}
-                                                onClick={() => toggleRef({ id: task.id, title: task.pdfAttachment!.name, type: 'pdf', content: task.pdfAttachment!.data })}
+                                                onClick={() => toggleRef(refPayload)}
                                                 className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl border transition-all ${isSelected ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-inner ring-1 ring-zen-primary/20' : 'bg-zen-surface/30 border-zen-surface text-zen-text-secondary hover:border-zen-surface-brighter'}`}
                                             >
                                                 <div className="flex items-center gap-3 md:gap-4 overflow-hidden">

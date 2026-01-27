@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { IconX, IconPaperclip, IconTrash, IconChevronRight } from './Icons';
+import { PdfAttachment } from '../types';
+import { uploadPdfToR2 } from '../utils/pdfStorage';
 
 interface AddTaskModalProps {
   onClose: () => void;
-  onSave: (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => void;
+  onSave: (title: string, date: string, notes: string, pdf?: PdfAttachment) => void;
   subjectName?: string;
   editMode?: boolean;
   initialData?: {
     title: string;
     date: string;
     notes: string;
-    pdf?: { name: string; data: string };
+    pdf?: PdfAttachment;
   };
 }
 
@@ -35,7 +37,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
   const [date, setDate] = useState(getInitialDate());
   const [time, setTime] = useState(getInitialTime());
   const [notes, setNotes] = useState(initialData?.notes || '');
-  const [pdf, setPdf] = useState<{ name: string; data: string } | undefined>(initialData?.pdf);
+  const [pdf, setPdf] = useState<PdfAttachment | undefined>(initialData?.pdf);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +49,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploadingPdf) {
+      setUploadError('Upload in progress. Please wait.');
+      return;
+    }
     if (!title.trim()) return;
     
     const combinedDate = new Date(`${date}T${time}:00`);
@@ -60,7 +66,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setUploadError(null);
     if (!file) return;
@@ -68,20 +74,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
       setUploadError('Please select a PDF file');
       return;
     }
-    if (file.size > 1 * 1024 * 1024) {
-      setUploadError('File size exceed limit. Max 1MB.');
-      return;
+    try {
+      setIsUploadingPdf(true);
+      const uploaded = await uploadPdfToR2(file);
+      setPdf(uploaded);
+    } catch (err: any) {
+      setUploadError(err?.message || 'Upload failed. Please try again.');
+    } finally {
+      setIsUploadingPdf(false);
     }
-    
-    setIsUploadingPdf(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setPdf({ name: file.name, data: event.target.result as string });
-        setIsUploadingPdf(false);
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   return (
@@ -235,7 +236,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
             </button>
             <button 
                 onClick={handleSave}
-                className="flex-[2] py-5 rounded-[2rem] bg-white text-black font-black uppercase tracking-[0.3em] text-[10px] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group shadow-2xl shadow-white/10"
+                disabled={isUploadingPdf || !title.trim()}
+                className="flex-[2] py-5 rounded-[2rem] bg-white text-black font-black uppercase tracking-[0.3em] text-[10px] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group shadow-2xl shadow-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 {editMode ? 'Update Objective' : 'Commit to Sync'}
                 <IconChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

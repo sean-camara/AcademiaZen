@@ -5,6 +5,8 @@ import { useZen } from '../context/ZenContext';
 import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary, IconEdit } from '../components/Icons';
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
+import { PdfAttachment } from '../types';
+import { uploadPdfToR2, getPdfSignedUrl } from '../utils/pdfStorage';
 
 // Helper: Splits text into readable chunks for the Zen Reader
 const paginateText = (text: string, charsPerPage: number = 1400) => {
@@ -27,7 +29,7 @@ const paginateText = (text: string, charsPerPage: number = 1400) => {
 };
 
 // Component: Specialized canvas-based PDF page renderer
-const PdfPageRenderer: React.FC<{ data: string; pageNum: number; onDocumentLoad: (numPages: number) => void }> = ({ data, pageNum, onDocumentLoad }) => {
+const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoad: (numPages: number) => void }> = ({ source, pageNum, onDocumentLoad }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ const PdfPageRenderer: React.FC<{ data: string; pageNum: number; onDocumentLoad:
       setError(null);
       try {
         const pdfjsLib = (window as any).pdfjsLib;
-        const loadingTask = pdfjsLib.getDocument(data);
+        const loadingTask = pdfjsLib.getDocument(source);
         const pdf = await loadingTask.promise;
         pdfDocRef.current = pdf;
         onDocumentLoad(pdf.numPages);
@@ -76,7 +78,7 @@ const PdfPageRenderer: React.FC<{ data: string; pageNum: number; onDocumentLoad:
       }
     };
     loadPdf();
-  }, [data, onDocumentLoad, renderPage]);
+  }, [source, onDocumentLoad, renderPage]);
 
   useEffect(() => {
     if (pdfDocRef.current) renderPage(pdfDocRef.current, pageNum);
@@ -119,12 +121,13 @@ const Library: React.FC = () => {
   const [itemType, setItemType] = useState<'note' | 'pdf'>('note');
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemContent, setNewItemContent] = useState('');
-  const [newItemPdf, setNewItemPdf] = useState<{ name: string; data: string } | null>(null);
+  const [newItemPdf, setNewItemPdf] = useState<PdfAttachment | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const [activeDoc, setActiveDoc] = useState<{ id: string; title: string; type: 'note' | 'pdf'; content?: string } | null>(null);
+  const [activeDoc, setActiveDoc] = useState<{ id: string; title: string; type: 'note' | 'pdf'; content?: string; file?: PdfAttachment } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [activePdfUrl, setActivePdfUrl] = useState<string>('');
 
   const activeFolder = folders.find(f => f.id === activeFolderId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +144,32 @@ const Library: React.FC = () => {
       const p = paginateText(activeDoc.content || "");
       setTotalPages(p.length);
     }
+  }, [activeDoc]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPdfUrl = async () => {
+      if (!activeDoc || activeDoc.type !== 'pdf') {
+        setActivePdfUrl('');
+        return;
+      }
+      if (activeDoc.content && String(activeDoc.content).startsWith('data:application/pdf')) {
+        setActivePdfUrl(activeDoc.content);
+        return;
+      }
+      if (!activeDoc.file?.key) {
+        setActivePdfUrl('');
+        return;
+      }
+      try {
+        const url = activeDoc.file.url || await getPdfSignedUrl(activeDoc.file.key);
+        if (!cancelled) setActivePdfUrl(url);
+      } catch (err) {
+        if (!cancelled) setActivePdfUrl('');
+      }
+    };
+    loadPdfUrl();
+    return () => { cancelled = true; };
   }, [activeDoc]);
 
   const handleCreateFolder = (e: React.FormEvent) => {
@@ -178,7 +207,8 @@ const Library: React.FC = () => {
       id: generateId(),
       title: newItemTitle.trim() + (itemType === 'note' ? '.txt' : '.pdf'),
       type: itemType,
-      content: itemType === 'note' ? newItemContent : newItemPdf?.data
+      content: itemType === 'note' ? newItemContent : '',
+      file: itemType === 'pdf' ? (newItemPdf || undefined) : undefined,
     };
     addItemToFolder(activeFolderId, item);
     setIsAddingItem(false); setNewItemTitle(''); setNewItemContent(''); setNewItemPdf(null); setUploadError(null);
@@ -193,11 +223,12 @@ const Library: React.FC = () => {
   };
 
   const openInNewTab = () => {
-    if (!activeDoc?.content) return;
+    if (!activeDoc) return;
     if (activeDoc.type === 'pdf') {
-      const win = window.open();
-      win?.document.write(`<iframe src="${activeDoc.content}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-    } else {
+      if (activePdfUrl) window.open(activePdfUrl, '_blank');
+      return;
+    }
+    if (activeDoc.content) {
       const blob = new Blob([activeDoc.content], { type: 'text/plain' });
       window.open(URL.createObjectURL(blob), '_blank');
     }
@@ -353,7 +384,7 @@ const Library: React.FC = () => {
                   <div className="space-y-2 md:space-y-3">
                      <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Archive File</label>
                      <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 md:h-48 border-2 border-dashed border-zen-surface rounded-[1.5rem] md:rounded-[2rem] flex flex-col items-center justify-center gap-2 md:gap-4 cursor-pointer group hover:border-zen-primary/50 transition-all bg-zen-surface/30">
-                        <input type="file" ref={fileInputRef} accept="application/pdf" onChange={(e) => {
+                        <input type="file" ref={fileInputRef} accept="application/pdf" onChange={async (e) => {
                           const file = e.target.files?.[0];
                           setUploadError(null);
                           if (file) {
@@ -361,16 +392,13 @@ const Library: React.FC = () => {
                               setUploadError('Please select a PDF file.');
                               return;
                             }
-                            if (file.size > 1 * 1024 * 1024) {
-                              setUploadError('File size exceed limit. Max 1MB.');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              setNewItemPdf({ name: file.name, data: ev.target?.result as string });
+                            try {
+                              const uploaded = await uploadPdfToR2(file);
+                              setNewItemPdf(uploaded);
                               if (!newItemTitle) setNewItemTitle(file.name.replace('.pdf', ''));
-                            };
-                            reader.readAsDataURL(file);
+                            } catch (err: any) {
+                              setUploadError(err?.message || 'Upload failed. Please try again.');
+                            }
                           }
                         }} className="hidden" />
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-zen-surface group-hover:bg-zen-primary/10 rounded-full flex items-center justify-center transition-colors">
@@ -424,7 +452,11 @@ const Library: React.FC = () => {
               {/* Reader Body */}
               <div className="flex-1 overflow-y-auto no-scrollbar p-0 md:p-8 bg-zen-bg/30 flex flex-col items-center">
                 {activeDoc.type === 'pdf' ? (
-                  <PdfPageRenderer data={activeDoc.content || ""} pageNum={currentPage} onDocumentLoad={setTotalPages} />
+                  activePdfUrl ? (
+                    <PdfPageRenderer source={activePdfUrl} pageNum={currentPage} onDocumentLoad={setTotalPages} />
+                  ) : (
+                    <div className="text-zen-text-secondary text-sm">Loading PDF...</div>
+                  )
                 ) : (
                   <div className="w-full max-w-2xl bg-zen-card p-6 md:p-12 sm:p-20 md:rounded-[3rem] border border-zen-surface shadow-xl animate-reveal mt-0 md:mt-4 h-full md:h-auto overflow-y-auto">
                     <div className="text-lg md:text-xl font-light text-zen-text-primary leading-relaxed whitespace-pre-wrap select-text selection:bg-zen-primary/30">
