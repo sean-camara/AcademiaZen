@@ -48,7 +48,7 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
                     const content = trimmed.substring(2);
                     return (
                         <div key={i} className="flex gap-3 ml-2 md:ml-4 py-0.5">
-                            <span className="text-zen-primary font-bold">•</span>
+                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zen-primary/80 shrink-0" />
                             <span className="leading-relaxed opacity-90">{processInlines(content)}</span>
                         </div>
                     );
@@ -107,10 +107,15 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [selectedRefs, setSelectedRefs] = useState<SelectedRef[]>([]);
     const [showSelector, setShowSelector] = useState(false);
     const [selectorTab, setSelectorTab] = useState<'library' | 'tasks'>('library');
+    const [isPremium, setIsPremium] = useState(false);
+    const [billingChecked, setBillingChecked] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const upgradeCtaRef = useRef<HTMLButtonElement>(null);
+    const hasShownUpgradeOnceRef = useRef(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -127,6 +132,63 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         textareaRef.current.style.height = `${Math.max(next, 44)}px`;
     }, [input]);
 
+    useEffect(() => {
+        let active = true;
+        apiFetch('/api/billing/status')
+            .then(async (res) => {
+                if (!res.ok) return null;
+                return await res.json();
+            })
+            .then((data) => {
+                if (!active) return;
+                const plan = data?.billing?.effectivePlan || 'free';
+                setIsPremium(plan === 'premium');
+                setBillingChecked(true);
+            })
+            .catch(() => {
+                if (!active) return;
+                setIsPremium(false);
+                setBillingChecked(true);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const aiLocked = billingChecked ? !isPremium : true;
+
+    useEffect(() => {
+        if (!billingChecked || !aiLocked) return;
+        if (hasShownUpgradeOnceRef.current) return;
+        hasShownUpgradeOnceRef.current = true;
+        setShowUpgradeModal(true);
+    }, [billingChecked, aiLocked]);
+
+    const openBilling = () => {
+        onClose();
+        window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'billing' } }));
+    };
+
+    useEffect(() => {
+        if (!showUpgradeModal) return;
+
+        const prevOverflow = document.documentElement.style.overflow;
+        document.documentElement.style.overflow = 'hidden';
+
+        // Make keyboard flows feel intentional (especially mobile + screen readers).
+        setTimeout(() => upgradeCtaRef.current?.focus(), 0);
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setShowUpgradeModal(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            document.documentElement.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [showUpgradeModal]);
+
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -137,6 +199,10 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (aiLocked) {
+            setShowUpgradeModal(true);
+            return;
+        }
         if (!input.trim() || isLoading) return;
 
         const userQuery = input;
@@ -199,6 +265,8 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             
             if (error.message?.includes('401')) {
                 errorMessage = "### Authentication Required\nPlease sign in again to continue using Zen AI.";
+            } else if (error.message?.includes('402')) {
+                errorMessage = "### Premium Required\nUpgrade to Premium to use Zen AI.";
             } else if (error.message?.includes('429') || error.message?.includes('rate')) {
                 errorMessage = "### Rate Limit Reached\nToo many requests. Please wait a moment and try again.";
             } else {
@@ -246,8 +314,115 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 </button>
             </header>
 
+            {showUpgradeModal && aiLocked && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-2xl animate-fade-in"
+                        onClick={() => setShowUpgradeModal(false)}
+                    />
+
+                    {/* Modal */}
+                    <div
+                        className="relative w-full max-w-sm sm:max-w-xl bg-zen-card/95 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[2.5rem] animate-slide-up max-h-[90svh] overflow-hidden pb-[env(safe-area-inset-bottom)] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Upgrade to Premium"
+                    >
+                        {/* Glow accents */}
+                        <div className="absolute -top-10 -right-10 w-48 h-48 bg-zen-primary/10 blur-[80px] rounded-full pointer-events-none" />
+                        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-zen-secondary/10 blur-[80px] rounded-full pointer-events-none" />
+
+                        <button
+                            onClick={() => setShowUpgradeModal(false)}
+                            className="absolute top-5 right-5 z-10 p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-zen-text-primary transition-all active:scale-90"
+                            aria-label="Close"
+                        >
+                            <IconX className="w-5 h-5" />
+                        </button>
+
+                        <div className="px-6 sm:px-10 pt-5 sm:pt-8 pb-4 border-b border-white/5 flex-none">
+
+                            <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-zen-primary/15 text-zen-primary flex items-center justify-center border border-zen-primary/20">
+                                    <IconBot className="w-5 h-5 sm:w-6 sm:h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">
+                                        Premium Feature
+                                    </p>
+                                    <h3 className="text-[22px] sm:text-3xl font-light text-zen-text-primary tracking-tight">
+                                        Unlock Zen AI
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <p className="mt-3 text-[13px] sm:text-base text-zen-text-secondary leading-relaxed">
+                                Upgrade to get deep document analysis, synthesis across your library, and guided study workflows.
+                            </p>
+                        </div>
+
+                        <div className="px-6 sm:px-10 py-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3.5 rounded-2xl bg-zen-surface/50 border border-white/5">
+                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Monthly</p>
+                                    <p className="mt-1.5 text-lg font-light text-zen-text-primary">PHP 149</p>
+                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black mt-0.5">per month</p>
+                                </div>
+                                <div className="p-3.5 rounded-2xl bg-zen-surface/50 border border-white/5">
+                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Yearly</p>
+                                    <p className="mt-1.5 text-lg font-light text-zen-text-primary">PHP 1490</p>
+                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black mt-0.5">per year</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5">
+                                {[
+                                    'Analyze notes and PDFs with context',
+                                    'Summarize and compare across documents',
+                                    'Generate practice questions and review plans',
+                                ].map((item) => (
+                                    <div key={item} className="flex items-start gap-3 px-3 py-2.5 rounded-2xl bg-white/[0.02] border border-white/5">
+                                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zen-primary/80 shrink-0" />
+                                        <p className="text-[13px] text-zen-text-primary leading-relaxed">{item}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <p className="text-center text-[9px] uppercase font-black tracking-[0.35em] text-zen-text-disabled opacity-60">
+                                Payments via GCash or bank available in Billing
+                            </p>
+                        </div>
+
+                        <div className="px-6 sm:px-10 py-5 border-t border-white/5 bg-zen-card/60 backdrop-blur-2xl flex-none">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                    ref={upgradeCtaRef}
+                                    onClick={openBilling}
+                                    className="py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-zen-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all"
+                                >
+                                    Upgrade to Premium
+                                </button>
+                                <button
+                                    onClick={() => setShowUpgradeModal(false)}
+                                    className="py-3.5 rounded-2xl bg-zen-surface/70 text-zen-text-secondary text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] border border-white/5 hover:border-zen-primary/30 transition-all"
+                                >
+                                    Maybe Later
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 md:space-y-12 no-scrollbar relative z-[115]">
+                {!billingChecked && (
+                    <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface/60 border border-zen-surface text-zen-text-secondary text-xs md:text-sm font-medium">
+                        Checking your plan...
+                    </div>
+                )}
                 
                 {/* Empty State / Splash */}
                 {messages.length === 0 && !isLoading && (
@@ -264,11 +439,23 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mt-8 md:mt-12 px-4">
-                            <button onClick={() => setInput("Explain the core concepts from my recent notes.")} className="p-4 md:p-6 bg-zen-card border border-zen-surface rounded-[1.5rem] md:rounded-[2rem] text-left hover:border-zen-primary/30 hover:bg-zen-surface/30 transition-all group">
+                            <button
+                                disabled={aiLocked}
+                                onClick={() => setInput("Explain the core concepts from my recent notes.")}
+                                className={`p-4 md:p-6 border rounded-[1.5rem] md:rounded-[2rem] text-left transition-all group ${
+                                    aiLocked ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60' : 'bg-zen-card border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/30'
+                                }`}
+                            >
                                 <p className="text-[9px] md:text-[10px] text-zen-primary uppercase font-bold tracking-widest mb-1 md:mb-2">Synthesis</p>
                                 <p className="text-xs md:text-sm text-zen-text-primary font-medium group-hover:text-zen-primary">"Summarize the key themes in my library..."</p>
                             </button>
-                            <button onClick={() => setInput("Generate 5 complex practice questions based on these materials.")} className="p-4 md:p-6 bg-zen-card border border-zen-surface rounded-[1.5rem] md:rounded-[2rem] text-left hover:border-zen-primary/30 hover:bg-zen-surface/30 transition-all group">
+                            <button
+                                disabled={aiLocked}
+                                onClick={() => setInput("Generate 5 complex practice questions based on these materials.")}
+                                className={`p-4 md:p-6 border rounded-[1.5rem] md:rounded-[2rem] text-left transition-all group ${
+                                    aiLocked ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60' : 'bg-zen-card border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/30'
+                                }`}
+                            >
                                 <p className="text-[9px] md:text-[10px] text-zen-secondary uppercase font-bold tracking-widest mb-1 md:mb-2">Practice</p>
                                 <p className="text-xs md:text-sm text-zen-text-primary font-medium group-hover:text-zen-secondary">"Create a quick quiz for my active recall..."</p>
                             </button>
@@ -450,8 +637,21 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         <div className="relative flex items-end gap-2 md:gap-4 bg-zen-card/80 border border-zen-surface rounded-[2rem] md:rounded-[2.5rem] p-2 md:p-3 pl-3 md:pl-4 pr-2 md:pr-3 focus-within:border-zen-primary/50 transition-all shadow-2xl">
                             <button 
                                 type="button"
-                                onClick={() => setShowSelector(true)}
-                                className={`w-10 h-10 md:w-14 md:h-14 rounded-[1.2rem] md:rounded-[1.8rem] transition-all flex items-center justify-center border ${selectedRefs.length > 0 ? 'bg-zen-primary border-zen-primary text-zen-bg shadow-lg' : 'bg-zen-surface/50 border-zen-surface text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/5'}`}
+                                onClick={() => {
+                                    if (aiLocked) {
+                                        setShowUpgradeModal(true);
+                                        return;
+                                    }
+                                    setShowSelector(true);
+                                }}
+                                disabled={aiLocked}
+                                className={`w-10 h-10 md:w-14 md:h-14 rounded-[1.2rem] md:rounded-[1.8rem] transition-all flex items-center justify-center border ${
+                                    aiLocked
+                                        ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60'
+                                        : selectedRefs.length > 0
+                                            ? 'bg-zen-primary border-zen-primary text-zen-bg shadow-lg'
+                                            : 'bg-zen-surface/50 border-zen-surface text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/5'
+                                }`}
                             >
                                 <IconPaperclip className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
@@ -462,14 +662,14 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 onChange={e => setInput(e.target.value)}
                                 onKeyDown={handleInputKeyDown}
                                 placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
-                                disabled={isLoading}
+                                disabled={isLoading || aiLocked}
                                 rows={1}
                                 className="flex-1 bg-transparent border-none text-base md:text-xl text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0 resize-none leading-relaxed py-2 md:py-3 max-h-40"
                             />
 
                             <button 
                                 type="submit"
-                                disabled={!input.trim() || isLoading} 
+                                disabled={!input.trim() || isLoading || aiLocked} 
                                 className="h-10 md:h-14 px-4 md:px-8 bg-white text-black rounded-[1.2rem] md:rounded-[1.8rem] font-black uppercase tracking-[0.2em] text-[10px] disabled:opacity-5 shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
                                 {isLoading ? (

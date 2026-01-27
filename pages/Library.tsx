@@ -606,17 +606,25 @@ const Library: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {folders.map((folder, idx) => (
-                      <button 
-                        key={folder.id} 
-                        onClick={() => setActiveFolderId(folder.id)} 
-                        className="group relative bg-zen-card hover:bg-zen-surface/40 p-6 md:p-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[100px] md:min-h-[300px]"
-                        style={{ animationDelay: `${idx * 0.05}s` }}
-                      >
-                        <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                            <button
-                                type="button"
-                                onClick={(e) => {
+                     {folders.map((folder, idx) => (
+                       <div 
+                         key={folder.id} 
+                         onClick={() => setActiveFolderId(folder.id)} 
+                         role="button"
+                         tabIndex={0}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter' || e.key === ' ') {
+                             e.preventDefault();
+                             setActiveFolderId(folder.id);
+                           }
+                         }}
+                         className="group relative bg-zen-card hover:bg-zen-surface/40 p-6 md:p-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[100px] md:min-h-[300px] cursor-pointer"
+                         style={{ animationDelay: `${idx * 0.05}s` }}
+                       >
+                         <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                             <button
+                                 type="button"
+                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   handleOpenEditFolder(folder.id, folder.name);
@@ -639,11 +647,11 @@ const Library: React.FC = () => {
                                   });
                                 }}
                                 className="p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                aria-label={`Delete ${folder.name}`}
-                            >
-                                <IconTrash className="w-4 h-4" />
-                            </button>
-                        </div>
+                                 aria-label={`Delete ${folder.name}`}
+                             >
+                                 <IconTrash className="w-4 h-4" />
+                             </button>
+                         </div>
                         <div className="w-12 h-12 md:w-24 md:h-24 bg-zen-surface rounded-2xl md:rounded-[2rem] flex items-center justify-center text-zen-primary/40 group-hover:text-zen-primary group-hover:bg-zen-primary/10 transition-all duration-500 relative shrink-0">
                             <IconFolder className="w-6 h-6 md:w-10 md:h-10" />
                             <div className="absolute -top-2 -right-2 bg-zen-primary text-zen-bg text-[10px] font-bold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full shadow-lg opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -660,10 +668,10 @@ const Library: React.FC = () => {
                             <IconChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                         </div>
                         
-                        {/* Decorative background element */}
-                        <div className="hidden md:block absolute top-0 right-0 w-32 h-32 bg-zen-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                    ))}
+                         {/* Decorative background element */}
+                         <div className="hidden md:block absolute top-0 right-0 w-32 h-32 bg-zen-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                     ))}
 
                     <button 
                         onClick={() => setIsAddingFolder(true)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
-import { IconX, IconLogOut, IconCheck, IconSettings, IconBot, IconFocus, IconLibrary } from '../components/Icons';
+import { IconX, IconLogOut, IconCheck, IconSettings, IconBot, IconFocus, IconLibrary, IconCreditCard } from '../components/Icons';
 import { AMBIENCE_OPTIONS, FOCUS_DURATIONS } from '../constants';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useAuth } from '../context/AuthContext';
@@ -10,18 +10,55 @@ import ConfirmModal from '../components/ConfirmModal';
 
 interface SettingsProps {
     onClose: () => void;
+    initialTab?: 'focus' | 'profile' | 'notifications' | 'billing' | 'data';
 }
 
-const Settings: React.FC<SettingsProps> = ({ onClose }) => {
+interface BillingIntervalPlan {
+  amount: number;
+  currency: string;
+  label: string;
+  description?: string;
+  interval: string;
+}
+
+interface BillingPlans {
+  free: { id: string; label: string; amount: number; currency: string; interval: string };
+  premium: {
+    monthly: BillingIntervalPlan;
+    yearly: BillingIntervalPlan;
+  };
+}
+
+interface BillingInfo {
+  plan: string;
+  interval: string;
+  status: string;
+  currentPeriodEnd: string | null;
+  autoRenew: boolean;
+  isActive: boolean;
+  effectivePlan: string;
+  pendingCheckoutId: string;
+}
+
+const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const { state, updateSettings, updateProfile, clearData } = useZen();
   const { signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'focus' | 'profile' | 'notifications' | 'data'>('focus');
+  const [activeTab, setActiveTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data'>(initialTab || 'focus');
   
   // Local state for profile form
   const [localName, setLocalName] = useState(state.profile.name || '');
   const [localUni, setLocalUni] = useState(state.profile.university || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+
+  // Billing state
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [billingPlans, setBillingPlans] = useState<BillingPlans | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [billingNotice, setBillingNotice] = useState('');
+  const [billingMethodLoading, setBillingMethodLoading] = useState<'gcash' | 'bank' | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'yearly'>('monthly');
   
   // Confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -32,6 +69,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
         setLocalUni(state.profile.university || '');
     }
   }, [state.profile]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
@@ -49,6 +92,139 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
         setIsSavingProfile(false);
     }
   };
+
+  const formatDate = (value: string | null) => {
+    if (!value) return '-';
+    try {
+      return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
+
+  const loadBilling = async () => {
+    setBillingLoading(true);
+    setBillingError('');
+    try {
+      const [statusRes, plansRes] = await Promise.all([
+        apiFetch('/api/billing/status'),
+        apiFetch('/api/billing/plans'),
+      ]);
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setBilling(statusData.billing);
+        if (statusData.billing?.interval === 'yearly') {
+          setSelectedInterval('yearly');
+        } else if (statusData.billing?.interval === 'monthly') {
+          setSelectedInterval('monthly');
+        }
+      }
+
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setBillingPlans(plansData.plans);
+      }
+    } catch (err) {
+      console.error('[Billing] Load failed:', err);
+      setBillingError('Unable to load billing details.');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const refreshBilling = async () => {
+    setBillingLoading(true);
+    setBillingError('');
+    try {
+      const res = await apiFetch('/api/billing/refresh', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.billing) setBilling(data.billing);
+      }
+    } catch (err) {
+      console.error('[Billing] Refresh failed:', err);
+      setBillingError('Unable to refresh billing.');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleCheckout = async (method: 'gcash' | 'bank') => {
+    setBillingMethodLoading(method);
+    setBillingError('');
+    try {
+      const res = await apiFetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: 'premium',
+          interval: selectedInterval,
+          method,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error || 'Checkout failed');
+      }
+
+      const data = await res.json();
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error('Missing checkout URL');
+      }
+    } catch (err) {
+      console.error('[Billing] Checkout error:', err);
+      setBillingError('Unable to start checkout.');
+    } finally {
+      setBillingMethodLoading(null);
+    }
+  };
+
+  const handleAutoRenewToggle = async () => {
+    if (!billing) return;
+    const nextValue = !billing.autoRenew;
+    setBillingLoading(true);
+    setBillingError('');
+    try {
+      const res = await apiFetch('/api/billing/auto-renew', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoRenew: nextValue }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+      setBilling(prev => prev ? { ...prev, autoRenew: nextValue } : prev);
+    } catch (err) {
+      console.error('[Billing] Auto-renew error:', err);
+      setBillingError('Unable to update auto-renew.');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billingParam = params.get('billing');
+    if (!billingParam) return;
+
+    setActiveTab('billing');
+    if (billingParam === 'success') {
+      setBillingNotice('Payment completed. Refreshing your plan...');
+      refreshBilling();
+    } else if (billingParam === 'cancel') {
+      setBillingNotice('Payment canceled. You can try again anytime.');
+    }
+
+    setTimeout(() => setBillingNotice(''), 6000);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'billing') return;
+    loadBilling();
+  }, [activeTab]);
 
   const { 
     isSupported: pushSupported,
@@ -79,6 +255,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const tabs = [
       { id: 'focus', label: 'Focus Timer', icon: <IconFocus className="w-5 h-5" />, desc: 'Configure focus and sounds' },
       { id: 'notifications', label: 'Notifications', icon: <IconBot className="w-5 h-5" />, desc: 'Manage your alerts' },
+      { id: 'billing', label: 'Billing', icon: <IconCreditCard className="w-5 h-5" />, desc: 'Upgrade your plan' },
       { id: 'profile', label: 'Profile', icon: <IconSettings className="w-5 h-5" />, desc: 'Update your personal info' },
       { id: 'data', label: 'Account', icon: <IconLibrary className="w-5 h-5" />, desc: 'Manage your data' }
   ];
@@ -265,6 +442,151 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                                          </button>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Billing Settings */}
+                        {activeTab === 'billing' && (
+                            <div className="space-y-6 md:space-y-10">
+                                {billingNotice && (
+                                  <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-primary/10 border border-zen-primary/30 text-zen-primary text-xs md:text-sm font-medium">
+                                    {billingNotice}
+                                  </div>
+                                )}
+                                {billingError && (
+                                  <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-red-400/5 border border-red-400/20 text-red-400 text-xs md:text-sm font-medium">
+                                    {billingError}
+                                  </div>
+                                )}
+
+                                <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+                                    <div className="p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface space-y-3 md:space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Freemium</span>
+                                            {billing?.effectivePlan === 'free' && (
+                                                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-primary font-black">Current</span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl md:text-3xl font-light text-zen-text-primary">Free</h3>
+                                            <p className="text-xs md:text-sm text-zen-text-secondary mt-2">Core planning, focus tools, and basic library features.</p>
+                                        </div>
+                                        <div className="text-[10px] md:text-[11px] text-zen-text-disabled uppercase tracking-[0.3em] font-black">
+                                            Ideal for light usage
+                                        </div>
+                                    </div>
+
+                                    <div className={`p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border space-y-5 md:space-y-6 ${billing?.effectivePlan === 'premium' ? 'bg-zen-primary/5 border-zen-primary/30' : 'bg-zen-card border-zen-surface'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] md:text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black">Premium</span>
+                                            {billing?.effectivePlan === 'premium' && (
+                                                <span className="px-2.5 py-1 rounded-full bg-zen-primary/15 text-zen-primary text-[9px] md:text-[10px] uppercase tracking-[0.25em] font-black">Active</span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-3xl md:text-4xl font-light text-zen-text-primary">
+                                                  {billingPlans
+                                                    ? `PHP ${Math.round((billingPlans.premium[selectedInterval].amount || 0) / 100)}`
+                                                    : selectedInterval === 'yearly' ? 'PHP 1490' : 'PHP 149'}
+                                                </span>
+                                                <span className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.25em] font-black">
+                                                    / {selectedInterval === 'yearly' ? 'year' : 'month'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs md:text-sm text-zen-text-secondary">
+                                                Full access to Zen Intelligence and advanced study workflows.
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <button
+                                                onClick={() => setSelectedInterval('monthly')}
+                                                className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'monthly' ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-glow-sm' : 'bg-zen-surface/70 border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'}`}
+                                            >
+                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black">Monthly</p>
+                                                <p className="mt-2 text-xl font-light text-zen-text-primary">PHP 149</p>
+                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-zen-text-disabled">per month</p>
+                                            </button>
+                                            <button
+                                                onClick={() => setSelectedInterval('yearly')}
+                                                className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'yearly' ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-glow-sm' : 'bg-zen-surface/70 border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'}`}
+                                            >
+                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black">Yearly</p>
+                                                <p className="mt-2 text-xl font-light text-zen-text-primary">PHP 1490</p>
+                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-zen-text-disabled">per year</p>
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <button
+                                                onClick={() => handleCheckout('gcash')}
+                                                disabled={billingMethodLoading === 'gcash'}
+                                                className="py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:shadow-glow-sm disabled:opacity-60"
+                                            >
+                                                {billingMethodLoading === 'gcash' ? 'Starting...' : 'Pay with GCash'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleCheckout('bank')}
+                                                disabled={billingMethodLoading === 'bank'}
+                                                className="py-3.5 rounded-2xl bg-zen-surface/80 text-zen-text-primary text-[10px] md:text-xs font-black uppercase tracking-[0.25em] border border-zen-surface transition-all hover:border-zen-primary/30 disabled:opacity-60"
+                                            >
+                                                {billingMethodLoading === 'bank' ? 'Starting...' : 'Pay with Bank'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-5 md:p-8 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface space-y-4 md:space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Current Plan</p>
+                                            <p className="text-lg md:text-xl font-light text-zen-text-primary mt-1">
+                                                {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={refreshBilling}
+                                            disabled={billingLoading}
+                                            className="px-4 py-2 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-[0.2em] bg-zen-surface text-zen-text-secondary border border-zen-surface hover:border-zen-primary/30 transition-all disabled:opacity-60"
+                                        >
+                                            {billingLoading ? 'Refreshing...' : 'Refresh'}
+                                        </button>
+                                    </div>
+
+                                    <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+                                        <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
+                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Status</p>
+                                            <p className="text-sm md:text-base font-light text-zen-text-primary mt-2 capitalize">{billing?.status || 'free'}</p>
+                                        </div>
+                                        <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
+                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">{billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Next Renewal'}</p>
+                                            <p className="text-sm md:text-base font-light text-zen-text-primary mt-2">{formatDate(billing?.currentPeriodEnd || null)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
+                                        <div className="space-y-0.5">
+                                            <p className="text-base md:text-lg font-light text-zen-text-primary">Auto Billing</p>
+                                            <p className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">
+                                              Toggle to enable or disable auto renewal
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleAutoRenewToggle}
+                                            disabled={billingLoading || (billing?.effectivePlan !== 'premium' && billing?.status !== 'pending')}
+                                            className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${billing?.autoRenew ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
+                                        >
+                                            <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${billing?.autoRenew ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
+                                        </button>
+                                    </div>
+
+                                    {billing?.status === 'pending' && (
+                                      <div className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.3em] font-black">
+                                        Payment pending. Use refresh to update your status.
+                                      </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 

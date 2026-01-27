@@ -17,6 +17,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Home);
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
   const { focusSession, hideNavbar, setHideNavbar } = useZen();
   const { signOut } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -40,6 +41,20 @@ const Layout: React.FC<LayoutProps> = () => {
   useEffect(() => {
     setHideNavbar(showSettings || showAI);
   }, [showSettings, showAI, setHideNavbar]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      if (detail?.tab) {
+        setSettingsTab(detail.tab);
+      } else {
+        setSettingsTab(null);
+      }
+      setShowSettings(true);
+    };
+    window.addEventListener('open-settings', handler as EventListener);
+    return () => window.removeEventListener('open-settings', handler as EventListener);
+  }, []);
 
   const navItems = [
     { tab: Tab.Home, icon: IconHome, label: 'Home' },
@@ -176,7 +191,15 @@ const Layout: React.FC<LayoutProps> = () => {
       </div>
 
       {/* Overlays */}
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <Settings
+          onClose={() => {
+            setShowSettings(false);
+            setSettingsTab(null);
+          }}
+          initialTab={settingsTab || undefined}
+        />
+      )}
       {showAI && <ZenAI onClose={() => setShowAI(false)} />}
     </div>
   );
