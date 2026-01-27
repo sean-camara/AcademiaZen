@@ -109,6 +109,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [selectorTab, setSelectorTab] = useState<'library' | 'tasks'>('library');
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -117,6 +119,21 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isLoading]);
+
+    useEffect(() => {
+        if (!textareaRef.current) return;
+        textareaRef.current.style.height = '0px';
+        const next = Math.min(textareaRef.current.scrollHeight, 160);
+        textareaRef.current.style.height = `${Math.max(next, 44)}px`;
+    }, [input]);
+
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!input.trim() || isLoading) return;
+            formRef.current?.requestSubmit();
+        }
+    };
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -428,9 +445,9 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         </div>
                     )}
 
-                    <form onSubmit={handleSend} className="relative group">
+                    <form ref={formRef} onSubmit={handleSend} className="relative group">
                         <div className="absolute inset-0 bg-zen-primary/5 blur-xl group-focus-within:bg-zen-primary/10 transition-colors rounded-full" />
-                        <div className="relative flex items-center gap-2 md:gap-4 bg-zen-card/80 border border-zen-surface rounded-[2rem] md:rounded-[2.5rem] p-2 md:p-3 pl-3 md:pl-4 pr-2 md:pr-3 focus-within:border-zen-primary/50 transition-all shadow-2xl">
+                        <div className="relative flex items-end gap-2 md:gap-4 bg-zen-card/80 border border-zen-surface rounded-[2rem] md:rounded-[2.5rem] p-2 md:p-3 pl-3 md:pl-4 pr-2 md:pr-3 focus-within:border-zen-primary/50 transition-all shadow-2xl">
                             <button 
                                 type="button"
                                 onClick={() => setShowSelector(true)}
@@ -439,13 +456,15 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 <IconPaperclip className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
                             
-                            <input 
-                                type="text" 
-                                value={input} 
+                            <textarea
+                                ref={textareaRef}
+                                value={input}
                                 onChange={e => setInput(e.target.value)}
+                                onKeyDown={handleInputKeyDown}
                                 placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
                                 disabled={isLoading}
-                                className="flex-1 bg-transparent border-none text-base md:text-xl text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0"
+                                rows={1}
+                                className="flex-1 bg-transparent border-none text-base md:text-xl text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0 resize-none leading-relaxed py-2 md:py-3 max-h-40"
                             />
 
                             <button 
