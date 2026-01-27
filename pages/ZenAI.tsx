@@ -110,6 +110,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [isPremium, setIsPremium] = useState(false);
     const [billingChecked, setBillingChecked] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [thinkingContext, setThinkingContext] = useState('Formulating response...');
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
@@ -318,6 +319,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
         const userQuery = input;
         const currentRefs = [...selectedRefs];
+        setThinkingContext(currentRefs.length > 0 ? 'Reviewing selected documents...' : 'Formulating response...');
         setMessages(prev => [...prev, { 
             role: 'user', 
             text: userQuery, 
@@ -637,17 +639,22 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
                 {isLoading && (
                     <div className="flex justify-start animate-reveal">
-                        <div className="bg-zen-card/80 backdrop-blur-sm p-4 rounded-2xl rounded-tl-md border border-zen-surface shadow-xl space-y-3 min-w-[220px]">
+                        <div className="bg-zen-card/80 backdrop-blur-sm p-4 rounded-2xl rounded-tl-md border border-zen-surface shadow-xl space-y-2 min-w-[220px]">
                             <div className="flex gap-2.5 items-center">
                                 <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce" />
                                 <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce [animation-delay:0.2s]" />
                                 <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce [animation-delay:0.4s]" />
                             </div>
-                            <div className="space-y-2">
-                                <p className="text-[10px] text-zen-primary uppercase font-black tracking-[0.4em] animate-pulse">Scanning Archive</p>
-                                <div className="h-1 bg-zen-surface rounded-full overflow-hidden w-full">
-                                    <div className="h-full bg-zen-primary/40 animate-progress" />
-                                </div>
+                            <div>
+                                <p className="text-[10px] text-zen-primary uppercase font-black tracking-[0.3em]">
+                                    Thinking
+                                    <span className="inline-flex ml-1">
+                                        <span className="animate-pulse">.</span>
+                                        <span className="animate-pulse [animation-delay:0.2s]">.</span>
+                                        <span className="animate-pulse [animation-delay:0.4s]">.</span>
+                                    </span>
+                                </p>
+                                <p className="text-[11px] text-zen-text-secondary mt-1">{thinkingContext}</p>
                             </div>
                         </div>
                     </div>
