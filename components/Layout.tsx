@@ -15,7 +15,13 @@ import { apiFetch } from '../utils/api';
 interface LayoutProps {}
 
 const Layout: React.FC<LayoutProps> = () => {
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.Home);
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const stored = window.localStorage.getItem('zen_active_tab') as Tab | null;
+    if (stored && Object.values(Tab).includes(stored)) {
+      return stored;
+    }
+    return Tab.Home;
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
@@ -122,6 +128,10 @@ const Layout: React.FC<LayoutProps> = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('zen_active_tab', activeTab);
+  }, [activeTab]);
 
   const navItems = [
     { tab: Tab.Home, icon: IconHome, label: 'Home' },
