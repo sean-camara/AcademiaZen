@@ -548,7 +548,9 @@ const Focus: React.FC = () => {
                 />
 
                 {showTargetModal && (
-                    <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-fadeIn">
+                    <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn">
+                        {/* Backdrop - absolute to container */}
+                        <div className="absolute inset-0 bg-zen-bg/95 backdrop-blur-xl" />
                         <div className="w-full max-w-lg bg-zen-card/90 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -565,7 +567,7 @@ const Focus: React.FC = () => {
 
                             <div className="space-y-6 max-h-[55vh] overflow-y-auto no-scrollbar pr-1">
                                 <div className="space-y-3">
-                                    <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30">
+                                    <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30 px-1">
                                         <div className="w-1.5 h-1.5 rounded-full bg-zen-primary"></div>
                                         <p className="text-[11px] uppercase tracking-[0.2em] text-zen-text-primary font-bold">Tasks</p>
                                     </div>
@@ -592,7 +594,7 @@ const Focus: React.FC = () => {
                                 {/* Subjects removed as requested */}
 
                                 <div className="space-y-3">
-                                   <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30">
+                                   <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30 px-1">
                                         <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
                                         <p className="text-[11px] uppercase tracking-[0.2em] text-zen-text-primary font-bold">Documents</p>
                                     </div>
