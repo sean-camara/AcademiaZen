@@ -446,12 +446,13 @@ const Focus: React.FC = () => {
             {/* 2. BOTTOM SECTION: Controls (Dock) */}
             <div className="w-full mt-auto pb-4 md:pb-0 z-30">
                 
-                {/* Control Grid - Back to 3 columns for centering, but optimized for space */}
-                <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-1 md:gap-8">
-                    
-                    {/* Left: Duration Controls */}
-                    <div className="flex justify-start justify-self-start min-w-0">
-                        {!isActive ? (
+                {/* Control Layout - Different for active vs inactive state */}
+                {!isActive ? (
+                    /* INACTIVE STATE: 3-column grid with duration | play | ambience */
+                    <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-1 md:gap-8">
+                        
+                        {/* Left: Duration Controls */}
+                        <div className="flex justify-start justify-self-start min-w-0">
                             <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                                 <button 
                                     onClick={() => setDurationMinutes(Math.max(15, durationMinutes - 5))}
@@ -470,72 +471,85 @@ const Focus: React.FC = () => {
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 4v16m8-8H4"/></svg>
                                 </button>
                             </div>
-                        ) : <div className="w-8" />}
-                    </div>
+                        </div>
 
-                    {/* Center: Main Play Action - Removed broad wrapper to prevent clipping sides */}
-                    <div className="flex justify-center justify-self-center pointer-events-none md:pointer-events-auto z-40">
-                        <div className="pointer-events-auto transform translate-y-[-2px] flex justify-center">
-                             {!isActive ? (
-                                <button 
-                                    onClick={handleStartFocus}
-                                    disabled={durationMinutes < 15}
-                                    className={`w-14 h-14 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl z-20 group relative ${
-                                    durationMinutes >= 15
-                                        ? 'bg-zen-primary text-black hover:scale-105 active:scale-95'
-                                        : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
-                                    }`}
-                                >
-                                    <div className="absolute inset-0 rounded-full bg-zen-primary blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-10 md:h-10 ml-0.5 relative z-10"><path d="M8 5v14l11-7z"/></svg>
-                                </button>
-                            ) : (
-                                <div className="flex items-center gap-2 md:gap-4">
+                        {/* Center: Play Button */}
+                        <div className="flex justify-center justify-self-center">
+                            <button 
+                                onClick={handleStartFocus}
+                                disabled={durationMinutes < 15}
+                                className={`w-14 h-14 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl group relative ${
+                                durationMinutes >= 15
+                                    ? 'bg-zen-primary text-black hover:scale-105 active:scale-95'
+                                    : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
+                                }`}
+                            >
+                                <div className="absolute inset-0 rounded-full bg-zen-primary blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-10 md:h-10 ml-0.5 relative z-10"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                        </div>
+
+                        {/* Right: Ambience Toggles */}                     
+                        <div className="flex justify-end justify-self-end min-w-0">
+                            <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
+                                {AMBIENCE_OPTIONS.map(opt => (
                                     <button 
-                                        onClick={() => {
-                                            if (isPaused) {
-                                                startTimer();
-                                            } else {
-                                                pauseTimer();
-                                            }
-                                        }}
-                                        className={`w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-2 ${isPaused ? 'bg-zen-primary text-black border-zen-primary animate-pulse-slow' : 'bg-transparent text-zen-primary border-zen-primary hover:bg-zen-primary/10'}`}
+                                        key={opt.id}
+                                        onClick={() => setAmbience(opt.id as any)}
+                                        className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
+                                        title={opt.label}
                                     >
-                                        {isPaused ? (
-                                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-0.5"><path d="M8 5v14l11-7z"/></svg>
-                                        ) : (
-                                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                                        )}
+                                        <span className="text-lg md:text-lg">{opt.icon}</span>
                                     </button>
-                                    
-                                    <button 
-                                        onClick={() => setShowEndConfirm(true)}
-                                        className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-transparent transition-all"
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-5 md:h-5"><path d="M6 6h12v12H6z"/></svg>
-                                    </button>
-                                </div>
-                            )}
+                                ))}
+                            </div>
                         </div>
                     </div>
-
-                     {/* Right: Ambience Toggles */}                     
-                     <div className="flex justify-end justify-self-end min-w-0">
+                ) : (
+                    /* ACTIVE STATE: Centered controls with stop | pause | ambience in a row */
+                    <div className="flex items-center justify-center gap-4 md:gap-6 w-full max-w-md mx-auto px-4">
+                        
+                        {/* Stop Button */}
+                        <button 
+                            onClick={() => setShowEndConfirm(true)}
+                            className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all shadow-lg"
+                        >
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 md:h-6"><path d="M6 6h12v12H6z"/></svg>
+                        </button>
+                        
+                        {/* Pause/Resume Button - Main action */}
+                        <button 
+                            onClick={() => {
+                                if (isPaused) {
+                                    startTimer();
+                                } else {
+                                    pauseTimer();
+                                }
+                            }}
+                            className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-2 ${isPaused ? 'bg-zen-primary text-black border-zen-primary animate-pulse-slow' : 'bg-transparent text-zen-primary border-zen-primary hover:bg-zen-primary/10'}`}
+                        >
+                            {isPaused ? (
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-8 md:h-8 ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+                            ) : (
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-8 md:h-8"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                            )}
+                        </button>
+                        
+                        {/* Ambience Toggles */}
                         <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                             {AMBIENCE_OPTIONS.map(opt => (
                                 <button 
                                     key={opt.id}
                                     onClick={() => setAmbience(opt.id as any)}
-                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
+                                    className={`w-10 h-10 md:w-11 md:h-11 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
                                     title={opt.label}
                                 >
-                                    <span className="text-lg md:text-lg">{opt.icon}</span>
+                                    <span className="text-lg">{opt.icon}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
-
-                </div>
+                )}
 
                 <ConfirmModal
                     isOpen={showEndConfirm}
