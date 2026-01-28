@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useZen } from '../context/ZenContext';
 import { AMBIENCE_OPTIONS } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
@@ -24,6 +24,9 @@ const Focus: React.FC = () => {
   const [quitWarning, setQuitWarning] = useState('');
   const [focusStreak, setFocusStreak] = useState(0);
   const ACTIVE_SESSION_KEY = 'zen_focus_active_session_v1';
+  
+  // Track if session has been restored from localStorage to prevent re-running
+  const sessionRestoredRef = useRef(false);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -154,7 +157,11 @@ const Focus: React.FC = () => {
     }
   }, [durationMinutes, isActive, showReflection, resetTimer]);
 
+  // Restore session from localStorage - only run once on mount
   useEffect(() => {
+    // Skip if already restored
+    if (sessionRestoredRef.current) return;
+    
     try {
       const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
       if (!raw) return;
@@ -163,6 +170,9 @@ const Focus: React.FC = () => {
       const startedAt = new Date(saved.startedAt);
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
       const remaining = Math.max(0, Math.round(saved.durationMinutes * 60 - elapsedSeconds));
+
+      // Mark as restored before setting state to prevent re-runs
+      sessionRestoredRef.current = true;
 
       setFocusTarget(saved.target);
       setDurationMinutes(saved.durationMinutes);
@@ -179,7 +189,8 @@ const Focus: React.FC = () => {
     } catch {
       // Ignore corrupted cache
     }
-  }, [ACTIVE_SESSION_KEY, setFocusSessionState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   useEffect(() => {
     if (sessionId && focusTarget && sessionStartedAt) {

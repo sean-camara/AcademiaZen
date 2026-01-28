@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
@@ -452,23 +452,23 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     settings: { ...prev.settings, ...updates },
   }));
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     console.log('[ZenContext] startTimer called');
     setFocusSession(prev => {
       console.log('[ZenContext] startTimer - prev state:', prev);
       return { ...prev, isActive: true, isPaused: false };
     });
-  };
+  }, []);
   
-  const pauseTimer = () => {
+  const pauseTimer = useCallback(() => {
     console.log('[ZenContext] pauseTimer called');
     setFocusSession(prev => {
       console.log('[ZenContext] pauseTimer - prev state:', prev);
       return { ...prev, isPaused: true };
     });
-  };
+  }, []);
   
-  const resetTimer = (durationMinutes?: number) => {
+  const resetTimer = useCallback((durationMinutes?: number) => {
     const mins = durationMinutes || state.settings.focusDuration;
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -480,11 +480,11 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       timeLeft: mins * 60,
       mode: 'focus'
     });
-  };
+  }, [state.settings.focusDuration]);
 
-  const setFocusSessionState = (updates: Partial<FocusSessionState>) => {
+  const setFocusSessionState = useCallback((updates: Partial<FocusSessionState>) => {
     setFocusSession(prev => ({ ...prev, ...updates }));
-  };
+  }, []);
 
   const setAmbience = (ambience: AmbienceType) => {
     updateSettings({ ambience });
