@@ -259,7 +259,7 @@ const TaskActionModal: React.FC<{
                         className={`w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border transition-all hover:scale-[1.02] active:scale-[0.98] ${
                             task.completed 
                             ? 'bg-zen-surface border-zen-surface text-zen-text-primary' 
-                            : 'bg-zen-secondary text-white border-zen-secondary shadow-lg shadow-zen-secondary/10'
+                            : 'bg-zen-surface/50 border-zen-surface text-zen-text-primary'
                         }`}
                     >
                         {task.completed ? (
@@ -269,7 +269,7 @@ const TaskActionModal: React.FC<{
                             </>
                         ) : (
                             <>
-                                <IconCheck className="w-3 h-3 text-zen-bg" />
+                                <IconCheck className="w-3 h-3 text-zen-text-primary" />
                                 Mark as Done
                             </>
                         )}
