@@ -196,7 +196,7 @@ const Layout: React.FC<LayoutProps> = () => {
                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-500/10 transition-all text-zen-text-secondary hover:text-red-400 group"
              >
                <IconLogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
-               <span className="text-sm font-medium">Disconnect</span>
+               <span className="text-sm font-medium">Logout</span>
              </button>
         </div>
       </aside>
