@@ -59,9 +59,11 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [billingNotice, setBillingNotice] = useState('');
   const [billingMethodLoading, setBillingMethodLoading] = useState<'gcash' | 'bank' | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingCancelLoading, setBillingCancelLoading] = useState(false);
   
   // Confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelSubscription, setShowCancelSubscription] = useState(false);
 
   useEffect(() => {
     if (state.profile) {
@@ -207,6 +209,27 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       setBillingError('Unable to update auto-renew.');
     } finally {
       setBillingLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setBillingCancelLoading(true);
+    setBillingError('');
+    try {
+      const res = await apiFetch('/api/billing/cancel', { method: 'POST' });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error || 'Unable to cancel subscription');
+      }
+      const data = await res.json();
+      if (data.billing) updateBillingState(data.billing);
+      setBillingNotice('Subscription canceled. You will retain access until the period ends.');
+    } catch (err) {
+      console.error('[Billing] Cancel failed:', err);
+      setBillingError('Unable to cancel subscription.');
+    } finally {
+      setBillingCancelLoading(false);
+      setShowCancelSubscription(false);
     }
   };
 
@@ -587,6 +610,16 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         </button>
                                     </div>
 
+                                    {billing?.effectivePlan === 'premium' && billing?.status === 'active' && (
+                                      <button
+                                        onClick={() => setShowCancelSubscription(true)}
+                                        disabled={billingCancelLoading}
+                                        className="w-full py-3.5 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:bg-red-500/20 disabled:opacity-60"
+                                      >
+                                        {billingCancelLoading ? 'Canceling...' : 'Cancel Subscription'}
+                                      </button>
+                                    )}
+
                                     {billing?.status === 'pending' && (
                                       <div className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.3em] font-black">
                                         Payment pending. Use refresh to update your status.
@@ -721,6 +754,17 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             title="Delete Account"
             message="Are you sure you want to delete your account? This will permanently remove all your data and cannot be undone."
             confirmText="Delete Account"
+            isDangerous
+        />
+
+        <ConfirmModal
+            isOpen={showCancelSubscription}
+            onClose={() => setShowCancelSubscription(false)}
+            onConfirm={handleCancelSubscription}
+            title="Cancel subscription?"
+            message="Your premium access will remain active until the end of your current billing period."
+            confirmText="Cancel Subscription"
+            cancelText="Keep Premium"
             isDangerous
         />
     </div>
