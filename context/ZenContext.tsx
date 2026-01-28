@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
@@ -300,37 +300,49 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [state.settings.ambience]);
 
   useEffect(() => {
-    if (focusSession.isActive && !focusSession.isPaused) {
-      timerRef.current = window.setInterval(() => {
-        setFocusSession((prev) => {
-          if (prev.timeLeft <= 1) {
-             if (timerRef.current) clearInterval(timerRef.current);
-             playZenBell();
-             
-             // Send notification when focus session completes
-             if (getPermissionStatus() === 'granted') {
-               showLocalNotification('🎉 Focus Session Complete!', {
-                 body: 'Great work! Time for a well-deserved break.',
-                 icon: '/icons/icon-192x192.svg',
-                 tag: 'focus-complete',
-                 data: { url: '/?page=focus' }
-               });
-             }
-             
-             return { ...prev, isActive: false, timeLeft: 0 };
-          }
-          return { ...prev, timeLeft: prev.timeLeft - 1 };
-        });
-      }, 1000);
-    } else {
+    if (!focusSession.isActive || focusSession.isPaused) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
+      return;
     }
+
+    timerRef.current = window.setInterval(() => {
+      setFocusSession((prev) => {
+        if (!prev.isActive || prev.isPaused) return prev;
+        if (prev.timeLeft <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          playZenBell();
+
+          // Send notification when focus session completes
+          if (getPermissionStatus() === 'granted') {
+            showLocalNotification('ðŸŽ‰ Focus Session Complete!', {
+              body: 'Great work! Time for a well-deserved break.',
+              icon: '/icons/icon-192x192.svg',
+              tag: 'focus-complete',
+              data: { url: '/?page=focus' }
+            });
+          }
+
+          return { ...prev, isActive: false, isPaused: false, timeLeft: 0 };
+        }
+        return { ...prev, timeLeft: prev.timeLeft - 1 };
+      });
+    }, 1000);
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [focusSession.isActive, focusSession.isPaused]);
+
+
 
   // Actions
   const addTask = (task: Task) => {
@@ -462,34 +474,6 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateSettings({ ambience });
   };
 
-  useEffect(() => {
-    if (!focusSession.isActive || focusSession.isPaused) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    timerRef.current = window.setInterval(() => {
-      setFocusSession(prev => {
-        if (!prev.isActive || prev.isPaused) return prev;
-        const nextTime = prev.timeLeft - 1;
-        if (nextTime <= 0) {
-          playZenBell();
-          return { ...prev, isActive: false, isPaused: false, timeLeft: 0 };
-        }
-        return { ...prev, timeLeft: nextTime };
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [focusSession.isActive, focusSession.isPaused]);
 
   const exportData = () => JSON.stringify(state, null, 2);
   
