@@ -476,7 +476,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                         {/* Billing Settings */}
                         {activeTab === 'billing' && (
-                            <div className="space-y-6 md:space-y-10">
+                            <div className="space-y-6 md:space-y-6">
                                 {billingNotice && (
                                   <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-primary/10 border border-zen-primary/30 text-zen-primary text-xs md:text-sm font-medium">
                                     {billingNotice}
@@ -488,143 +488,148 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                   </div>
                                 )}
 
-                                <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-                                    <div className="p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface space-y-3 md:space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Freemium</span>
-                                            {billing?.effectivePlan === 'free' && (
-                                                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-primary font-black">Current</span>
-                                            )}
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-[1fr_1.2fr]">
+                                    
+                                    {/* Left Column: Free Plan */}
+                                    <div className="p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card/50 border border-zen-surface flex flex-col h-full relative overflow-hidden group">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-zen-surface-brighter group-hover:bg-zen-text-disabled transition-colors" />
+                                        
+                                        <div className="mb-auto space-y-4">
+                                            <span className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Freemium</span>
+                                            <div>
+                                                <h3 className="text-4xl md:text-5xl font-light text-zen-text-primary tracking-tight">Free</h3>
+                                                <p className="text-sm text-zen-text-secondary mt-4 leading-relaxed max-w-xs">
+                                                    Core planning, focus tools, and basic library features.
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="text-2xl md:text-3xl font-light text-zen-text-primary">Free</h3>
-                                            <p className="text-xs md:text-sm text-zen-text-secondary mt-2">Core planning, focus tools, and basic library features.</p>
-                                        </div>
-                                        <div className="text-[10px] md:text-[11px] text-zen-text-disabled uppercase tracking-[0.3em] font-black">
+                                        
+                                        <div className="mt-12 text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black opacity-60">
                                             Ideal for light usage
                                         </div>
                                     </div>
 
-                                    <div className={`p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border space-y-5 md:space-y-6 ${billing?.effectivePlan === 'premium' ? 'bg-zen-primary/5 border-zen-primary/30' : 'bg-zen-card border-zen-surface'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[9px] md:text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black">Premium</span>
-                                            {billing?.effectivePlan === 'premium' && (
-                                                <span className="px-2.5 py-1 rounded-full bg-zen-primary/15 text-zen-primary text-[9px] md:text-[10px] uppercase tracking-[0.25em] font-black">Active</span>
+                                    {/* Right Column: Premium & Management */}
+                                    <div className="space-y-6">
+                                        
+                                        {/* Premium Plan Card */}
+                                        <div className={`p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] border relative overflow-hidden transition-all ${billing?.effectivePlan === 'premium' ? 'bg-[#0A1A16] border-zen-primary/30' : 'bg-[#0A1A16] border-zen-surface hover:border-zen-primary/20'}`}>
+                                            <div className="flex items-center justify-between mb-6">
+                                                <span className="text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black">Premium</span>
+                                                {billing?.effectivePlan === 'premium' && (
+                                                    <span className="px-3 py-1.5 rounded-full bg-zen-primary/20 text-zen-primary text-[9px] uppercase tracking-[0.2em] font-black shadow-glow-sm">Active</span>
+                                                )}
+                                            </div>
+
+                                            <div className="mb-8">
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-4xl md:text-5xl font-light text-white">
+                                                        PHP {selectedInterval === 'yearly' ? '1490' : '149'}
+                                                    </span>
+                                                    <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
+                                                        / {selectedInterval === 'yearly' ? 'year' : 'month'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-zen-text-secondary mt-3 leading-relaxed">
+                                                    Full access to Zen Intelligence and advanced study workflows.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                                <button
+                                                    onClick={() => setSelectedInterval('monthly')}
+                                                    className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'monthly' ? 'bg-zen-primary/10 border-zen-primary text-zen-primary shadow-glow-sm' : 'bg-zen-surface/30 border-zen-surface/50 text-zen-text-disabled hover:bg-zen-surface/50'}`}
+                                                >
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] font-bold opacity-80">Monthly</p>
+                                                    <p className="mt-1 text-lg font-medium">PHP 149</p>
+                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-0.5">Per Month</p>
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedInterval('yearly')}
+                                                    className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'yearly' ? 'bg-zen-primary/10 border-zen-primary text-zen-primary shadow-glow-sm' : 'bg-zen-surface/30 border-zen-surface/50 text-zen-text-disabled hover:bg-zen-surface/50'}`}
+                                                >
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] font-bold opacity-80">Yearly</p>
+                                                    <p className="mt-1 text-lg font-medium">PHP 1490</p>
+                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-0.5">Per Year</p>
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <button
+                                                    onClick={() => handleCheckout('gcash')}
+                                                    disabled={billingMethodLoading === 'gcash'}
+                                                    className="py-4 rounded-xl bg-zen-primary text-zen-bg text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-glow hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
+                                                >
+                                                    {billingMethodLoading === 'gcash' ? 'Starting...' : 'Pay with GCash'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCheckout('bank')}
+                                                    disabled={billingMethodLoading === 'bank'}
+                                                    className="py-4 rounded-xl bg-zen-surface/50 text-zen-text-primary text-[10px] font-black uppercase tracking-[0.2em] border border-zen-surface transition-all hover:bg-zen-surface hover:border-zen-text-secondary disabled:opacity-60"
+                                                >
+                                                    {billingMethodLoading === 'bank' ? 'Starting...' : 'Pay with Bank'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Current Plan Management */}
+                                        <div className="p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card/80 border border-zen-surface space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="text-[9px] uppercase tracking-[0.25em] text-zen-text-disabled font-black">Current Plan</p>
+                                                    <p className="text-xl font-medium text-zen-text-primary">
+                                                        {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={refreshBilling}
+                                                    disabled={billingLoading}
+                                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] bg-zen-surface/50 text-zen-text-secondary border border-zen-surface hover:text-zen-text-primary hover:border-zen-text-disabled transition-all disabled:opacity-50"
+                                                >
+                                                    {billingLoading ? '...' : 'Refresh'}
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-1">Status</p>
+                                                    <p className="text-sm text-zen-text-primary capitalize font-medium">{billing?.status || 'Free'}</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-1">
+                                                        {billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Next Renewal'}
+                                                    </p>
+                                                    <p className="text-sm text-zen-text-primary font-medium">{formatDate(billing?.currentPeriodEnd || null)}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
+                                                <div>
+                                                    <p className="text-sm font-medium text-zen-text-primary">Auto Billing</p>
+                                                    <p className="text-[9px] text-zen-text-disabled uppercase tracking-wider font-bold mt-0.5">
+                                                      Toggle auto-renewal
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={handleAutoRenewToggle}
+                                                    disabled={billingLoading || (billing?.effectivePlan !== 'premium' && billing?.status !== 'pending')}
+                                                    className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-zen-primary shadow-glow-sm' : 'bg-zen-surface border border-zen-text-disabled/20'}`}
+                                                >
+                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%]' : ''}`} />
+                                                </button>
+                                            </div>
+
+                                            {billing?.effectivePlan === 'premium' && billing?.status === 'active' && (
+                                              <button
+                                                onClick={() => setShowCancelSubscription(true)}
+                                                disabled={billingCancelLoading}
+                                                className="w-full py-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-60"
+                                              >
+                                                {billingCancelLoading ? 'Canceling...' : 'Cancel Subscription'}
+                                              </button>
                                             )}
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-end gap-2">
-                                                <span className="text-3xl md:text-4xl font-light text-zen-text-primary">
-                                                  {billingPlans
-                                                    ? `PHP ${Math.round((billingPlans.premium[selectedInterval].amount || 0) / 100)}`
-                                                    : selectedInterval === 'yearly' ? 'PHP 1490' : 'PHP 149'}
-                                                </span>
-                                                <span className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.25em] font-black">
-                                                    / {selectedInterval === 'yearly' ? 'year' : 'month'}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs md:text-sm text-zen-text-secondary">
-                                                Full access to Zen Intelligence and advanced study workflows.
-                                            </p>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <button
-                                                onClick={() => setSelectedInterval('monthly')}
-                                                className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'monthly' ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-glow-sm' : 'bg-zen-surface/70 border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'}`}
-                                            >
-                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black">Monthly</p>
-                                                <p className="mt-2 text-xl font-light text-zen-text-primary">PHP 149</p>
-                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-zen-text-disabled">per month</p>
-                                            </button>
-                                            <button
-                                                onClick={() => setSelectedInterval('yearly')}
-                                                className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'yearly' ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-glow-sm' : 'bg-zen-surface/70 border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'}`}
-                                            >
-                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black">Yearly</p>
-                                                <p className="mt-2 text-xl font-light text-zen-text-primary">PHP 1490</p>
-                                                <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-zen-text-disabled">per year</p>
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <button
-                                                onClick={() => handleCheckout('gcash')}
-                                                disabled={billingMethodLoading === 'gcash'}
-                                                className="py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:shadow-glow-sm disabled:opacity-60"
-                                            >
-                                                {billingMethodLoading === 'gcash' ? 'Starting...' : 'Pay with GCash'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleCheckout('bank')}
-                                                disabled={billingMethodLoading === 'bank'}
-                                                className="py-3.5 rounded-2xl bg-zen-surface/80 text-zen-text-primary text-[10px] md:text-xs font-black uppercase tracking-[0.25em] border border-zen-surface transition-all hover:border-zen-primary/30 disabled:opacity-60"
-                                            >
-                                                {billingMethodLoading === 'bank' ? 'Starting...' : 'Pay with Bank'}
-                                            </button>
-                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="p-5 md:p-8 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface space-y-4 md:space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Current Plan</p>
-                                            <p className="text-lg md:text-xl font-light text-zen-text-primary mt-1">
-                                                {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={refreshBilling}
-                                            disabled={billingLoading}
-                                            className="px-4 py-2 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-[0.2em] bg-zen-surface text-zen-text-secondary border border-zen-surface hover:border-zen-primary/30 transition-all disabled:opacity-60"
-                                        >
-                                            {billingLoading ? 'Refreshing...' : 'Refresh'}
-                                        </button>
-                                    </div>
-
-                                    <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-                                        <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
-                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Status</p>
-                                            <p className="text-sm md:text-base font-light text-zen-text-primary mt-2 capitalize">{billing?.status || 'free'}</p>
-                                        </div>
-                                        <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
-                                            <p className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">{billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Next Renewal'}</p>
-                                            <p className="text-sm md:text-base font-light text-zen-text-primary mt-2">{formatDate(billing?.currentPeriodEnd || null)}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-zen-surface border border-zen-surface">
-                                        <div className="space-y-0.5">
-                                            <p className="text-base md:text-lg font-light text-zen-text-primary">Auto Billing</p>
-                                            <p className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">
-                                              Toggle to enable or disable auto renewal
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={handleAutoRenewToggle}
-                                            disabled={billingLoading || (billing?.effectivePlan !== 'premium' && billing?.status !== 'pending')}
-                                            className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${billing?.autoRenew ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
-                                        >
-                                            <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${billing?.autoRenew ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
-                                        </button>
-                                    </div>
-
-                                    {billing?.effectivePlan === 'premium' && billing?.status === 'active' && (
-                                      <button
-                                        onClick={() => setShowCancelSubscription(true)}
-                                        disabled={billingCancelLoading}
-                                        className="w-full py-3.5 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:bg-red-500/20 disabled:opacity-60"
-                                      >
-                                        {billingCancelLoading ? 'Canceling...' : 'Cancel Subscription'}
-                                      </button>
-                                    )}
-
-                                    {billing?.status === 'pending' && (
-                                      <div className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.3em] font-black">
-                                        Payment pending. Use refresh to update your status.
-                                      </div>
-                                    )}
                                 </div>
                             </div>
                         )}
