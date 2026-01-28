@@ -13,7 +13,7 @@ import { auth } from '../firebase';
 
 // Cache the VAPID public key
 let cachedVapidKey: string | null = null;
-const DISABLE_LOCAL_NOTIFICATIONS = true;
+const DISABLE_LOCAL_NOTIFICATIONS = false;
 
 /**
  * Check if the device is online
