@@ -127,7 +127,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const pdfTextCacheRef = useRef<Map<string, string>>(new Map());
     const hasLoadedChatRef = useRef(false);
 
-    const allowFreeAI = (import.meta as any).env?.VITE_AI_FREE_MODE !== 'false';
+    const allowFreeAI = (import.meta as any).env?.VITE_AI_FREE_MODE === 'true';
     const MAX_PDF_PAGES = 8;
     const MAX_PDF_TEXT_CHARS = 8000;
     const MAX_CONTEXT_CHARS = 9000;
