@@ -102,6 +102,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     }
   };
 
+  const updateBillingState = (nextBilling: BillingInfo | null) => {
+    setBilling(nextBilling);
+    const plan = nextBilling?.effectivePlan || 'free';
+    window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan } }));
+  };
+
   const loadBilling = async () => {
     setBillingLoading(true);
     setBillingError('');
@@ -113,7 +119,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        setBilling(statusData.billing);
+        updateBillingState(statusData.billing);
         if (statusData.billing?.interval === 'yearly') {
           setSelectedInterval('yearly');
         } else if (statusData.billing?.interval === 'monthly') {
@@ -140,7 +146,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       const res = await apiFetch('/api/billing/refresh', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        if (data.billing) setBilling(data.billing);
+        if (data.billing) updateBillingState(data.billing);
       }
     } catch (err) {
       console.error('[Billing] Refresh failed:', err);

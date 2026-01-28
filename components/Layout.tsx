@@ -52,6 +52,16 @@ const Layout: React.FC<LayoutProps> = () => {
     };
   }, [user]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      const plan = detail?.plan || 'free';
+      setIsPremium(plan === 'premium');
+    };
+    window.addEventListener('billing-updated', handler as EventListener);
+    return () => window.removeEventListener('billing-updated', handler as EventListener);
+  }, []);
+
   // Detect keyboard visibility using visualViewport API
   useEffect(() => {
     const handleResize = () => {
@@ -130,6 +140,9 @@ const Layout: React.FC<LayoutProps> = () => {
           <div className="flex items-center gap-3">
              <h1 className="text-2xl font-bold tracking-wide text-zen-primary">ZEN</h1>
           </div>
+          {isPremium && (
+            <p className="text-[9px] text-zen-primary/80 mt-1 ml-1 tracking-[0.3em] uppercase font-black">Premium</p>
+          )}
           <p className="text-xs text-zen-text-disabled mt-2 ml-1 tracking-wider uppercase">Student Dashboard</p>
         </div>
 
