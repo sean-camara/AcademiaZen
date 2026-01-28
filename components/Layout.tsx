@@ -86,6 +86,33 @@ const Layout: React.FC<LayoutProps> = () => {
     return () => window.removeEventListener('open-settings', handler as EventListener);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const page = params.get('page');
+    const subjectId = params.get('subject');
+
+    if (page) {
+      const pageMap: Record<string, Tab> = {
+        home: Tab.Home,
+        calendar: Tab.Calendar,
+        review: Tab.Review,
+        focus: Tab.Focus,
+        library: Tab.Library,
+      };
+      const nextTab = pageMap[page];
+      if (nextTab) setActiveTab(nextTab);
+    }
+
+    if (subjectId) {
+      setActiveTab(Tab.Home);
+      window.dispatchEvent(new CustomEvent('open-subject', { detail: { id: subjectId } }));
+    }
+
+    if (page || subjectId) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const navItems = [
     { tab: Tab.Home, icon: IconHome, label: 'Home' },
     { tab: Tab.Calendar, icon: IconCalendar, label: 'Calendar' },

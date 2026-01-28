@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
 import { getGreeting, formatDateFull, generateId } from '../utils/helpers';
 import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical } from '../components/Icons';
@@ -494,13 +494,27 @@ const Home: React.FC = () => {
     setActiveActionTask(null);
   };
 
-  const handleSubjectClick = (id: string) => {
+  const handleSubjectClick = useCallback((id: string) => {
     setLoadingSubjectId(id);
     setTimeout(() => {
         setSelectedSubjectId(id);
         setLoadingSubjectId(null);
     }, 400);
-  };
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      const id = detail?.id as string | undefined;
+      if (!id) return;
+      if (selectedSubjectId === id) return;
+      const exists = subjects.some(subject => subject.id === id);
+      if (!exists) return;
+      handleSubjectClick(id);
+    };
+    window.addEventListener('open-subject', handler as EventListener);
+    return () => window.removeEventListener('open-subject', handler as EventListener);
+  }, [handleSubjectClick, subjects, selectedSubjectId]);
 
   const handleCreateTask = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
     if (!selectedSubjectId) return;
