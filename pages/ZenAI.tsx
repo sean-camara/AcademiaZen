@@ -234,8 +234,10 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             })
             .then((data) => {
                 if (!active) return;
-                const plan = data?.billing?.effectivePlan || 'free';
-                setIsPremium(plan === 'premium');
+                const plan = data?.billing?.plan || 'free';
+                const status = data?.billing?.status || 'free';
+                const isActive = !!data?.billing?.isActive;
+                setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
                 setBillingChecked(true);
             })
             .catch(() => {
