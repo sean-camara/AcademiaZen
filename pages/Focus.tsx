@@ -23,6 +23,7 @@ const Focus: React.FC = () => {
   const [submitReflectionLoading, setSubmitReflectionLoading] = useState(false);
   const [quitWarning, setQuitWarning] = useState('');
   const [focusStreak, setFocusStreak] = useState(0);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const ACTIVE_SESSION_KEY = 'zen_focus_active_session_v1';
   
   // Track if session has been restored from localStorage to prevent re-running
@@ -310,7 +311,7 @@ const Focus: React.FC = () => {
         console.error('[Focus] Server error:', res.status, errorData);
         
         // If session not found or not active, it means the session was already closed
-        // Clear local state and allow user to start fresh
+        // Clear local state and show modal to inform user
         if (res.status === 404 || (res.status === 400 && errorData?.error?.includes('not active'))) {
           console.warn('[Focus] Session already closed on server, clearing local state');
           setSessionId(null);
@@ -320,6 +321,7 @@ const Focus: React.FC = () => {
           setShowReflection(false);
           setQuitWarning('');
           resetTimer(durationMinutes);
+          setShowSessionExpiredModal(true);
           return;
         }
         
@@ -651,6 +653,38 @@ const Focus: React.FC = () => {
                                 className="w-full py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:shadow-glow-sm disabled:opacity-60"
                             >
                                 {submitReflectionLoading ? 'Saving...' : 'Save Reflection'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Session Expired Modal */}
+                {showSessionExpiredModal && (
+                    <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[120] flex items-center justify-center p-6 animate-fadeIn">
+                        <div className="w-full max-w-sm bg-zen-card/95 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6 text-center">
+                            {/* Icon */}
+                            <div className="flex justify-center">
+                                <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8 text-amber-400">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-light text-zen-text-primary">Session Already Ended</h3>
+                                <p className="text-sm text-zen-text-secondary leading-relaxed">
+                                    This focus session was already closed, possibly due to starting a new session or a timeout. No worries — you can start a fresh session anytime.
+                                </p>
+                            </div>
+                            
+                            {/* Action Button */}
+                            <button
+                                onClick={() => setShowSessionExpiredModal(false)}
+                                className="w-full py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-xs font-bold uppercase tracking-widest transition-all hover:shadow-glow-sm"
+                            >
+                                Got it
                             </button>
                         </div>
                     </div>
