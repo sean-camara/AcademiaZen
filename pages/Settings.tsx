@@ -107,7 +107,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const updateBillingState = (nextBilling: BillingInfo | null) => {
     setBilling(nextBilling);
     const plan = nextBilling?.effectivePlan || 'free';
-    window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan } }));
+    window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan, billing: nextBilling } }));
   };
 
   const loadBilling = async () => {

@@ -45,8 +45,10 @@ const Layout: React.FC<LayoutProps> = () => {
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
-          const plan = data?.billing?.effectivePlan || 'free';
-          setIsPremium(plan === 'premium');
+          const plan = data?.billing?.plan || data?.billing?.effectivePlan || 'free';
+          const isActive = !!data?.billing?.isActive;
+          const status = data?.billing?.status || 'free';
+          setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
         } else {
           setIsPremium(false);
         }
@@ -63,8 +65,11 @@ const Layout: React.FC<LayoutProps> = () => {
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent).detail || {};
-      const plan = detail?.plan || 'free';
-      setIsPremium(plan === 'premium');
+      const billing = detail?.billing;
+      const plan = billing?.plan || detail?.plan || billing?.effectivePlan || 'free';
+      const isActive = !!billing?.isActive;
+      const status = billing?.status || 'free';
+      setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
     };
     window.addEventListener('billing-updated', handler as EventListener);
     return () => window.removeEventListener('billing-updated', handler as EventListener);
