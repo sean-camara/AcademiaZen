@@ -555,136 +555,81 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
     };
 
     return (
-        <div className="fixed inset-0 bg-zen-bg z-[110] flex flex-col animate-fade-in overflow-hidden">
+        <div className="fixed inset-0 bg-[#0A0C0F] z-[110] flex flex-col animate-fade-in overflow-hidden font-sans">
             
             {/* Ambient Background Elements */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-                <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-zen-primary/10 blur-[120px] rounded-full animate-float" />
-                <div className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] bg-zen-secondary/5 blur-[100px] rounded-full animate-float [animation-delay:2s]" />
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[20%] left-[20%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full animate-pulse [animation-duration:8s]" />
+                <div className="absolute bottom-[20%] right-[20%] w-[30%] h-[30%] bg-purple-500/5 blur-[100px] rounded-full animate-pulse [animation-duration:6s]" />
             </div>
 
             {/* Header */}
-            <header className="px-4 py-4 md:px-6 md:py-6 border-b border-zen-surface bg-zen-bg/80 backdrop-blur-xl sticky top-0 z-[120] flex justify-between items-center">
-                <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-zen-card border border-zen-surface rounded-2xl flex items-center justify-center text-zen-primary shadow-lg ring-1 ring-zen-primary/10">
-                        <IconBot className="w-5 h-5 md:w-6 md:h-6" />
+            <header className="px-5 py-4 border-b border-white/5 bg-[#0A0C0F]/80 backdrop-blur-xl sticky top-0 z-[120] flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
+                        <IconBot className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-base md:text-lg font-medium text-zen-text-primary leading-tight">Zen Intelligence</h2>
+                        <h2 className="text-lg font-medium text-white tracking-tight">Zen Intelligence</h2>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zen-primary animate-pulse" />
-                            <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-zen-primary font-black">Context Engine Active</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] uppercase tracking-[0.2em] text-emerald-500 font-bold">Context Engine Active</span>
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={clearChat}
-                        className="p-2 md:p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/10 transition-all active:scale-90"
+                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all active:scale-95"
                         aria-label="Clear chat"
                     >
-                        <IconTrash className="w-4 h-4 md:w-5 md:h-5" />
+                        <IconTrash className="w-4 h-4" />
                     </button>
-                    <button onClick={onClose} className="p-2 md:p-3 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-red-400 hover:bg-red-400/10 transition-all active:scale-90" aria-label="Close">
-                        <IconX className="w-5 h-5 md:w-6 md:h-6" />
+                    <button 
+                        onClick={onClose} 
+                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-red-500/10 flex items-center justify-center text-white/40 hover:text-red-400 transition-all active:scale-95 border border-transparent hover:border-red-500/20" 
+                        aria-label="Close"
+                    >
+                        <IconX className="w-5 h-5" />
                     </button>
                 </div>
             </header>
 
+            {/* Upgrade Modal */}
             {showUpgradeModal && aiLocked && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/60 backdrop-blur-2xl animate-fade-in"
-                        onClick={() => setShowUpgradeModal(false)}
-                    />
-
-                    {/* Modal */}
-                    <div
-                        className="relative w-full max-w-sm sm:max-w-xl bg-zen-card/95 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[2.5rem] animate-slide-up max-h-[90svh] overflow-hidden pb-[env(safe-area-inset-bottom)] flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label="Upgrade to Premium"
-                    >
-                        {/* Glow accents */}
-                        <div className="absolute -top-10 -right-10 w-48 h-48 bg-zen-primary/10 blur-[80px] rounded-full pointer-events-none" />
-                        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-zen-secondary/10 blur-[80px] rounded-full pointer-events-none" />
-
-                        <button
-                            onClick={() => setShowUpgradeModal(false)}
-                            className="absolute top-5 right-5 z-10 p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-zen-text-primary transition-all active:scale-90"
-                            aria-label="Close"
-                        >
-                            <IconX className="w-5 h-5" />
-                        </button>
-
-                        <div className="px-6 sm:px-10 pt-5 sm:pt-8 pb-4 border-b border-white/5 flex-none">
-
-                            <div className="flex items-center gap-3 sm:gap-4">
-                                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-zen-primary/15 text-zen-primary flex items-center justify-center border border-zen-primary/20">
-                                    <IconBot className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setShowUpgradeModal(false)} />
+                    <div className="relative w-full max-w-lg bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in">
+                        <div className="p-8 pb-6 border-b border-white/5">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                                    <IconBot className="w-6 h-6" />
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">
-                                        Premium Feature
-                                    </p>
-                                    <h3 className="text-[22px] sm:text-3xl font-light text-zen-text-primary tracking-tight">
-                                        Unlock Zen AI
-                                    </h3>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-500 font-black mb-1">Premium</p>
+                                    <h3 className="text-2xl text-white font-medium">Unlock Intelligence</h3>
                                 </div>
                             </div>
-
-                            <p className="mt-3 text-[13px] sm:text-base text-zen-text-secondary leading-relaxed">
-                                Upgrade to get deep document analysis, synthesis across your library, and guided study workflows.
+                            <p className="text-sm text-gray-400 leading-relaxed">
+                                Get deep document analysis, synthesis across your library, and guided study workflows.
                             </p>
                         </div>
-
-                        <div className="px-6 sm:px-10 py-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="p-3.5 rounded-2xl bg-zen-surface/50 border border-white/5">
-                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Monthly</p>
-                                    <p className="mt-1.5 text-lg font-light text-zen-text-primary">PHP 149</p>
-                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black mt-0.5">per month</p>
+                        <div className="p-8 pt-6 space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-center">
+                                    <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Monthly</p>
+                                    <p className="text-xl text-white font-medium">₱149</p>
                                 </div>
-                                <div className="p-3.5 rounded-2xl bg-zen-surface/50 border border-white/5">
-                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Yearly</p>
-                                    <p className="mt-1.5 text-lg font-light text-zen-text-primary">PHP 1490</p>
-                                    <p className="text-[9px] uppercase tracking-[0.3em] text-zen-text-disabled font-black mt-0.5">per year</p>
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-center">
+                                    <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Yearly</p>
+                                    <p className="text-xl text-white font-medium">₱1490</p>
                                 </div>
                             </div>
-
-                            <div className="space-y-2.5">
-                                {[
-                                    'Analyze notes and PDFs with context',
-                                    'Summarize and compare across documents',
-                                    'Generate practice questions and review plans',
-                                ].map((item) => (
-                                    <div key={item} className="flex items-start gap-3 px-3 py-2.5 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zen-primary/80 shrink-0" />
-                                        <p className="text-[13px] text-zen-text-primary leading-relaxed">{item}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <p className="text-center text-[9px] uppercase font-black tracking-[0.35em] text-zen-text-disabled opacity-60">
-                                Payments via GCash or bank available in Billing
-                            </p>
-                        </div>
-
-                        <div className="px-6 sm:px-10 py-5 border-t border-white/5 bg-zen-card/60 backdrop-blur-2xl flex-none">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <button
-                                    ref={upgradeCtaRef}
-                                    onClick={openBilling}
-                                    className="py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-zen-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all"
-                                >
-                                    Upgrade to Premium
+                            <div className="grid grid-cols-2 gap-4 pt-2">
+                                <button onClick={openBilling} className="py-4 bg-emerald-500 hover:bg-emerald-400 text-[#091510] font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
+                                    Upgrade Now
                                 </button>
-                                <button
-                                    onClick={() => setShowUpgradeModal(false)}
-                                    className="py-3.5 rounded-2xl bg-zen-surface/70 text-zen-text-secondary text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] border border-white/5 hover:border-zen-primary/30 transition-all"
-                                >
+                                <button onClick={() => setShowUpgradeModal(false)} className="py-4 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
                                     Maybe Later
                                 </button>
                             </div>
@@ -694,47 +639,53 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6 no-scrollbar relative z-[115] w-full max-w-4xl mx-auto">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 relative z-[115] w-full max-w-3xl mx-auto custom-scrollbar">
                 {!billingChecked && (
-                    <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-surface/60 border border-zen-surface text-zen-text-secondary text-xs md:text-sm font-medium">
-                        Checking your plan...
+                    <div className="py-2 px-4 rounded-lg bg-white/5 border border-white/5 text-center text-xs text-gray-500 animate-pulse">
+                        Verifying subscription status...
                     </div>
                 )}
                 
                 {/* Empty State / Splash */}
                 {messages.length === 0 && !isLoading && (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 animate-reveal py-8 md:py-16">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-zen-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
-                            <IconBot className="w-12 h-12 md:w-16 md:h-16 text-zen-primary relative z-10" />
-                        </div>
-                        <div className="space-y-2 md:space-y-3 max-w-lg px-4">
-                            <h3 className="text-xl md:text-3xl font-extralight text-zen-text-primary tracking-tight">How can I assist your discovery?</h3>
-                            <p className="text-xs md:text-base text-zen-text-secondary font-light">
-                                Reference your archive documents or ask any academic question. I am here to synthesize knowledge.
-                            </p>
+                    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center animate-reveal">
+                        <div className="mb-8 relative group cursor-default">
+                            <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                            <IconBot className="w-20 h-20 text-emerald-500 relative z-10 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mt-6 md:mt-10 px-4">
+                        <h3 className="text-3xl md:text-4xl font-light text-white tracking-tight mb-4">How can I assist your discovery?</h3>
+                        <p className="text-sm md:text-base text-gray-400 font-light max-w-md mx-auto mb-12">
+                            Reference your archive documents or ask any academic question. I am here to synthesize knowledge.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-xl px-4">
                             <button
                                 disabled={aiLocked}
-                                onClick={() => setInput("Explain the core concepts from my recent notes.")}
-                                className={`p-4 md:p-6 border rounded-[1.5rem] md:rounded-[2rem] text-left transition-all group ${
-                                    aiLocked ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60' : 'bg-zen-card border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/30'
+                                onClick={() => setInput("Summarize the key themes in my library...")}
+                                className={`p-6 rounded-[2rem] border text-left transition-all group relative overflow-hidden ${
+                                    aiLocked ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-white/5 border-white/10 hover:border-emerald-500/50 hover:bg-[#0A1A16]'
                                 }`}
                             >
-                                <p className="text-[9px] md:text-[10px] text-zen-primary uppercase font-bold tracking-widest mb-1 md:mb-2">Synthesis</p>
-                                <p className="text-xs md:text-sm text-zen-text-primary font-medium group-hover:text-zen-primary">"Summarize the key themes in my library..."</p>
+                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <IconChevronRight className="w-4 h-4 text-emerald-500" />
+                                </div>
+                                <p className="text-[10px] text-emerald-500 uppercase font-black tracking-[0.2em] mb-3">Synthesis</p>
+                                <p className="text-lg text-white font-medium pr-8">"Summarize the key themes in my library..."</p>
                             </button>
+
                             <button
                                 disabled={aiLocked}
-                                onClick={() => setInput("Generate 5 complex practice questions based on these materials.")}
-                                className={`p-4 md:p-6 border rounded-[1.5rem] md:rounded-[2rem] text-left transition-all group ${
-                                    aiLocked ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60' : 'bg-zen-card border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/30'
+                                onClick={() => setInput("Create a quick quiz for my active recall...")}
+                                className={`p-6 rounded-[2rem] border text-left transition-all group relative overflow-hidden ${
+                                    aiLocked ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-[#120A1A]'
                                 }`}
                             >
-                                <p className="text-[9px] md:text-[10px] text-zen-secondary uppercase font-bold tracking-widest mb-1 md:mb-2">Practice</p>
-                                <p className="text-xs md:text-sm text-zen-text-primary font-medium group-hover:text-zen-secondary">"Create a quick quiz for my active recall..."</p>
+                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <IconChevronRight className="w-4 h-4 text-purple-500" />
+                                </div>
+                                <p className="text-[10px] text-purple-400 uppercase font-black tracking-[0.2em] mb-3">Practice</p>
+                                <p className="text-lg text-white font-medium pr-8">"Create a quick quiz for my active recall..."</p>
                             </button>
                         </div>
                     </div>
@@ -743,49 +694,37 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
                         {msg.refs && msg.refs.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-3 mr-4">
+                            <div className="flex flex-wrap gap-2 mb-2 mr-2">
                                 {msg.refs.map((r, i) => (
-                                    <div key={i} className="flex items-center gap-2 bg-gradient-to-r from-zen-surface to-transparent px-4 py-2 rounded-full border border-zen-primary/10">
-                                        <IconFileText className="w-3 h-3 text-zen-primary" />
-                                        <span className="text-[10px] text-zen-text-secondary font-bold truncate max-w-[150px]">{r}</span>
-                                    </div>
+                                    <span key={i} className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-medium">
+                                        {r}
+                                    </span>
                                 ))}
                             </div>
                         )}
-                        <div className={`max-w-[88%] sm:max-w-[72%] lg:max-w-[62%] p-3 sm:p-4 md:p-5 rounded-2xl text-sm md:text-base leading-relaxed shadow-xl relative ${
+                        <div className={`max-w-[85%] lg:max-w-[70%] p-4 md:p-6 rounded-2xl text-sm md:text-base leading-7 relative ${
                             msg.role === 'user' 
-                                ? 'bg-white text-black font-medium rounded-tr-md' 
-                                : 'bg-zen-card/80 backdrop-blur-md text-zen-text-primary border border-white/5 rounded-tl-md'
+                                ? 'bg-white/10 text-white rounded-br-sm' 
+                                : 'bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md'
                         }`}>
                             {msg.role === 'ai' ? <FormattedAIResponse text={msg.text} /> : msg.text}
                             
-                            {/* Accent indicator for AI messages */}
                             {msg.role === 'ai' && (
-                                <div className="absolute top-0 left-0 -translate-x-1/2 translate-y-6 w-0.5 h-6 bg-zen-primary rounded-full blur-[1px] opacity-50" />
+                                <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                             )}
                         </div>
                     </div>
                 ))}
 
                 {isLoading && (
-                    <div className="flex justify-start animate-reveal">
-                        <div className="bg-zen-card/80 backdrop-blur-sm p-4 rounded-2xl rounded-tl-md border border-zen-surface shadow-xl space-y-2 min-w-[220px]">
-                            <div className="flex gap-2.5 items-center">
-                                <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce" />
-                                <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce [animation-delay:0.2s]" />
-                                <div className="w-2.5 h-2.5 bg-zen-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+                    <div className="flex justify-start animate-reveal pl-4">
+                        <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <div className="flex gap-1.5">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.15s]" />
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.3s]" />
                             </div>
-                            <div>
-                                <p className="text-[10px] text-zen-primary uppercase font-black tracking-[0.3em]">
-                                    Thinking
-                                    <span className="inline-flex ml-1">
-                                        <span className="animate-pulse">.</span>
-                                        <span className="animate-pulse [animation-delay:0.2s]">.</span>
-                                        <span className="animate-pulse [animation-delay:0.4s]">.</span>
-                                    </span>
-                                </p>
-                                <p className="text-[11px] text-zen-text-secondary mt-1">{thinkingContext}</p>
-                            </div>
+                            <span className="text-xs text-emerald-500 font-medium tracking-wide">Thinking...</span>
                         </div>
                     </div>
                 )}
@@ -794,39 +733,38 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
             {/* Context Selector Portal */}
             {showSelector && (
-                <div className="fixed inset-0 bg-zen-bg/60 backdrop-blur-xl z-[150] flex items-end sm:items-center justify-center p-0 md:p-6 animate-fade-in" onClick={() => setShowSelector(false)}>
-                    <div className="bg-zen-card w-full max-w-2xl h-[85vh] sm:h-auto sm:max-h-[80vh] flex flex-col animate-slide-up shadow-2xl rounded-t-[3rem] text-sm sm:rounded-[3rem] border border-zen-surface" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 md:p-10 border-b border-zen-surface flex justify-between items-center bg-zen-card/50">
+                <div className="fixed inset-0 bg-[#000]/60 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowSelector(false)}>
+                    <div className="bg-[#0D1117] w-full max-w-3xl h-[80vh] flex flex-col animate-scale-in shadow-2xl rounded-[2rem] border border-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-[#161B22]">
                             <div>
-                                <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">Source Material</h3>
-                                <p className="text-xs md:text-sm text-zen-text-secondary mt-1">Select context for the Intelligence Engine.</p>
+                                <h3 className="text-xl font-medium text-white">Source Material</h3>
+                                <p className="text-xs text-gray-400 mt-1">Select context for the Intelligence Engine.</p>
                             </div>
-                            <button onClick={() => setShowSelector(false)} className="p-3 md:p-4 bg-zen-surface/50 rounded-2xl text-zen-text-secondary hover:text-zen-text-primary transition-all">
-                                <IconX className="w-5 h-5 md:w-6 md:h-6" />
+                            <button onClick={() => setShowSelector(false)} className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+                                <IconX className="w-6 h-6" />
                             </button>
                         </div>
                         
-                        <div className="flex px-6 md:px-10 pt-4 md:pt-6 gap-6 md:gap-8 border-b border-zen-surface/30 overflow-x-auto no-scrollbar">
-                            <button onClick={() => setSelectorTab('library')} className={`pb-3 md:pb-4 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] transition-all relative shrink-0 ${selectorTab === 'library' ? 'text-zen-primary' : 'text-zen-text-disabled'}`}>
+                        <div className="flex px-8 border-b border-white/5">
+                            <button onClick={() => setSelectorTab('library')} className={`py-4 px-2 text-[10px] uppercase font-bold tracking-[0.2em] transition-all relative ${selectorTab === 'library' ? 'text-emerald-500' : 'text-gray-500 hover:text-gray-300'}`}>
                                 Library Archive
-                                {selectorTab === 'library' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-zen-primary rounded-full" />}
+                                {selectorTab === 'library' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-t-full shadow-[0_-2px_10px_rgba(16,185,129,0.5)]" />}
                             </button>
-                            <button onClick={() => setSelectorTab('tasks')} className={`pb-3 md:pb-4 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] transition-all relative shrink-0 ${selectorTab === 'tasks' ? 'text-zen-primary' : 'text-zen-text-disabled'}`}>
+                            <button onClick={() => setSelectorTab('tasks')} className={`py-4 px-2 text-[10px] uppercase font-bold tracking-[0.2em] transition-all relative ml-6 ${selectorTab === 'tasks' ? 'text-emerald-500' : 'text-gray-500 hover:text-gray-300'}`}>
                                 Task Assets
-                                {selectorTab === 'tasks' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-zen-primary rounded-full" />}
+                                {selectorTab === 'tasks' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-t-full shadow-[0_-2px_10px_rgba(16,185,129,0.5)]" />}
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 md:space-y-10 no-scrollbar">
-                           {/* ... keep selection content logic same but ensure premium styles ... */}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar bg-[#0D1117]">
                            {selectorTab === 'library' ? (
                                 state.folders.filter(f => f.items.length > 0).map(folder => (
-                                    <div key={folder.id} className="space-y-3 md:space-y-4">
-                                        <div className="flex items-center gap-3 text-zen-text-disabled px-2">
-                                            <IconFolder className="w-4 h-4" />
-                                            <span className="text-[10px] uppercase font-black tracking-[0.3em]">{folder.name}</span>
+                                    <div key={folder.id} className="space-y-4">
+                                        <div className="flex items-center gap-3 px-2">
+                                            <IconFolder className="w-4 h-4 text-gray-500" />
+                                            <span className="text-[10px] uppercase text-gray-500 font-black tracking-[0.3em]">{folder.name}</span>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-2 md:gap-3">
+                                        <div className="grid grid-cols-1 gap-3">
                                             {folder.items.map(item => {
                                                 const isSelected = !!selectedRefs.find(r => r.id === item.id);
                                                 const legacyData = item.type === 'pdf' && item.content && item.content.startsWith('data:')
@@ -846,18 +784,18 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                                     <button 
                                                         key={item.id}
                                                         onClick={() => toggleRef(refPayload)}
-                                                        className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl border transition-all ${isSelected ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary ring-1 ring-zen-primary/20' : 'bg-zen-surface/30 border-zen-surface text-zen-text-secondary hover:border-zen-surface-brighter'}`}
+                                                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all group ${isSelected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#161B22] border-white/5 text-gray-400 hover:border-white/10 hover:bg-[#1C2128]'}`}
                                                     >
-                                                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${isSelected ? 'bg-zen-primary/20' : 'bg-zen-surface'}`}>
-                                                                {item.type === 'pdf' ? <IconPaperclip className="w-4 h-4 md:w-5 md:h-5" /> : <IconFileText className="w-4 h-4 md:w-5 md:h-5" />}
+                                                        <div className="flex items-center gap-4 overflow-hidden">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shrink-0 ${isSelected ? 'bg-emerald-500/20' : 'bg-black/20'}`}>
+                                                                {item.type === 'pdf' ? <IconPaperclip className="w-5 h-5" /> : <IconFileText className="w-5 h-5" />}
                                                             </div>
                                                             <div className="text-left overflow-hidden">
-                                                                <span className="text-xs md:text-sm font-medium block truncate max-w-[200px] md:max-w-[250px]">{item.title}</span>
-                                                                <span className="text-[9px] uppercase opacity-50 font-black tracking-widest">{item.type === 'pdf' ? 'Archived PDF' : 'Text Knowledge'}</span>
+                                                                <span className="text-sm font-medium block truncate max-w-[240px] group-hover:text-white transition-colors">{item.title}</span>
+                                                                <span className="text-[9px] uppercase opacity-60 font-black tracking-widest">{item.type === 'pdf' ? 'Archived PDF' : 'Text Knowledge'}</span>
                                                             </div>
                                                         </div>
-                                                        {isSelected ? <div className="w-5 h-5 md:w-6 md:h-6 bg-zen-primary text-zen-bg rounded-full flex items-center justify-center shrink-0"><IconCheck className="w-3 h-3 md:w-4 md:h-4" /></div> : <div className="w-5 h-5 md:w-6 md:h-6 border border-zen-surface rounded-full shrink-0" />}
+                                                        {isSelected ? <div className="w-6 h-6 bg-emerald-500 text-black rounded-full flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)]"><IconCheck className="w-4 h-4" /></div> : <div className="w-6 h-6 border-2 border-white/10 rounded-full shrink-0 group-hover:border-white/30 transition-colors" />}
                                                     </button>
                                                 );
                                             })}
@@ -865,7 +803,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                     </div>
                                 ))
                            ) : (
-                                <div className="grid grid-cols-1 gap-2 md:gap-3">
+                                <div className="grid grid-cols-1 gap-3">
                                     {state.tasks.filter(t => t.pdfAttachment).map(task => {
                                         const isSelected = !!selectedRefs.find(r => r.id === task.id);
                                         const legacyData = (task.pdfAttachment as any)?.data;
@@ -882,18 +820,18 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                             <button 
                                                 key={task.id}
                                                 onClick={() => toggleRef(refPayload)}
-                                                className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl border transition-all ${isSelected ? 'bg-zen-primary/10 border-zen-primary/40 text-zen-primary shadow-inner ring-1 ring-zen-primary/20' : 'bg-zen-surface/30 border-zen-surface text-zen-text-secondary hover:border-zen-surface-brighter'}`}
+                                                className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all group ${isSelected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#161B22] border-white/5 text-gray-400 hover:border-white/10 hover:bg-[#1C2128]'}`}
                                             >
-                                                <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${isSelected ? 'bg-zen-primary/20' : 'bg-zen-surface'}`}>
-                                                        <IconPaperclip className="w-4 h-4 md:w-5 md:h-5" />
+                                                <div className="flex items-center gap-4 overflow-hidden">
+                                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shrink-0 ${isSelected ? 'bg-emerald-500/20' : 'bg-black/20'}`}>
+                                                        <IconPaperclip className="w-5 h-5" />
                                                     </div>
                                                     <div className="text-left overflow-hidden">
-                                                        <span className="text-xs md:text-sm font-medium block truncate max-w-[200px] md:max-w-[250px]">{task.pdfAttachment!.name}</span>
-                                                        <span className="text-[9px] uppercase opacity-50 font-black tracking-widest">Source: {task.title}</span>
+                                                        <span className="text-sm font-medium block truncate max-w-[240px] group-hover:text-white transition-colors">{task.pdfAttachment!.name}</span>
+                                                        <span className="text-[9px] uppercase opacity-60 font-black tracking-widest">Source: {task.title}</span>
                                                     </div>
                                                 </div>
-                                                {isSelected ? <div className="w-5 h-5 md:w-6 md:h-6 bg-zen-primary text-zen-bg rounded-full flex items-center justify-center shrink-0"><IconCheck className="w-3 h-3 md:w-4 md:h-4" /></div> : <div className="w-5 h-5 md:w-6 md:h-6 border border-zen-surface rounded-full shrink-0" />}
+                                                {isSelected ? <div className="w-6 h-6 bg-emerald-500 text-black rounded-full flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)]"><IconCheck className="w-4 h-4" /></div> : <div className="w-6 h-6 border-2 border-white/10 rounded-full shrink-0 group-hover:border-white/30 transition-colors" />}
                                             </button>
                                         );
                                     })}
@@ -903,14 +841,14 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                            {/* Empty state for selector */}
                            {((selectorTab === 'library' && state.folders.every(f => f.items.length === 0)) || (selectorTab === 'tasks' && state.tasks.filter(t => t.pdfAttachment).length === 0)) && (
                                 <div className="py-20 text-center opacity-30">
-                                    <IconFileText className="w-12 h-12 mx-auto mb-4" />
-                                    <p className="text-lg font-light">No source material found.</p>
+                                    <IconFileText className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                                    <p className="text-lg font-light text-gray-500">No source material found.</p>
                                 </div>
                            )}
                         </div>
                         
-                        <div className="p-6 md:p-10 pt-2 bg-zen-card/50 rounded-b-[3rem]">
-                            <button onClick={() => setShowSelector(false)} className="w-full py-4 md:py-5 bg-zen-primary text-zen-bg font-black uppercase tracking-[0.2em] rounded-[1.5rem] shadow-xl shadow-zen-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all text-xs md:text-sm">
+                        <div className="p-8 pt-4 bg-[#161B22] border-t border-white/5">
+                            <button onClick={() => setShowSelector(false)} className="w-full py-5 bg-emerald-500 text-[#091510] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-emerald-400 transition-all text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                                 Integrate Selected Context
                             </button>
                         </div>
@@ -919,27 +857,27 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Input Bar Section */}
-            <div className="p-3 md:p-6 border-t border-white/5 bg-zen-bg/95 backdrop-blur-2xl relative z-[130] safe-area-bottom">
-                <div className="max-w-3xl mx-auto space-y-3 md:space-y-4">
+            <div className="p-4 md:p-6 pb-6 md:pb-8 bg-[#0A0C0F]/95 backdrop-blur-2xl relative z-[130]">
+                <div className="max-w-3xl mx-auto space-y-4">
                     
                     {/* Active Context Tokens */}
                     {selectedRefs.length > 0 && (
                         <div className="flex flex-wrap gap-2 animate-reveal">
                             {selectedRefs.map(ref => (
-                                <div key={ref.id} className="flex items-center gap-2 bg-zen-primary/10 border border-zen-primary/30 rounded-xl pl-3 pr-1.5 py-1.5 md:py-2 shadow-inner">
-                                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-wider text-zen-primary truncate max-w-[120px] md:max-w-[150px]">{ref.title}</span>
-                                    <button type="button" onClick={() => toggleRef(ref)} className="p-1 rounded-lg hover:bg-zen-primary/20 text-zen-primary transition-colors">
-                                        <IconX className="w-3 h-3 md:w-4 md:h-4" />
+                                <div key={ref.id} className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-3 pr-2 py-1.5 shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 truncate max-w-[150px]">{ref.title}</span>
+                                    <button type="button" onClick={() => toggleRef(ref)} className="p-0.5 rounded hover:bg-emerald-500/20 text-emerald-500 transition-colors">
+                                        <IconX className="w-3 h-3" />
                                     </button>
                                 </div>
                             ))}
-                            <button type="button" onClick={() => setSelectedRefs([])} className="px-3 text-[9px] uppercase font-black text-zen-text-disabled hover:text-red-400 transition-colors">Clear Engine</button>
+                            <button type="button" onClick={() => setSelectedRefs([])} className="px-3 text-[9px] uppercase font-black text-gray-500 hover:text-red-400 transition-colors">Clear Engine</button>
                         </div>
                     )}
 
                     <form ref={formRef} onSubmit={handleSend} className="relative group">
-                        <div className="absolute inset-0 bg-zen-primary/5 blur-xl group-focus-within:bg-zen-primary/10 transition-colors rounded-2xl" />
-                        <div className="relative flex items-end gap-2 md:gap-3 bg-zen-card/80 border border-zen-surface rounded-2xl p-2 md:p-2.5 pl-3 md:pl-3.5 pr-2 md:pr-2.5 focus-within:border-zen-primary/50 transition-all shadow-xl">
+                        <div className="absolute inset-0 bg-emerald-500/5 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
+                        <div className="relative flex items-end gap-3 bg-[#161B22] border border-white/10 rounded-[1.5rem] p-2 pl-3 focus-within:border-emerald-500/30 transition-all shadow-xl">
                             <button 
                                 type="button"
                                 onClick={() => {
@@ -950,15 +888,15 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                     setShowSelector(true);
                                 }}
                                 disabled={aiLocked}
-                                className={`w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl transition-all flex items-center justify-center border ${
+                                className={`w-12 h-12 rounded-xl transition-all flex items-center justify-center border ${
                                     aiLocked
-                                        ? 'bg-zen-surface/40 border-zen-surface text-zen-text-disabled cursor-not-allowed opacity-60'
+                                        ? 'bg-white/5 border-white/5 text-gray-600 cursor-not-allowed'
                                         : selectedRefs.length > 0
-                                            ? 'bg-zen-primary border-zen-primary text-zen-bg shadow-lg'
-                                            : 'bg-zen-surface/50 border-zen-surface text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/5'
+                                            ? 'bg-emerald-500 text-[#091510] border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10'
                                 }`}
                             >
-                                <IconPaperclip className="w-4 h-4 md:w-5 md:h-5" />
+                                <IconPaperclip className="w-5 h-5" />
                             </button>
                             
                             <textarea
@@ -969,40 +907,40 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                                 placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
                                 disabled={isLoading || aiLocked}
                                 rows={1}
-                                className="flex-1 bg-transparent border-none text-sm md:text-base text-zen-text-primary focus:outline-none focus:ring-0 placeholder:text-zen-text-disabled/30 font-light min-w-0 resize-none leading-relaxed py-1.5 md:py-2 max-h-32"
+                                className="flex-1 bg-transparent border-none text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-600 font-light min-w-0 resize-none leading-relaxed py-3 max-h-32 mb-0.5"
                             />
 
                             <button 
                                 type="submit"
                                 disabled={!input.trim() || isLoading || aiLocked} 
-                                className="h-9 md:h-12 px-3 md:px-6 bg-white text-black rounded-xl md:rounded-2xl font-black uppercase tracking-[0.2em] text-[9px] disabled:opacity-5 shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                className="w-12 h-12 bg-white text-black rounded-xl hover:bg-emerald-400 hover:text-[#091510] transition-all disabled:opacity-10 flex items-center justify-center shrink-0 shadow-lg"
                             >
                                 {isLoading ? (
-                                    <div className="w-4 h-4 md:w-4 md:h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                    <>
-                                        <span className="hidden md:inline">Transmit</span>
-                                        <IconChevronRight className="w-4 h-4 md:ml-1" />
-                                    </>
+                                    <IconChevronRight className="w-5 h-5" />
                                 )}
                             </button>
                         </div>
                     </form>
                     
-                    <div className="flex items-center justify-center gap-3 text-[8px] md:text-[9px] uppercase font-black tracking-[0.35em] text-zen-text-disabled opacity-40 select-none pb-2 md:pb-0">
-                        <button
+                    <div className="flex items-center justify-between px-2 pt-1">
+                         <button
                             type="button"
                             onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
-                            className={`px-3 py-1 rounded-full border transition-all ${
+                            className={`px-3 py-1.5 rounded-full border text-[9px] uppercase font-black tracking-widest transition-all flex items-center gap-2 ${
                                 analysisMode === 'deep'
-                                    ? 'border-zen-primary/50 text-zen-primary bg-zen-primary/10'
-                                    : 'border-zen-surface text-zen-text-disabled hover:text-zen-text-primary'
+                                    ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/5'
+                                    : 'border-white/5 text-gray-600 hover:text-gray-400'
                             }`}
-                            aria-label="Toggle deep analysis"
                         >
-                            {analysisMode === 'deep' ? 'Deep analysis' : 'Fast mode'}
+                            <div className={`w-1.5 h-1.5 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
+                            {analysisMode === 'deep' ? 'Deep Analysis Mode' : 'Fast Mode'}
                         </button>
-                        <span>Zen Synthetic Intelligence &bull; Adaptive Learning Context</span>
+
+                        <span className="text-[8px] uppercase font-black tracking-[0.2em] text-gray-700 select-none">
+                            Zen Synthetic Intelligence
+                        </span>
                     </div>
                 </div>
             </div>
