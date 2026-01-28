@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
-import { IconChevronLeft, IconChevronRight, IconX, IconCheck, IconPlus, IconTrash } from '../components/Icons';
-import { isSameDay, generateId } from '../utils/helpers';
-import { Task } from '../types';
+import { IconChevronLeft, IconChevronRight, IconCheck, IconTrash } from '../components/Icons';
+import { isSameDay } from '../utils/helpers';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const Calendar: React.FC = () => {
-    const { state, addTask, toggleTask, deleteTask, setHideNavbar } = useZen();
+    const { state, toggleTask, deleteTask, setHideNavbar } = useZen();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [newTaskTitle, setNewTaskTitle] = useState('');
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
     // Initial load: ensure selected date syncs if needed, or keep today
@@ -47,20 +45,6 @@ const Calendar: React.FC = () => {
 
     const nextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-    };
-
-    const handleAddTask = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newTaskTitle.trim()) return;
-
-        const task: Task = {
-            id: generateId(),
-            title: newTaskTitle,
-            dueDate: selectedDate.toISOString(),
-            completed: false
-        };
-        addTask(task);
-        setNewTaskTitle('');
     };
 
     const getTasksForDate = (date: Date) => {
@@ -175,24 +159,6 @@ const Calendar: React.FC = () => {
                             </p>
                         </div>
 
-                        {/* Add Task Input */}
-                        <form onSubmit={handleAddTask} className="mb-4 relative shrink-0">
-                            <input 
-                                type="text" 
-                                placeholder="Add task..."
-                                className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl pl-4 pr-10 py-3 text-sm text-zen-text-primary focus:outline-none focus:border-zen-primary/50 transition-colors placeholder-zen-text-disabled"
-                                value={newTaskTitle}
-                                onChange={e => setNewTaskTitle(e.target.value)}
-                            />
-                            <button 
-                                type="submit"
-                                disabled={!newTaskTitle.trim()}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-zen-surface rounded-lg text-zen-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zen-primary hover:text-zen-bg transition-colors"
-                            >
-                                <IconPlus className="w-4 h-4" />
-                            </button>
-                        </form>
-
                         {/* Task List */}
                         <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 -mr-2 pr-2">
                             {selectedTasks.length > 0 ? (
@@ -209,9 +175,26 @@ const Calendar: React.FC = () => {
                                             {task.completed && <IconCheck className="w-3.5 h-3.5 text-zen-bg" />}
                                         </button>
                                         
-                                        <span className={`text-sm flex-1 truncate transition-colors ${task.completed ? 'text-zen-text-disabled line-through opacity-60' : 'text-zen-text-primary'}`}>
-                                            {task.title}
-                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <span className={`text-sm block truncate transition-colors ${task.completed ? 'text-zen-text-disabled line-through opacity-60' : 'text-zen-text-primary'}`}>
+                                                {task.title}
+                                            </span>
+                                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
+                                                    {(state.subjects.find(subject => subject.id === task.subjectId)?.name || 'Unassigned')}
+                                                </span>
+                                                <span className="text-[10px] text-zen-text-secondary">
+                                                    {new Date(task.dueDate).toLocaleDateString('en-US', {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                    })} at {new Date(task.dueDate).toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </span>
+                                            </div>
+                                        </div>
 
                                         <button 
                                             onClick={() => {
