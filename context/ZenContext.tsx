@@ -30,6 +30,7 @@ interface ZenContextType {
   startTimer: () => void;
   pauseTimer: () => void;
   resetTimer: (duration?: number) => void;
+  setFocusSessionState: (updates: Partial<FocusSessionState>) => void;
   setAmbience: (ambience: AmbienceType) => void;
   
   // Data Management
@@ -441,6 +442,10 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const resetTimer = (durationMinutes?: number) => {
     const mins = durationMinutes || state.settings.focusDuration;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setFocusSession({
       isActive: false,
       isPaused: false,
@@ -449,9 +454,42 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  const setFocusSessionState = (updates: Partial<FocusSessionState>) => {
+    setFocusSession(prev => ({ ...prev, ...updates }));
+  };
+
   const setAmbience = (ambience: AmbienceType) => {
     updateSettings({ ambience });
   };
+
+  useEffect(() => {
+    if (!focusSession.isActive || focusSession.isPaused) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      setFocusSession(prev => {
+        if (!prev.isActive || prev.isPaused) return prev;
+        const nextTime = prev.timeLeft - 1;
+        if (nextTime <= 0) {
+          playZenBell();
+          return { ...prev, isActive: false, isPaused: false, timeLeft: 0 };
+        }
+        return { ...prev, timeLeft: nextTime };
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [focusSession.isActive, focusSession.isPaused]);
 
   const exportData = () => JSON.stringify(state, null, 2);
   
@@ -483,6 +521,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       startTimer,
       pauseTimer,
       resetTimer,
+      setFocusSessionState,
       setAmbience,
       exportData,
       clearData,

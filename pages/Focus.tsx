@@ -1,17 +1,29 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useZen } from '../context/ZenContext';
-import { FOCUS_DURATIONS, AMBIENCE_OPTIONS } from '../constants';
-import { IconFocus } from '../components/Icons';
+import { AMBIENCE_OPTIONS } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
+import { apiFetch } from '../utils/api';
 
 const Focus: React.FC = () => {
-  const { focusSession, startTimer, pauseTimer, resetTimer, setAmbience, state, setHideNavbar } = useZen();
+  const { focusSession, startTimer, pauseTimer, resetTimer, setFocusSessionState, setAmbience, state, updateTask, setHideNavbar } = useZen();
   const { isActive, isPaused, timeLeft } = focusSession;
   
-  const [sessionGoal, setSessionGoal] = useState('');
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [focusTarget, setFocusTarget] = useState<{ type: 'task' | 'subject' | 'folderItem'; id: string; label: string; meta?: Record<string, string> } | null>(null);
+  const [showTargetModal, setShowTargetModal] = useState(false);
+  const [suggestedMinutes, setSuggestedMinutes] = useState(35);
+  const [suggestionHint, setSuggestionHint] = useState('Select a focus target to get a recommendation.');
+  const [durationMinutes, setDurationMinutes] = useState(state.settings.focusDuration || 35);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
+  const [showReflection, setShowReflection] = useState(false);
+  const [reflectionText, setReflectionText] = useState('');
+  const [reflectionType, setReflectionType] = useState<'finished' | 'blocked' | null>(null);
+  const [submitReflectionLoading, setSubmitReflectionLoading] = useState(false);
+  const [quitWarning, setQuitWarning] = useState('');
+  const [focusStreak, setFocusStreak] = useState(0);
+  const ACTIVE_SESSION_KEY = 'zen_focus_active_session_v1';
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -19,18 +31,295 @@ const Focus: React.FC = () => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progress = isActive 
-    ? ((state.settings.focusDuration * 60 - timeLeft) / (state.settings.focusDuration * 60)) * 100 
+  const progress = isActive && durationMinutes > 0
+    ? ((durationMinutes * 60 - timeLeft) / (durationMinutes * 60)) * 100
     : 0;
+
+  const focusHeadline = focusTarget
+    ? `Focus for ${durationMinutes} minutes on ${focusTarget.label}`
+    : 'Select a focus target to begin';
+
+  const tasks = state.tasks;
+  const subjects = state.subjects;
+  const folders = state.folders;
+
+  const focusTargets = useMemo(() => {
+    const subjectMap = new Map(subjects.map(subject => [subject.id, subject.name]));
+
+    const taskTargets = tasks.map(task => {
+      const subjectName = task.subjectId ? subjectMap.get(task.subjectId) : '';
+      const label = subjectName ? `${subjectName} – ${task.title}` : task.title;
+      return { type: 'task' as const, id: task.id, label, meta: { subjectId: task.subjectId || '' } };
+    });
+
+    const subjectTargets = subjects.map(subject => ({
+      type: 'subject' as const,
+      id: subject.id,
+      label: subject.name,
+      meta: {},
+    }));
+
+    const folderTargets = folders.flatMap(folder => {
+      return folder.items.map(item => ({
+        type: 'folderItem' as const,
+        id: item.id,
+        label: `${folder.name} – ${item.title}`,
+        meta: { folderId: folder.id, itemType: item.type },
+      }));
+    });
+
+    return { taskTargets, subjectTargets, folderTargets };
+  }, [tasks, subjects, folders]);
 
   // Immersive mode: hide navbar during focus
   useEffect(() => {
-    if (isActive && !isPaused) {
+    if ((isActive && !isPaused) || showReflection) {
       setHideNavbar(true);
     } else {
       setHideNavbar(false);
     }
-  }, [isActive, isPaused, setHideNavbar]);
+  }, [isActive, isPaused, showReflection, setHideNavbar]);
+
+  const computeSuggestedDuration = (summary: {
+    successRate: number;
+    lastSession: { status: string; plannedDurationMinutes: number } | null;
+  } | null) => {
+    const successRate = summary?.successRate ?? 0;
+    let suggestion = 40;
+    let hint = '';
+
+    if (successRate < 0.4) {
+      suggestion = 30;
+      hint = 'Recent sessions are struggling. Try 25–35m.';
+    } else if (successRate < 0.7) {
+      suggestion = 40;
+      hint = 'Stable focus. Try 35–45m.';
+    } else {
+      suggestion = 50;
+      hint = 'Strong focus lately. Try 45–60m.';
+    }
+
+    const lastSession = summary?.lastSession;
+    if (lastSession && lastSession.status !== 'completed' && lastSession.plannedDurationMinutes) {
+      const last = lastSession.plannedDurationMinutes;
+      if (last >= 55) {
+        suggestion = 35;
+        hint = `Last time you failed at ${last}m. Try 35m.`;
+      } else if (last >= 45) {
+        suggestion = 30;
+        hint = `Last time you failed at ${last}m. Try 30m.`;
+      } else if (last >= 35) {
+        suggestion = 25;
+        hint = `Last time you failed at ${last}m. Try 25m.`;
+      }
+    }
+
+    return { suggestion, hint };
+  };
+
+  const loadSuggestion = async () => {
+    if (!focusTarget) {
+      setSuggestedMinutes(35);
+      setSuggestionHint('Select a focus target to get a recommendation.');
+      return;
+    }
+    try {
+      const params = new URLSearchParams({ targetType: focusTarget.type, targetId: focusTarget.id });
+      const res = await apiFetch(`/api/focus/summary?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to load summary');
+      const data = await res.json();
+      const { suggestion, hint } = computeSuggestedDuration({
+        successRate: data?.successRate ?? 0,
+        lastSession: data?.lastSession || null,
+      });
+      setSuggestedMinutes(suggestion);
+      setSuggestionHint(hint);
+      setFocusStreak(data?.streak || 0);
+      if (!isActive) {
+        setDurationMinutes(suggestion);
+      }
+    } catch {
+      setSuggestedMinutes(40);
+      setSuggestionHint('Use a steady duration to build consistency.');
+    }
+  };
+
+  useEffect(() => {
+    loadSuggestion();
+  }, [focusTarget?.id]);
+
+  useEffect(() => {
+    if (!isActive && !showReflection) {
+      resetTimer(durationMinutes);
+    }
+  }, [durationMinutes, isActive, showReflection, resetTimer]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved?.sessionId || !saved?.startedAt || !saved?.target || !saved?.durationMinutes) return;
+      const startedAt = new Date(saved.startedAt);
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+      const remaining = Math.max(0, Math.round(saved.durationMinutes * 60 - elapsedSeconds));
+
+      setFocusTarget(saved.target);
+      setDurationMinutes(saved.durationMinutes);
+      setSessionId(saved.sessionId);
+      setSessionStartedAt(saved.startedAt);
+
+      if (remaining > 0) {
+        setFocusSessionState({ isActive: true, isPaused: false, timeLeft: remaining, mode: 'focus' });
+      } else {
+        setFocusSessionState({ isActive: false, isPaused: false, timeLeft: 0, mode: 'focus' });
+        setReflectionType('finished');
+        setShowReflection(true);
+      }
+    } catch {
+      // Ignore corrupted cache
+    }
+  }, [ACTIVE_SESSION_KEY, setFocusSessionState]);
+
+  useEffect(() => {
+    if (sessionId && focusTarget && sessionStartedAt) {
+      const payload = {
+        sessionId,
+        startedAt: sessionStartedAt,
+        durationMinutes,
+        target: focusTarget,
+      };
+      try {
+        localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(payload));
+      } catch {
+        // Ignore storage errors
+      }
+    } else {
+      try {
+        localStorage.removeItem(ACTIVE_SESSION_KEY);
+      } catch {
+        // Ignore
+      }
+    }
+  }, [sessionId, focusTarget, sessionStartedAt, durationMinutes, ACTIVE_SESSION_KEY]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    if (showReflection) return;
+    if (!isActive && timeLeft === 0 && reflectionType === null) {
+      setReflectionType('finished');
+      setShowReflection(true);
+    }
+  }, [sessionId, isActive, timeLeft, showReflection, reflectionType]);
+
+  useEffect(() => {
+    if (!focusTarget && !isActive && !showTargetModal) {
+      setShowTargetModal(true);
+    }
+  }, [focusTarget, isActive, showTargetModal]);
+
+  const handleStartFocus = async () => {
+    if (!focusTarget) {
+      setShowTargetModal(true);
+      return;
+    }
+    if (durationMinutes <= 0) return;
+    try {
+      const res = await apiFetch('/api/focus/sessions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: focusTarget.type,
+          targetId: focusTarget.id,
+          targetLabel: focusTarget.label,
+          targetMeta: focusTarget.meta || {},
+          plannedDurationMinutes: durationMinutes,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to start focus session');
+      }
+      const data = await res.json();
+      setSessionId(data.sessionId);
+      setSessionStartedAt(data.startedAt || new Date().toISOString());
+      setReflectionType(null);
+      setReflectionText('');
+      setQuitWarning('');
+      resetTimer(durationMinutes);
+      startTimer();
+    } catch (err) {
+      console.error('[Focus] Start failed:', err);
+    }
+  };
+
+  const prepareQuitWarning = async () => {
+    if (!focusTarget) return;
+    try {
+      const params = new URLSearchParams({ targetType: focusTarget.type, targetId: focusTarget.id });
+      const res = await apiFetch(`/api/focus/summary?${params.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const projected = (data?.quitCount7d || 0) + 1;
+      if (projected >= 3) {
+        setQuitWarning("You've quit 3 sessions on this task. Reduce duration or break it down?");
+      } else {
+        setQuitWarning('');
+      }
+    } catch {
+      setQuitWarning('');
+    }
+  };
+
+  const handleEarlyEnd = () => {
+    setShowEndConfirm(false);
+    setReflectionType('blocked');
+    setShowReflection(true);
+    prepareQuitWarning();
+    resetTimer(durationMinutes);
+  };
+
+  const handleSubmitReflection = async () => {
+    if (!sessionId || !reflectionType) return;
+    if (!reflectionText.trim()) return;
+    setSubmitReflectionLoading(true);
+    try {
+      const endpoint = reflectionType === 'finished' ? '/api/focus/sessions/complete' : '/api/focus/sessions/abandon';
+      const res = await apiFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          reflectionText: reflectionText.trim(),
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to save focus session');
+      }
+      const data = await res.json();
+      if (typeof data?.streak === 'number') {
+        setFocusStreak(data.streak);
+      } else if (reflectionType === 'blocked') {
+        setFocusStreak(0);
+      }
+      if (reflectionType === 'finished' && focusTarget?.type === 'task') {
+        const task = tasks.find(item => item.id === focusTarget.id);
+        if (task) {
+          updateTask({ ...task, completed: true });
+        }
+      }
+      setSessionId(null);
+      setSessionStartedAt(null);
+      setReflectionText('');
+      setReflectionType(null);
+      setShowReflection(false);
+      setQuitWarning('');
+      resetTimer(durationMinutes);
+    } catch (err) {
+      console.error('[Focus] Submit failed:', err);
+    } finally {
+      setSubmitReflectionLoading(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col items-center justify-between p-6 relative overflow-hidden bg-zen-bg">
@@ -61,18 +350,25 @@ const Focus: React.FC = () => {
             {/* 1. TOP SECTION: Goal & Timer (The Hero) */}
             <div className="flex flex-col items-center justify-center flex-grow-[2] w-full">
                 
-                {/* Active Goal Pill */}
-                <div className="mb-6 h-8 flex items-center justify-center">
-                    {sessionGoal ? (
-                        <button onClick={() => !isActive && setIsGoalModalOpen(true)} className="px-5 py-2 bg-zen-surface/30 backdrop-blur rounded-full border border-zen-surface/50 text-zen-primary text-xs md:text-sm font-medium tracking-wide shadow-lg hover:bg-zen-surface/50 transition-all max-w-[80vw] truncate">
-                            {sessionGoal}
-                        </button>
-                    ) : (
-                        !isActive && (
-                            <button onClick={() => setIsGoalModalOpen(true)} className="text-zen-text-disabled hover:text-zen-primary text-[10px] uppercase font-bold tracking-widest transition-colors flex items-center gap-2">
-                                <span>+ Set Intention</span>
-                            </button>
-                        )
+                {/* Focus Target */}
+                <div className="mb-6 flex flex-col items-center gap-3">
+                    <button
+                        onClick={() => !isActive && setShowTargetModal(true)}
+                        className={`px-5 py-2 rounded-full border text-xs md:text-sm font-medium tracking-wide shadow-lg transition-all max-w-[80vw] truncate ${
+                          focusTarget
+                            ? 'bg-zen-surface/30 border-zen-surface/50 text-zen-primary hover:bg-zen-surface/50'
+                            : 'bg-transparent border-zen-surface text-zen-text-disabled hover:text-zen-primary'
+                        }`}
+                    >
+                        {focusTarget ? focusTarget.label : '+ Select focus target'}
+                    </button>
+                    <div className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-zen-text-disabled font-bold text-center max-w-[80vw]">
+                        {focusHeadline}
+                    </div>
+                    {focusStreak > 0 && (
+                      <div className="text-[10px] uppercase tracking-[0.3em] text-zen-primary font-bold">
+                        Streak {focusStreak}
+                      </div>
                     )}
                 </div>
 
@@ -124,18 +420,33 @@ const Focus: React.FC = () => {
             {/* 2. BOTTOM SECTION: Controls (Compact & Accessible) */}
             <div className="flex flex-col items-center w-full gap-6 md:gap-10 mt-auto flex-shrink-0">
                 
-                {/* Duration Picker - Only visible when not active */}
+                {/* Duration Suggestion */}
                 {!isActive && (
-                    <div className="flex gap-2 p-1.5 bg-zen-card/60 backdrop-blur rounded-2xl border border-zen-surface shadow-sm hover:bg-zen-card/80 transition-colors">
-                        {FOCUS_DURATIONS.map((dur) => (
-                            <button
-                                key={dur}
-                                onClick={() => resetTimer(dur)}
-                                className={`h-8 px-4 md:h-10 md:px-6 rounded-xl text-[10px] md:text-xs font-bold transition-all ${state.settings.focusDuration === dur ? 'bg-zen-primary text-black shadow-md' : 'text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface'}`}
-                            >
-                                {dur}m
-                            </button>
-                        ))}
+                    <div className="w-full max-w-sm space-y-3">
+                        <div className="p-4 rounded-2xl bg-zen-card/60 border border-zen-surface text-center">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Suggested</p>
+                            <p className="text-2xl font-light text-zen-text-primary mt-2">{suggestedMinutes} minutes</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mt-2">
+                                {suggestionHint}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 bg-zen-surface/10 border border-zen-surface rounded-2xl px-4 py-3">
+                            <span className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Duration</span>
+                            <input
+                                type="number"
+                                min={15}
+                                max={120}
+                                value={durationMinutes}
+                                onChange={(e) => {
+                                  const value = Number(e.target.value);
+                                  if (Number.isNaN(value)) return;
+                                  const clamped = Math.min(120, Math.max(15, value));
+                                  setDurationMinutes(clamped);
+                                }}
+                                className="flex-1 bg-transparent text-zen-text-primary text-right focus:outline-none"
+                            />
+                            <span className="text-xs text-zen-text-secondary">min</span>
+                        </div>
                     </div>
                 )}
 
@@ -157,8 +468,13 @@ const Focus: React.FC = () => {
                     {/* MAIN START BUTTON */}
                     {!isActive ? (
                         <button 
-                            onClick={startTimer}
-                            className="w-16 h-16 md:w-20 md:h-20 bg-zen-primary rounded-full flex items-center justify-center text-black hover:scale-110 hover:shadow-[0_0_30px_rgba(100,255,218,0.4)] active:scale-95 transition-all shadow-xl z-20"
+                            onClick={handleStartFocus}
+                            disabled={!focusTarget || durationMinutes < 15}
+                            className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl z-20 ${
+                              focusTarget && durationMinutes >= 15
+                                ? 'bg-zen-primary text-black hover:scale-110 hover:shadow-[0_0_30px_rgba(100,255,218,0.4)] active:scale-95'
+                                : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed'
+                            }`}
                         >
                             <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 md:w-8 md:h-8 ml-1"><path d="M8 5v14l11-7z"/></svg>
                         </button>
@@ -188,46 +504,129 @@ const Focus: React.FC = () => {
                 <ConfirmModal
                     isOpen={showEndConfirm}
                     onClose={() => setShowEndConfirm(false)}
-                    onConfirm={() => resetTimer()}
+                    onConfirm={handleEarlyEnd}
                     title="End Session"
                     message="Stop current session? Progress will not be saved."
                     confirmText="End Session"
                     isDangerous
                 />
+
+                {showTargetModal && (
+                    <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-fadeIn">
+                        <div className="w-full max-w-lg bg-zen-card/90 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">Select focus target</h3>
+                                    <p className="text-xs md:text-sm text-zen-text-secondary">Choose one task, subject, or document.</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowTargetModal(false)}
+                                    className="p-2 rounded-full text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+
+                            <div className="space-y-5 max-h-[55vh] overflow-y-auto no-scrollbar pr-1">
+                                <div className="space-y-3">
+                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Tasks</p>
+                                    {focusTargets.taskTargets.length === 0 ? (
+                                        <p className="text-xs text-zen-text-secondary">No tasks yet.</p>
+                                    ) : (
+                                        <div className="grid gap-2">
+                                            {focusTargets.taskTargets.map(target => (
+                                                <button
+                                                    key={`task-${target.id}`}
+                                                    onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
+                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
+                                                >
+                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Subjects</p>
+                                    {focusTargets.subjectTargets.length === 0 ? (
+                                        <p className="text-xs text-zen-text-secondary">No subjects yet.</p>
+                                    ) : (
+                                        <div className="grid gap-2">
+                                            {focusTargets.subjectTargets.map(target => (
+                                                <button
+                                                    key={`subject-${target.id}`}
+                                                    onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
+                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
+                                                >
+                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">PDF / Notes</p>
+                                    {focusTargets.folderTargets.length === 0 ? (
+                                        <p className="text-xs text-zen-text-secondary">No documents yet.</p>
+                                    ) : (
+                                        <div className="grid gap-2">
+                                            {focusTargets.folderTargets.map(target => (
+                                                <button
+                                                    key={`doc-${target.id}`}
+                                                    onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
+                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
+                                                >
+                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {showReflection && reflectionType && (
+                    <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[110] flex items-center justify-center p-6 animate-fadeIn">
+                        <div className="w-full max-w-md bg-zen-card/95 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6">
+                            <div className="space-y-2">
+                                <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">
+                                    {reflectionType === 'finished' ? 'What did you finish?' : 'What blocked you?'}
+                                </h3>
+                                <p className="text-xs md:text-sm text-zen-text-secondary">
+                                    This reflection is required to close the session.
+                                </p>
+                            </div>
+
+                            {quitWarning && reflectionType === 'blocked' && (
+                                <div className="p-3 rounded-2xl bg-zen-surface/40 border border-zen-surface text-zen-text-primary text-xs uppercase tracking-[0.2em] font-bold">
+                                    {quitWarning}
+                                </div>
+                            )}
+
+                            <textarea
+                                value={reflectionText}
+                                onChange={(e) => setReflectionText(e.target.value)}
+                                rows={4}
+                                placeholder={reflectionType === 'finished' ? 'Briefly describe what you completed...' : 'Briefly describe what got in the way...'}
+                                className="w-full bg-zen-surface/20 border border-zen-surface rounded-2xl p-4 text-sm text-zen-text-primary focus:outline-none focus:border-zen-primary/50 resize-none"
+                            />
+
+                            <button
+                                onClick={handleSubmitReflection}
+                                disabled={!reflectionText.trim() || submitReflectionLoading}
+                                className="w-full py-3.5 rounded-2xl bg-zen-primary text-zen-bg text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all hover:shadow-glow-sm disabled:opacity-60"
+                            >
+                                {submitReflectionLoading ? 'Saving...' : 'Save Reflection'}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Goal Setting Modal */}
-            {isGoalModalOpen && (
-                 <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-fadeIn">
-                    <div className="w-full max-w-md space-y-8 relative">
-                         <button onClick={() => setIsGoalModalOpen(false)} className="absolute -top-12 right-0 text-zen-text-secondary hover:text-zen-text-primary p-2">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                         </button>
-                         <div className="text-center space-y-2">
-                            <h3 className="text-3xl font-light text-zen-text-primary">Intention</h3>
-                            <p className="text-zen-text-secondary text-sm">What are you focusing on?</p>
-                         </div>
-                         
-                         <div className="space-y-6">
-                            <input 
-                                autoFocus
-                                placeholder="e.g. Read Chapter 4"
-                                className="w-full bg-transparent border-b border-zen-surface p-4 text-xl text-zen-text-primary text-center focus:outline-none focus:border-zen-primary transition-all font-light placeholder:text-zen-text-disabled/20"
-                                value={sessionGoal}
-                                onChange={e => setSessionGoal(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && setIsGoalModalOpen(false)}
-                            />
-                            
-                            <div className="flex justify-center gap-4">
-                                 {sessionGoal && (
-                                     <button onClick={() => setSessionGoal('')} className="text-zen-text-disabled hover:text-red-400 text-[10px] font-bold uppercase tracking-widest px-4 py-2">Clear</button>
-                                 )}
-                                 <button onClick={() => setIsGoalModalOpen(false)} className="px-8 py-3 bg-zen-text-primary text-black rounded-full font-bold uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all">Set Goal</button>
-                            </div>
-                         </div>
-                    </div>
-                 </div>
-            )}
         </div>
     </div>
   );
