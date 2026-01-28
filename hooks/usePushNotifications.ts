@@ -6,6 +6,7 @@ import {
   unsubscribeFromPush,
   getCurrentSubscription,
   showLocalNotification,
+  sendPushNotification,
   sendZenNotification,
   ZenNotificationType,
 } from '../utils/pushNotifications';
@@ -143,8 +144,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setError('Notification permission not granted');
       return false;
     }
+    if (isSubscribed) {
+      const body = typeof options?.body === 'string' ? options.body : '';
+      const icon = typeof options?.icon === 'string' ? options.icon : undefined;
+      const url = (options as any)?.data?.url as string | undefined;
+      return sendPushNotification(title, body, { icon, url });
+    }
     return showLocalNotification(title, options);
-  }, [permission]);
+  }, [permission, isSubscribed]);
 
   // Send a typed ZEN notification
   const sendZenNotificationFn = useCallback(async (
