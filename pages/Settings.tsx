@@ -476,146 +476,149 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                         {/* Billing Settings */}
                         {activeTab === 'billing' && (
-                            <div className="space-y-6 md:space-y-6">
+                            <div className="space-y-8 animate-reveal">
                                 {billingNotice && (
-                                  <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-zen-primary/10 border border-zen-primary/30 text-zen-primary text-xs md:text-sm font-medium">
+                                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium tracking-wide">
                                     {billingNotice}
                                   </div>
                                 )}
                                 {billingError && (
-                                  <div className="p-4 md:p-5 rounded-2xl md:rounded-[2rem] bg-red-400/5 border border-red-400/20 text-red-400 text-xs md:text-sm font-medium">
+                                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wide">
                                     {billingError}
                                   </div>
                                 )}
 
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-[1fr_1.2fr]">
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-[1fr_1.4fr] lg:gap-8 min-h-[600px]">
                                     
                                     {/* Left Column: Free Plan */}
-                                    <div className="p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card/50 border border-zen-surface flex flex-col h-full relative overflow-hidden group">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-zen-surface-brighter group-hover:bg-zen-text-disabled transition-colors" />
-                                        
-                                        <div className="mb-auto space-y-4">
+                                    <div className="p-10 rounded-[2.5rem] bg-[#0A0C0F] border border-zen-surface hover:border-zen-surface-brighter transition-all flex flex-col h-full relative group">
+                                        <div className="mb-auto space-y-6">
                                             <span className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Freemium</span>
                                             <div>
-                                                <h3 className="text-4xl md:text-5xl font-light text-zen-text-primary tracking-tight">Free</h3>
-                                                <p className="text-sm text-zen-text-secondary mt-4 leading-relaxed max-w-xs">
+                                                <h3 className="text-5xl lg:text-6xl font-normal text-white tracking-tight">Free</h3>
+                                                <p className="text-sm text-zen-text-secondary mt-6 leading-relaxed max-w-[200px]">
                                                     Core planning, focus tools, and basic library features.
                                                 </p>
                                             </div>
                                         </div>
                                         
-                                        <div className="mt-12 text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black opacity-60">
+                                        <div className="mt-12 text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black opacity-40 group-hover:opacity-100 transition-opacity">
                                             Ideal for light usage
                                         </div>
                                     </div>
 
                                     {/* Right Column: Premium & Management */}
-                                    <div className="space-y-6">
+                                    <div className="space-y-6 flex flex-col">
                                         
-                                        {/* Premium Plan Card */}
-                                        <div className={`p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] border relative overflow-hidden transition-all ${billing?.effectivePlan === 'premium' ? 'bg-[#0A1A16] border-zen-primary/30' : 'bg-[#0A1A16] border-zen-surface hover:border-zen-primary/20'}`}>
-                                            <div className="flex items-center justify-between mb-6">
-                                                <span className="text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black">Premium</span>
+                                        {/* Premium Card */}
+                                        <div className={`p-10 rounded-[2.5rem] bg-[#0A1A16] border transition-all relative overflow-hidden flex-1 flex flex-col justify-between ${billing?.effectivePlan === 'premium' ? 'border-emerald-500/50 shadow-[0_0_30px_-10px_rgba(16,185,129,0.2)]' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}>
+                                            
+                                            {/* Header */}
+                                            <div className="flex items-start justify-between mb-8">
+                                                <span className="text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black mt-1">Premium</span>
                                                 {billing?.effectivePlan === 'premium' && (
-                                                    <span className="px-3 py-1.5 rounded-full bg-zen-primary/20 text-zen-primary text-[9px] uppercase tracking-[0.2em] font-black shadow-glow-sm">Active</span>
+                                                    <span className="px-3 py-1 rounded-full bg-emerald-500 text-[#091510] text-[10px] uppercase tracking-widest font-black shadow-lg shadow-emerald-500/20">Active</span>
                                                 )}
                                             </div>
 
-                                            <div className="mb-8">
-                                                <div className="flex items-baseline gap-2">
-                                                    <span className="text-4xl md:text-5xl font-light text-white">
+                                            {/* Price */}
+                                            <div className="mb-10">
+                                                <div className="flex items-baseline gap-3">
+                                                    <span className="text-5xl lg:text-6xl font-normal text-white">
                                                         PHP {selectedInterval === 'yearly' ? '1490' : '149'}
                                                     </span>
                                                     <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
-                                                        / {selectedInterval === 'yearly' ? 'year' : 'month'}
+                                                        / {selectedInterval === 'yearly' ? 'MONTH' : 'MONTH'}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-zen-text-secondary mt-3 leading-relaxed">
+                                                <p className="text-sm text-zen-text-secondary mt-4 leading-relaxed max-w-sm">
                                                     Full access to Zen Intelligence and advanced study workflows.
                                                 </p>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                            {/* Selectors */}
+                                            <div className="grid grid-cols-2 gap-4 mb-4">
                                                 <button
                                                     onClick={() => setSelectedInterval('monthly')}
-                                                    className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'monthly' ? 'bg-zen-primary/10 border-zen-primary text-zen-primary shadow-glow-sm' : 'bg-zen-surface/30 border-zen-surface/50 text-zen-text-disabled hover:bg-zen-surface/50'}`}
+                                                    className={`p-5 rounded-2xl border text-left transition-all relative group ${selectedInterval === 'monthly' ? 'bg-emerald-500/10 border-emerald-500 text-white' : 'bg-transparent border-zen-surface text-zen-text-disabled hover:border-zen-text-disabled/50'}`}
                                                 >
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] font-bold opacity-80">Monthly</p>
-                                                    <p className="mt-1 text-lg font-medium">PHP 149</p>
-                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-0.5">Per Month</p>
+                                                    <p className={`text-[9px] uppercase tracking-[0.2em] font-black mb-2 ${selectedInterval === 'monthly' ? 'text-emerald-400' : 'text-zen-text-disabled'}`}>Monthly</p>
+                                                    <p className="text-xl font-medium">PHP 149</p>
+                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-1">Per Month</p>
                                                 </button>
                                                 <button
                                                     onClick={() => setSelectedInterval('yearly')}
-                                                    className={`p-4 rounded-2xl border text-left transition-all ${selectedInterval === 'yearly' ? 'bg-zen-primary/10 border-zen-primary text-zen-primary shadow-glow-sm' : 'bg-zen-surface/30 border-zen-surface/50 text-zen-text-disabled hover:bg-zen-surface/50'}`}
+                                                    className={`p-5 rounded-2xl border text-left transition-all relative group ${selectedInterval === 'yearly' ? 'bg-emerald-500/10 border-emerald-500 text-white' : 'bg-transparent border-zen-surface text-zen-text-disabled hover:border-zen-text-disabled/50'}`}
                                                 >
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] font-bold opacity-80">Yearly</p>
-                                                    <p className="mt-1 text-lg font-medium">PHP 1490</p>
-                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-0.5">Per Year</p>
+                                                    <p className={`text-[9px] uppercase tracking-[0.2em] font-black mb-2 ${selectedInterval === 'yearly' ? 'text-emerald-400' : 'text-zen-text-disabled'}`}>Yearly</p>
+                                                    <p className="text-xl font-medium">PHP 1490</p>
+                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-1">Per Year</p>
                                                 </button>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3">
+                                            {/* Actions */}
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <button
                                                     onClick={() => handleCheckout('gcash')}
                                                     disabled={billingMethodLoading === 'gcash'}
-                                                    className="py-4 rounded-xl bg-zen-primary text-zen-bg text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-glow hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
+                                                    className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
                                                 >
-                                                    {billingMethodLoading === 'gcash' ? 'Starting...' : 'Pay with GCash'}
+                                                    {billingMethodLoading === 'gcash' ? 'Processing...' : 'Pay with GCash'}
                                                 </button>
                                                 <button
                                                     onClick={() => handleCheckout('bank')}
                                                     disabled={billingMethodLoading === 'bank'}
-                                                    className="py-4 rounded-xl bg-zen-surface/50 text-zen-text-primary text-[10px] font-black uppercase tracking-[0.2em] border border-zen-surface transition-all hover:bg-zen-surface hover:border-zen-text-secondary disabled:opacity-60"
+                                                    className="py-4 rounded-xl bg-[#1A1D21] text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#25282C] active:bg-[#151719] disabled:opacity-60"
                                                 >
-                                                    {billingMethodLoading === 'bank' ? 'Starting...' : 'Pay with Bank'}
+                                                    {billingMethodLoading === 'bank' ? 'Processing...' : 'Pay with Bank'}
                                                 </button>
                                             </div>
                                         </div>
 
-                                        {/* Current Plan Management */}
-                                        <div className="p-8 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card/80 border border-zen-surface space-y-6">
+                                        {/* Current Plan Manager */}
+                                        <div className="p-8 rounded-[2.5rem] bg-[#0D1117] border border-zen-surface space-y-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="text-[9px] uppercase tracking-[0.25em] text-zen-text-disabled font-black">Current Plan</p>
-                                                    <p className="text-xl font-medium text-zen-text-primary">
+                                                    <p className="text-xl font-bold text-white tracking-tight">
                                                         {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
                                                     </p>
                                                 </div>
                                                 <button
                                                     onClick={refreshBilling}
                                                     disabled={billingLoading}
-                                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] bg-zen-surface/50 text-zen-text-secondary border border-zen-surface hover:text-zen-text-primary hover:border-zen-text-disabled transition-all disabled:opacity-50"
+                                                    className="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] bg-[#1A1D21] text-zen-text-secondary hover:text-white transition-all disabled:opacity-50"
                                                 >
                                                     {billingLoading ? '...' : 'Refresh'}
                                                 </button>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-1">Status</p>
-                                                    <p className="text-sm text-zen-text-primary capitalize font-medium">{billing?.status || 'Free'}</p>
+                                                <div className="p-4 rounded-2xl bg-[#161B22]">
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-2">Status</p>
+                                                    <p className="text-base text-white capitalize font-medium">{billing?.status || 'Free'}</p>
                                                 </div>
-                                                <div className="p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-1">
-                                                        {billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Next Renewal'}
+                                                <div className="p-4 rounded-2xl bg-[#161B22]">
+                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-2">
+                                                        {billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Renewal'}
                                                     </p>
-                                                    <p className="text-sm text-zen-text-primary font-medium">{formatDate(billing?.currentPeriodEnd || null)}</p>
+                                                    <p className="text-base text-white font-medium">{billing?.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : '-'}</p>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-zen-surface/30 border border-zen-surface/50">
+                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-[#161B22]">
                                                 <div>
-                                                    <p className="text-sm font-medium text-zen-text-primary">Auto Billing</p>
-                                                    <p className="text-[9px] text-zen-text-disabled uppercase tracking-wider font-bold mt-0.5">
+                                                    <p className="text-sm font-medium text-white">Auto Billing</p>
+                                                    <p className="text-[8px] text-zen-text-disabled uppercase tracking-wider font-bold mt-1">
                                                       Toggle auto-renewal
                                                     </p>
                                                 </div>
                                                 <button
                                                     onClick={handleAutoRenewToggle}
                                                     disabled={billingLoading || (billing?.effectivePlan !== 'premium' && billing?.status !== 'pending')}
-                                                    className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-zen-primary shadow-glow-sm' : 'bg-zen-surface border border-zen-text-disabled/20'}`}
+                                                    className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-white' : 'bg-[#21262D]'}`}
                                                 >
-                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%]' : ''}`} />
+                                                    <div className={`w-4 h-4 rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%] bg-black' : 'bg-zen-text-disabled'}`} />
                                                 </button>
                                             </div>
 
@@ -623,7 +626,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                               <button
                                                 onClick={() => setShowCancelSubscription(true)}
                                                 disabled={billingCancelLoading}
-                                                className="w-full py-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-60"
+                                                className="w-full py-4 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10 disabled:opacity-60"
                                               >
                                                 {billingCancelLoading ? 'Canceling...' : 'Cancel Subscription'}
                                               </button>
