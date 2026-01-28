@@ -224,11 +224,9 @@ const Focus: React.FC = () => {
     }
   }, [sessionId, isActive, timeLeft, showReflection, reflectionType]);
 
-  useEffect(() => {
-    if (!focusTarget && !isActive && !showTargetModal) {
-      setShowTargetModal(true);
-    }
-  }, [focusTarget, isActive, showTargetModal]);
+  // Removed auto-open of target modal on mount as per user request
+  // The modal will now only open when clicking "Play" or the target selector
+
 
   const handleStartFocus = async () => {
     if (!focusTarget) {
@@ -478,9 +476,9 @@ const Focus: React.FC = () => {
                          {!isActive ? (
                             <button 
                                 onClick={handleStartFocus}
-                                disabled={!focusTarget || durationMinutes < 15}
+                                disabled={durationMinutes < 15}
                                 className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-xl z-20 ${
-                                focusTarget && durationMinutes >= 15
+                                durationMinutes >= 15
                                     ? 'bg-zen-primary text-black hover:scale-105 hover:shadow-[0_0_30px_rgba(100,255,218,0.4)] active:scale-95'
                                     : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
                                 }`}
