@@ -552,69 +552,64 @@ const Focus: React.FC = () => {
                         <div className="w-full max-w-lg bg-zen-card/90 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">Select focus target</h3>
-                                    <p className="text-xs md:text-sm text-zen-text-secondary">Choose one task, subject, or document.</p>
+                                    <h3 className="text-xl md:text-2xl text-zen-text-primary font-medium tracking-tight">Select target</h3>
+                                    <p className="text-xs md:text-sm text-zen-text-secondary mt-1">What would you like to focus on?</p>
                                 </div>
                                 <button
                                     onClick={() => setShowTargetModal(false)}
-                                    className="p-2 rounded-full text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface"
+                                    className="p-2 rounded-full text-zen-text-secondary hover:text-zen-text-primary hover:bg-zen-surface transition-colors"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                                 </button>
                             </div>
 
-                            <div className="space-y-5 max-h-[55vh] overflow-y-auto no-scrollbar pr-1">
+                            <div className="space-y-6 max-h-[55vh] overflow-y-auto no-scrollbar pr-1">
                                 <div className="space-y-3">
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Tasks</p>
+                                    <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-zen-primary"></div>
+                                        <p className="text-[11px] uppercase tracking-[0.2em] text-zen-text-primary font-bold">Tasks</p>
+                                    </div>
                                     {focusTargets.taskTargets.length === 0 ? (
-                                        <p className="text-xs text-zen-text-secondary">No tasks yet.</p>
+                                        <p className="text-xs text-zen-text-secondary pl-2 italic">No tasks assigned.</p>
                                     ) : (
                                         <div className="grid gap-2">
                                             {focusTargets.taskTargets.map(target => (
                                                 <button
                                                     key={`task-${target.id}`}
                                                     onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
-                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
+                                                    className="group w-full text-left p-3.5 rounded-xl bg-gradient-to-br from-zen-surface/40 to-zen-surface/20 border border-zen-surface/50 hover:border-zen-primary/50 hover:from-zen-surface/60 hover:to-zen-surface/40 transition-all shadow-sm hover:shadow-md"
                                                 >
-                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-medium text-zen-text-primary group-hover:text-white transition-colors line-clamp-1">{target.label}</p>
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-zen-text-disabled group-hover:text-zen-primary  opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1"><path d="M9 18l6-6-6-6"/></svg>
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="space-y-3">
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">Subjects</p>
-                                    {focusTargets.subjectTargets.length === 0 ? (
-                                        <p className="text-xs text-zen-text-secondary">No subjects yet.</p>
-                                    ) : (
-                                        <div className="grid gap-2">
-                                            {focusTargets.subjectTargets.map(target => (
-                                                <button
-                                                    key={`subject-${target.id}`}
-                                                    onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
-                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
-                                                >
-                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Subjects removed as requested */}
 
                                 <div className="space-y-3">
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-bold">PDF / Notes</p>
+                                   <div className="flex items-center gap-2 pb-1 border-b border-zen-surface/30">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                                        <p className="text-[11px] uppercase tracking-[0.2em] text-zen-text-primary font-bold">Documents</p>
+                                    </div>
                                     {focusTargets.folderTargets.length === 0 ? (
-                                        <p className="text-xs text-zen-text-secondary">No documents yet.</p>
+                                        <p className="text-xs text-zen-text-secondary pl-2 italic">No documents found.</p>
                                     ) : (
                                         <div className="grid gap-2">
                                             {focusTargets.folderTargets.map(target => (
                                                 <button
                                                     key={`doc-${target.id}`}
                                                     onClick={() => { setFocusTarget(target); setShowTargetModal(false); }}
-                                                    className="w-full text-left p-3 rounded-2xl bg-zen-surface/30 border border-zen-surface hover:border-zen-primary/30 hover:bg-zen-surface/50 transition-all"
+                                                    className="group w-full text-left p-3.5 rounded-xl bg-gradient-to-br from-zen-surface/40 to-zen-surface/20 border border-zen-surface/50 hover:border-purple-400/50 hover:from-zen-surface/60 hover:to-zen-surface/40 transition-all shadow-sm hover:shadow-md"
                                                 >
-                                                    <p className="text-sm text-zen-text-primary">{target.label}</p>
+                                                     <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-medium text-zen-text-primary group-hover:text-white transition-colors line-clamp-1">{target.label}</p>
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-zen-text-disabled group-hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1"><path d="M9 18l6-6-6-6"/></svg>
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
