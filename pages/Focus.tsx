@@ -548,8 +548,8 @@ const Focus: React.FC = () => {
                 />
 
                 {showTargetModal && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn">
-                        {/* Backdrop - absolute to container */}
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
+                        {/* Backdrop */}
                         <div className="absolute inset-0 bg-zen-bg/95 backdrop-blur-xl" />
                         <div className="w-full max-w-lg bg-zen-card/90 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6">
                             <div className="flex items-center justify-between">
