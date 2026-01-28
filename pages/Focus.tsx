@@ -446,8 +446,8 @@ const Focus: React.FC = () => {
             {/* 2. BOTTOM SECTION: Controls (Dock) */}
             <div className="w-full mt-auto pb-4 md:pb-0 z-30">
                 
-                {/* Control Grid - Adjusted spacing to prevent overlap */}
-                <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-3 md:gap-8">
+                {/* Control Grid - Increased gap to completely isolate buttons */}
+                <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-6 md:gap-8">
                     
                     {/* Left: Duration Controls */}
                     <div className="flex justify-start justify-self-start">
