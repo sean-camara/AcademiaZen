@@ -300,14 +300,18 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [state.settings.ambience]);
 
   useEffect(() => {
+    console.log('[ZenContext] Timer effect running - isActive:', focusSession.isActive, 'isPaused:', focusSession.isPaused);
+    
     if (!focusSession.isActive || focusSession.isPaused) {
       if (timerRef.current) {
+        console.log('[ZenContext] Clearing timer interval');
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
       return;
     }
 
+    console.log('[ZenContext] Starting timer interval');
     timerRef.current = window.setInterval(() => {
       setFocusSession((prev) => {
         if (!prev.isActive || prev.isPaused) return prev;
@@ -448,9 +452,21 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     settings: { ...prev.settings, ...updates },
   }));
 
-  const startTimer = () => setFocusSession(prev => ({ ...prev, isActive: true, isPaused: false }));
+  const startTimer = () => {
+    console.log('[ZenContext] startTimer called');
+    setFocusSession(prev => {
+      console.log('[ZenContext] startTimer - prev state:', prev);
+      return { ...prev, isActive: true, isPaused: false };
+    });
+  };
   
-  const pauseTimer = () => setFocusSession(prev => ({ ...prev, isPaused: true }));
+  const pauseTimer = () => {
+    console.log('[ZenContext] pauseTimer called');
+    setFocusSession(prev => {
+      console.log('[ZenContext] pauseTimer - prev state:', prev);
+      return { ...prev, isPaused: true };
+    });
+  };
   
   const resetTimer = (durationMinutes?: number) => {
     const mins = durationMinutes || state.settings.focusDuration;

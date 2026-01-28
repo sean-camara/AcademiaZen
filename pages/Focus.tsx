@@ -292,9 +292,29 @@ const Focus: React.FC = () => {
           reflectionText: reflectionText.trim(),
         }),
       });
+      
+      // Handle specific error cases
       if (!res.ok) {
-        throw new Error('Failed to save focus session');
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[Focus] Server error:', res.status, errorData);
+        
+        // If session not found or not active, it means the session was already closed
+        // Clear local state and allow user to start fresh
+        if (res.status === 404 || (res.status === 400 && errorData?.error?.includes('not active'))) {
+          console.warn('[Focus] Session already closed on server, clearing local state');
+          setSessionId(null);
+          setSessionStartedAt(null);
+          setReflectionText('');
+          setReflectionType(null);
+          setShowReflection(false);
+          setQuitWarning('');
+          resetTimer(durationMinutes);
+          return;
+        }
+        
+        throw new Error(errorData?.error || 'Failed to save focus session');
       }
+      
       const data = await res.json();
       if (typeof data?.streak === 'number') {
         setFocusStreak(data.streak);
@@ -457,7 +477,14 @@ const Focus: React.FC = () => {
                         ) : (
                             <div className="flex items-center gap-6">
                                 <button 
-                                    onClick={isPaused ? startTimer : pauseTimer}
+                                    onClick={() => {
+                                        console.log('[Focus] Pause/Play clicked, isPaused:', isPaused);
+                                        if (isPaused) {
+                                            startTimer();
+                                        } else {
+                                            pauseTimer();
+                                        }
+                                    }}
                                     className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-xl border ${isPaused ? 'bg-zen-primary text-black border-zen-primary' : 'bg-transparent text-zen-primary border-zen-primary hover:bg-zen-primary/10'}`}
                                 >
                                     {isPaused ? (
