@@ -446,26 +446,26 @@ const Focus: React.FC = () => {
             {/* 2. BOTTOM SECTION: Controls (Dock) */}
             <div className="w-full mt-auto pb-4 md:pb-0 z-30">
                 
-                {/* Control Grid - Using 1fr auto 1fr to ensure center buffer zone */}
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-full px-4 md:max-w-2xl mx-auto gap-2 md:gap-8">
+                {/* Control Grid - Back to 3 columns for centering, but optimized for space */}
+                <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-1 md:gap-8">
                     
                     {/* Left: Duration Controls */}
-                    <div className="flex justify-start justify-self-start">
+                    <div className="flex justify-start justify-self-start min-w-0">
                         {!isActive ? (
                             <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                                 <button 
                                     onClick={() => setDurationMinutes(Math.max(15, durationMinutes - 5))}
-                                    className="w-9 h-9 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                                    className="w-8 h-8 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M20 12H4"/></svg>
                                 </button>
-                                <div className="flex flex-col items-center min-w-[2.5rem] md:min-w-[2.5rem]">
+                                <div className="flex flex-col items-center min-w-[2.2rem] md:min-w-[2.5rem] px-1">
                                     <span className="text-sm md:text-lg font-medium text-zen-text-primary leading-none tabular-nums">{durationMinutes}</span>
                                     <span className="text-[7px] md:text-[9px] uppercase tracking-widest text-zen-text-disabled mt-0.5">min</span>
                                 </div>
                                 <button 
                                     onClick={() => setDurationMinutes(Math.min(120, durationMinutes + 5))}
-                                    className="w-9 h-9 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                                    className="w-8 h-8 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 4v16m8-8H4"/></svg>
                                 </button>
@@ -473,9 +473,9 @@ const Focus: React.FC = () => {
                         ) : <div className="w-8" />}
                     </div>
 
-                    {/* Center: Main Play Action - Fixed width container creates 'DMZ' safety buffer */}
-                    <div className="flex justify-center justify-self-center pointer-events-none md:pointer-events-auto z-40 w-28 md:w-auto">
-                        <div className="pointer-events-auto transform translate-y-[-2px] flex justify-center"> {/* Slight lift */}
+                    {/* Center: Main Play Action - Removed broad wrapper to prevent clipping sides */}
+                    <div className="flex justify-center justify-self-center pointer-events-none md:pointer-events-auto z-40">
+                        <div className="pointer-events-auto transform translate-y-[-2px] flex justify-center">
                              {!isActive ? (
                                 <button 
                                     onClick={handleStartFocus}
@@ -490,7 +490,7 @@ const Focus: React.FC = () => {
                                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-10 md:h-10 ml-0.5 relative z-10"><path d="M8 5v14l11-7z"/></svg>
                                 </button>
                             ) : (
-                                <div className="flex items-center gap-3 md:gap-4">
+                                <div className="flex items-center gap-2 md:gap-4">
                                     <button 
                                         onClick={() => {
                                             if (isPaused) {
@@ -520,13 +520,13 @@ const Focus: React.FC = () => {
                     </div>
 
                      {/* Right: Ambience Toggles */}                     
-                     <div className="flex justify-end justify-self-end">
+                     <div className="flex justify-end justify-self-end min-w-0">
                         <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                             {AMBIENCE_OPTIONS.map(opt => (
                                 <button 
                                     key={opt.id}
                                     onClick={() => setAmbience(opt.id as any)}
-                                    className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
+                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
                                     title={opt.label}
                                 >
                                     <span className="text-lg md:text-lg">{opt.icon}</span>
