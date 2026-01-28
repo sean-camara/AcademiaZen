@@ -549,11 +549,11 @@ const Focus: React.FC = () => {
 
                 {showTargetModal && (
                     <>
-                        {/* Backdrop */}
-                        <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-xl z-[100]" onClick={() => setShowTargetModal(false)} />
+                        {/* Backdrop - offset for sidebar on desktop */}
+                        <div className="fixed inset-0 lg:left-72 bg-zen-bg/95 backdrop-blur-xl z-[100]" onClick={() => setShowTargetModal(false)} />
                         
-                        {/* Modal Card */}
-                        <div className="fixed inset-0 z-[101] flex items-center justify-center p-6 pointer-events-none animate-fadeIn">
+                        {/* Modal Card - offset for sidebar on desktop */}
+                        <div className="fixed inset-0 lg:left-72 z-[101] flex items-center justify-center p-6 pointer-events-none animate-fadeIn">
                             <div className="w-full max-w-lg bg-zen-card/90 border border-zen-surface rounded-3xl p-6 md:p-8 space-y-6 pointer-events-auto shadow-2xl">
                             <div className="flex items-center justify-between">
                                 <div>
