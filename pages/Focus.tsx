@@ -444,90 +444,92 @@ const Focus: React.FC = () => {
             </div>
 
             {/* 2. BOTTOM SECTION: Controls (Dock) */}
-            <div className="w-full mt-auto pb-6 md:pb-0 z-30">
+            <div className="w-full mt-auto pb-4 md:pb-0 z-30">
                 
-                {/* Control Grid - 3 Columns for perfect balance */}
-                <div className="grid grid-cols-3 items-center w-full max-w-sm md:max-w-2xl mx-auto px-4">
+                {/* Control Grid - 3 Columns with wider spacing and safer mobile layout */}
+                <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-2 md:gap-8">
                     
-                    {/* Left: Duration Controls (or empty spacer if active) */}
-                    <div className="flex justify-start justify-self-start">
+                    {/* Left: Duration Controls */}
+                    <div className="flex justify-start justify-self-start min-w-[120px]">
                         {!isActive ? (
-                            <div className="flex items-center gap-1 md:gap-3 bg-zen-surface/20 rounded-2xl p-1.5 backdrop-blur-sm border border-zen-surface/20">
+                            <div className="flex items-center gap-1 bg-zen-surface/20 rounded-2xl p-1 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                                 <button 
                                     onClick={() => setDurationMinutes(Math.max(15, durationMinutes - 5))}
-                                    className="w-8 h-8 md:w-10 md:h-10 rounded-xl hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                                    className="w-10 h-10 rounded-xl hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M20 12H4"/></svg>
                                 </button>
                                 <div className="flex flex-col items-center min-w-[2.5rem]">
-                                    <span className="text-lg md:text-xl font-medium text-zen-text-primary leading-none">{durationMinutes}</span>
-                                    <span className="text-[8px] md:text-[9px] uppercase tracking-widest text-zen-text-disabled mt-0.5">min</span>
+                                    <span className="text-lg font-medium text-zen-text-primary leading-none tabular-nums">{durationMinutes}</span>
+                                    <span className="text-[9px] uppercase tracking-widest text-zen-text-disabled mt-0.5">min</span>
                                 </div>
                                 <button 
                                     onClick={() => setDurationMinutes(Math.min(120, durationMinutes + 5))}
-                                    className="w-8 h-8 md:w-10 md:h-10 rounded-xl hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                                    className="w-10 h-10 rounded-xl hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 4v16m8-8H4"/></svg>
                                 </button>
                             </div>
-                        ) : <div className="w-8" /> /* Spacer to keep grid balanced */}
+                        ) : <div className="w-8" />}
                     </div>
 
                     {/* Center: Main Play Action */}
-                    <div className="flex justify-center justify-self-center">
-                         {!isActive ? (
-                            <button 
-                                onClick={handleStartFocus}
-                                disabled={durationMinutes < 15}
-                                className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl z-20 group relative ${
-                                durationMinutes >= 15
-                                    ? 'bg-zen-primary text-black hover:scale-105 active:scale-95'
-                                    : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
-                                }`}
-                            >
-                                <div className="absolute inset-0 rounded-full bg-zen-primary blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
-                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 ml-1 relative z-10"><path d="M8 5v14l11-7z"/></svg>
-                            </button>
-                        ) : (
-                            <div className="flex items-center gap-4">
+                    <div className="flex justify-center justify-self-center pointer-events-none md:pointer-events-auto">
+                        <div className="pointer-events-auto"> {/* Wrapper to protect spacing */}
+                             {!isActive ? (
                                 <button 
-                                    onClick={() => {
-                                        if (isPaused) {
-                                            startTimer();
-                                        } else {
-                                            pauseTimer();
-                                        }
-                                    }}
-                                    className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-2 ${isPaused ? 'bg-zen-primary text-black border-zen-primary animate-pulse-slow' : 'bg-transparent text-zen-primary border-zen-primary hover:bg-zen-primary/10'}`}
+                                    onClick={handleStartFocus}
+                                    disabled={durationMinutes < 15}
+                                    className={`w-16 h-16 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl z-20 group relative mb-2 md:mb-0 ${
+                                    durationMinutes >= 15
+                                        ? 'bg-zen-primary text-black hover:scale-105 active:scale-95'
+                                        : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
+                                    }`}
                                 >
-                                    {isPaused ? (
-                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-1"><path d="M8 5v14l11-7z"/></svg>
-                                    ) : (
-                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                                    )}
+                                    <div className="absolute inset-0 rounded-full bg-zen-primary blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 ml-1 relative z-10"><path d="M8 5v14l11-7z"/></svg>
                                 </button>
-                                
-                                <button 
-                                    onClick={() => setShowEndConfirm(true)}
-                                    className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-transparent transition-all"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 md:w-5 md:h-5"><path d="M6 6h12v12H6z"/></svg>
-                                </button>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={() => {
+                                            if (isPaused) {
+                                                startTimer();
+                                            } else {
+                                                pauseTimer();
+                                            }
+                                        }}
+                                        className={`w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl border-2 ${isPaused ? 'bg-zen-primary text-black border-zen-primary animate-pulse-slow' : 'bg-transparent text-zen-primary border-zen-primary hover:bg-zen-primary/10'}`}
+                                    >
+                                        {isPaused ? (
+                                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-1"><path d="M8 5v14l11-7z"/></svg>
+                                        ) : (
+                                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                        )}
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => setShowEndConfirm(true)}
+                                        className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-transparent transition-all"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 md:w-5 md:h-5"><path d="M6 6h12v12H6z"/></svg>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                      {/* Right: Ambience Toggles */}                     
-                     <div className="flex justify-end justify-self-end">
-                        <div className="flex items-center gap-1 bg-zen-surface/20 rounded-2xl p-1.5 backdrop-blur-sm border border-zen-surface/20">
+                     <div className="flex justify-end justify-self-end min-w-[100px]">
+                        <div className="flex items-center gap-1 bg-zen-surface/20 rounded-2xl p-1 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                             {AMBIENCE_OPTIONS.map(opt => (
                                 <button 
                                     key={opt.id}
                                     onClick={() => setAmbience(opt.id as any)}
-                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
+                                    className={`w-10 h-10 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
                                     title={opt.label}
                                 >
-                                    <span className="text-sm md:text-lg">{opt.icon}</span>
+                                    <span className="text-xl md:text-lg">{opt.icon}</span>
                                 </button>
                             ))}
                         </div>
