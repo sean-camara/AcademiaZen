@@ -135,6 +135,35 @@ const Layout: React.FC<LayoutProps> = () => {
     window.localStorage.setItem('zen_active_tab', activeTab);
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!(import.meta as any).env?.PROD) return;
+    let lastTag: string | null = null;
+    let stopped = false;
+
+    const checkForUpdate = async () => {
+      if (stopped) return;
+      try {
+        const res = await fetch('/index.html', { method: 'HEAD', cache: 'no-store' });
+        const tag = res.headers.get('ETag') || res.headers.get('Last-Modified');
+        if (!tag) return;
+        if (lastTag && tag !== lastTag) {
+          window.location.reload();
+          return;
+        }
+        lastTag = tag;
+      } catch {
+        // Ignore transient network errors
+      }
+    };
+
+    checkForUpdate();
+    const interval = window.setInterval(checkForUpdate, 60000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const navItems = [
     { tab: Tab.Home, icon: IconHome, label: 'Home' },
     { tab: Tab.Calendar, icon: IconCalendar, label: 'Calendar' },
