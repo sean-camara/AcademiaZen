@@ -11,6 +11,7 @@ import ZenAI from '@/pages/ZenAI';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 
 interface LayoutProps {}
 
@@ -29,6 +30,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const { signOut, user } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -202,7 +204,7 @@ const Layout: React.FC<LayoutProps> = () => {
              </button>
 
              <button 
-               onClick={() => signOut()}
+               onClick={() => setShowLogoutConfirm(true)}
                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-500/10 transition-all text-zen-text-secondary hover:text-red-400 group"
              >
                <IconLogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -287,6 +289,17 @@ const Layout: React.FC<LayoutProps> = () => {
           initialTab={settingsTab || undefined}
         />
       )}
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => signOut()}
+        title="Sign out?"
+        message="Are you sure you want to log out of your account?"
+        confirmText="Log Out"
+        cancelText="Stay"
+        isDangerous
+      />
       {showAI && <ZenAI onClose={() => setShowAI(false)} />}
     </div>
   );
