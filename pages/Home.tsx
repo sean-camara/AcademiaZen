@@ -25,6 +25,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const renderTaskRef = useRef<any>(null); // Track current render task for cancellation
   const scaleRef = useRef(visualScale); // Track scale without causing re-renders
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isRenderingRef = useRef(false); // Prevent concurrent renders
 
   // Keep scaleRef in sync
   useEffect(() => {
@@ -154,22 +155,33 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       return;
     }
 
-    // Cancel any ongoing render task
+    // Cancel any ongoing render task and wait for it
     if (renderTaskRef.current) {
       try {
         renderTaskRef.current.cancel();
+        await renderTaskRef.current.promise.catch(() => {}); // Wait for cancel to complete
       } catch (e) {
         // Ignore cancel errors
       }
       renderTaskRef.current = null;
     }
+
+    // Prevent concurrent renders
+    if (isRenderingRef.current) {
+      return;
+    }
     
+    isRenderingRef.current = true;
     setIsRendering(true);
 
     try {
       const page = await doc.getPage(num);
       
       const canvas = canvasRef.current;
+      if (!canvas) {
+        throw new Error('Canvas not available');
+      }
+      
       const context = canvas.getContext('2d');
       
       if (!context) {
@@ -178,6 +190,9 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       
       const scaledViewport = page.getViewport({ scale: customScale });
 
+      // Clear canvas before setting new dimensions
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      
       canvas.height = scaledViewport.height;
       canvas.width = scaledViewport.width;
 
@@ -193,6 +208,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       await renderTask.promise;
       renderTaskRef.current = null;
       setPageNum(num);
+      setRenderedScale(customScale);
     } catch (err: any) {
       // Ignore cancellation errors
       if (err?.name !== 'RenderingCancelledException') {
@@ -200,6 +216,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         setError('Error rendering page.');
       }
     } finally {
+      isRenderingRef.current = false;
       setIsRendering(false);
     }
   };
@@ -216,7 +233,6 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     // Debounce the actual PDF re-render by 300ms
     debounceTimerRef.current = setTimeout(() => {
       renderPage(pageNum, pdfDoc, visualScale);
-      setRenderedScale(visualScale);
     }, 300);
     
     return () => {
