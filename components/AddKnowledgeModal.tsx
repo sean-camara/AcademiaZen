@@ -95,7 +95,7 @@ const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, 
             </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-8 sm:p-10 space-y-8 overflow-y-auto" onKeyDown={handleKeyDown}>
+        <form onSubmit={handleSave} className="p-8 sm:p-10 space-y-8 overflow-y-auto custom-scrollbar" onKeyDown={handleKeyDown}>
              {/* Type Selection */}
              <div className="flex bg-zen-surface/30 p-1 rounded-2xl">
                 <button

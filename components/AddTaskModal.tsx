@@ -125,7 +125,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-8 sm:p-10 space-y-8 overflow-y-auto" onKeyDown={handleKeyDown}>
+        <form onSubmit={handleSave} className="p-8 sm:p-10 space-y-8 overflow-y-auto custom-scrollbar" onKeyDown={handleKeyDown}>
             {/* Objective Identifier */}
             <div className="space-y-3">
                 <label className="text-[10px] text-zen-text-disabled uppercase font-black tracking-[0.2em] ml-1">Objective Title</label>
