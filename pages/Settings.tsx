@@ -188,7 +188,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       }
     } catch (err) {
       console.error('[Billing] Checkout error:', err);
-      setBillingError('Unable to start checkout.');
+      setBillingError(err instanceof Error ? err.message : 'Unable to start checkout.');
     } finally {
       setBillingMethodLoading(null);
     }
