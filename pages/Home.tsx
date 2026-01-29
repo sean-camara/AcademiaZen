@@ -102,10 +102,6 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
-    const timer = setTimeout(loadPdf, 100);
-    return () => clearTimeout(timer);
-  }, [attachment, sourceUrl]);
-
   const renderPage = async (num: number, doc = pdfDoc) => {
     if (!doc) {
       setIsRendering(false);
