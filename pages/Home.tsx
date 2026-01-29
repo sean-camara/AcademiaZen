@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
 import { getGreeting, formatDateFull, generateId } from '../utils/helpers';
-import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical } from '../components/Icons';
+import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical, IconCalendar } from '../components/Icons';
 import { Subject, Task, PdfAttachment } from '../types';
 import AddTaskModal from '../components/AddTaskModal';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
@@ -233,66 +233,107 @@ const TaskActionModal: React.FC<{
     onEdit: () => void;
     onDelete: () => void;
 }> = ({ task, onClose, onViewPdf, onToggleDone, onEdit, onDelete }) => {
+    const { state } = useZen();
+    const subject = state.subjects.find(s => s.id === task.subjectId);
+    
+    // Format Date
+    const dueDate = new Date(task.dueDate);
+    const isOverdue = dueDate < new Date() && !task.completed;
+    const formattedDate = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' }).format(dueDate);
+
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-6 animate-reveal" onClick={onClose}>
+        <div className="fixed inset-0 bg-[#000000]/80 backdrop-blur-xl z-[65] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
             <div 
-                className="bg-zen-card w-full max-w-xs rounded-3xl border border-zen-surface shadow-2xl p-6 space-y-4 animate-scale-in"
+                className="bg-[#0D1117] w-full max-w-sm rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-scale-in relative group"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="text-center pb-2">
-                    <h3 className="text-lg font-medium text-zen-text-primary mb-1">{task.title}</h3>
-                    <p className="text-xs text-zen-text-secondary">What would you like to do?</p>
+                {/* Decorative Blur */}
+                <div className={`absolute top-0 right-0 w-64 h-64 blur-[80px] rounded-full pointer-events-none opacity-20 ${subject?.color.startsWith('bg-') ? subject.color.replace('bg-', 'bg-') : 'bg-emerald-500'}`} />
+
+                {/* Header */}
+                <div className="p-8 pb-6 relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                        {subject ? (
+                            <div className={`px-3 py-1 rounded-full border border-white/5 flex items-center gap-2 ${subject.color.startsWith('bg-') ? 'bg-white/5' : ''}`} style={!subject.color.startsWith('bg-') ? { backgroundColor: `${subject.color}20` } : {}}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${subject.color}`} style={!subject.color.startsWith('bg-') ? { backgroundColor: subject.color } : {}} />
+                                <span className="text-[10px] uppercase tracking-widest font-bold text-gray-300 max-w-[150px] truncate">{subject.name}</span>
+                            </div>
+                        ) : (
+                            <div className="px-3 py-1 rounded-full bg-white/5 border border-white/5">
+                                <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500">General Task</span>
+                            </div>
+                        )}
+                        <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors hover:rotate-90">
+                            <IconX className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <h3 className="text-2xl font-medium text-white mb-3 leading-tight tracking-tight">{task.title}</h3>
+                    
+                    <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
+                        <IconCalendar className="w-4 h-4 opacity-70" />
+                        {formattedDate}
+                    </div>
                 </div>
 
-                <div className="space-y-3">
-                    {task.pdfAttachment && (
+                {/* Primary Actions Grid */}
+                <div className="p-4 pt-0 grid grid-cols-2 gap-3 relative z-10">
+                    {/* View Material Card */}
+                    {task.pdfAttachment ? (
                         <button 
                             onClick={onViewPdf}
-                            className="w-full py-4 bg-zen-primary text-zen-bg rounded-2xl font-bold flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            className="col-span-1 aspect-square rounded-[2rem] bg-emerald-500 text-[#091510] flex flex-col items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_8px_30px_rgb(0,0,0,0.12)] shadow-emerald-500/20 group/btn"
                         >
-                            <IconEye className="w-5 h-5" />
-                            View Study Material
+                            <IconEye className="w-8 h-8 group-hover/btn:scale-110 transition-transform" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Study Mode</span>
                         </button>
+                    ) : (
+                         <div className="col-span-1 aspect-square rounded-[2rem] bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-gray-600">
+                             <IconPaperclip className="w-8 h-8 opacity-20" />
+                             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">No PDF</span>
+                         </div>
                     )}
+
+                    {/* Completion Toggle */}
                     <button 
                         onClick={onToggleDone}
-                        className={`w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                        className={`col-span-1 aspect-square rounded-[2rem] border flex flex-col items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all ${
                             task.completed 
-                            ? 'bg-zen-surface border-zen-surface text-zen-text-primary' 
-                            : 'bg-zen-surface/50 border-zen-surface text-zen-text-primary'
+                            ? 'bg-[#0D1117] border-emerald-500/50 text-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]' 
+                            : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
                         }`}
                     >
                         {task.completed ? (
                             <>
-                                <IconRefresh className="w-5 h-5" />
-                                Mark as Pending
+                                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 mb-1">
+                                    <IconCheck className="w-5 h-5" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Completed</span>
                             </>
                         ) : (
                             <>
-                                <IconCheck className="w-3 h-3 text-zen-text-primary" />
-                                Mark as Done
+                                <div className="w-10 h-10 rounded-full border-2 border-white/10 flex items-center justify-center mb-1 bg-white/5 group-hover:border-white/30">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-transparent group-hover:bg-white transition-colors" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Mark Done</span>
                             </>
                         )}
                     </button>
+                </div>
+
+                {/* Secondary Actions */}
+                <div className="p-4 grid grid-cols-2 gap-3 relative z-10 border-t border-white/5 mt-2">
                     <button 
                         onClick={onEdit}
-                        className="w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-zen-surface bg-zen-surface/50 text-zen-text-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                     >
-                        <IconEdit className="w-5 h-5" />
-                        Edit Task
+                        <IconEdit className="w-4 h-4" /> Edit
                     </button>
                     <button 
                         onClick={onDelete}
-                        className="w-full py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        className="py-4 rounded-2xl bg-red-500/5 hover:bg-red-500/10 text-red-500/60 hover:text-red-400 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                     >
-                        <IconTrash className="w-5 h-5" />
-                        Delete Task
-                    </button>
-                    <button 
-                        onClick={onClose}
-                        className="w-full py-3 text-zen-text-secondary text-sm font-medium hover:text-zen-text-primary transition-colors"
-                    >
-                        Cancel
+                        <IconTrash className="w-4 h-4" /> Delete
                     </button>
                 </div>
             </div>
