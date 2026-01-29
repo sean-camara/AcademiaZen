@@ -47,11 +47,22 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   useEffect(() => {
     const loadPdf = async () => {
       try {
+        // Step 1: Fetch signed URL if needed
         if (!sourceUrl && attachment?.key) {
+          setIsLoading(true);
           const url = attachment.url || await getPdfSignedUrl(attachment.key);
           setSourceUrl(url);
-          return;
+          return; // Wait for next render with sourceUrl populated
         }
+
+        // Step 2: Check if we have a URL to load
+        const legacyData = (attachment as any)?.data;
+        const hasLegacyData = legacyData && String(legacyData).startsWith('data:');
+        
+        if (!sourceUrl && !hasLegacyData) {
+          throw new Error('No PDF source available');
+        }
+        
         setIsLoading(true);
         setIsRendering(true);
         
@@ -59,11 +70,11 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
           throw new Error('PDF library not loaded. Please refresh the page.');
         }
         
-        const legacyData = (attachment as any)?.data;
+        // Step 3: Load PDF document
         let loadingTask;
         if (sourceUrl) {
-          loadingTask = (window as any).pdfjsLib.getDocument(sourceUrl);
-        } else if (legacyData && String(legacyData).startsWith('data:')) {
+          loadingTask = (window as any).pdfjsLib.getDocument({ url: sourceUrl, withCredentials: false });
+        } else if (hasLegacyData) {
           const base64Data = String(legacyData).split(',')[1] || '';
           const binaryString = atob(base64Data);
           const len = binaryString.length;
@@ -72,9 +83,8 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
             bytes[i] = binaryString.charCodeAt(i);
           }
           loadingTask = (window as any).pdfjsLib.getDocument({ data: bytes });
-        } else {
-          throw new Error('Failed to load PDF');
         }
+        
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
