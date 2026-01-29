@@ -25,67 +25,170 @@ interface ZenAIProps {
 
 // Helper Component: Renders structured AI text with academic formatting
 const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
-    const lines = text.split('\n');
+    const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
+
+    // Parse the text to extract code blocks and structure
+    const parseContent = () => {
+        const elements: React.ReactNode[] = [];
+        const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+        let lastIndex = 0;
+        let match;
+        let codeBlockIndex = 0;
+
+        while ((match = codeBlockRegex.exec(text)) !== null) {
+            // Add text before code block
+            if (match.index > lastIndex) {
+                const beforeText = text.slice(lastIndex, match.index);
+                elements.push(...parseNonCodeText(beforeText, elements.length));
+            }
+
+            const language = match[1] || 'text';
+            const code = match[2].trim();
+            const blockId = `code-${codeBlockIndex}`;
+
+            // Render code block with UI matching screenshot
+            elements.push(
+                <div key={blockId} className="my-4">
+                    <div className="bg-[#1e1e1e] rounded-lg overflow-hidden border border-white/5">
+                        {/* Header with language and copy button */}
+                        <div className="flex items-center justify-between px-4 py-2 bg-[#2d2d2d] border-b border-white/5">
+                            <span className="text-xs text-gray-400 font-mono">{language}</span>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(code);
+                                    setCopiedIndex(blockId);
+                                    setTimeout(() => setCopiedIndex(null), 2000);
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                {copiedIndex === blockId ? 'Copied!' : 'Copy code'}
+                            </button>
+                        </div>
+                        
+                        {/* Code content */}
+                        <pre className="p-4 overflow-x-auto">
+                            <code className="text-sm text-gray-300 font-mono leading-relaxed">
+                                {code}
+                            </code>
+                        </pre>
+                    </div>
+                </div>
+            );
+
+            lastIndex = match.index + match[0].length;
+            codeBlockIndex++;
+        }
+
+        // Add remaining text after last code block
+        if (lastIndex < text.length) {
+            const afterText = text.slice(lastIndex);
+            elements.push(...parseNonCodeText(afterText, elements.length));
+        }
+
+        return elements;
+    };
+
+    // Parse non-code text with markdown formatting
+    const parseNonCodeText = (content: string, startKey: number) => {
+        const lines = content.split('\n');
+        const elements: React.ReactNode[] = [];
+        
+        lines.forEach((line, i) => {
+            const trimmed = line.trim();
+            const key = `text-${startKey}-${i}`;
+            
+            // Headers
+            if (trimmed.startsWith('### ')) {
+                elements.push(
+                    <h3 key={key} className="text-base md:text-lg font-semibold text-emerald-400 mt-6 mb-2 flex items-center gap-2">
+                        <div className="w-1 h-5 bg-emerald-500/30 rounded-full" />
+                        {trimmed.replace('### ', '')}
+                    </h3>
+                );
+                return;
+            }
+            if (trimmed.startsWith('## ')) {
+                elements.push(
+                    <h2 key={key} className="text-lg md:text-xl font-bold text-emerald-400 mt-8 mb-4 border-b border-emerald-500/10 pb-2">
+                        {trimmed.replace('## ', '')}
+                    </h2>
+                );
+                return;
+            }
+            
+            // Special labels like "Call it:"
+            if (/^[A-Z][a-z]+\s+it:$/i.test(trimmed) || trimmed === 'Call it:' || trimmed === 'Example usage:' || trimmed === 'Usage:') {
+                elements.push(
+                    <div key={key} className="text-sm font-semibold text-white/90 mt-4 mb-2">
+                        {trimmed}
+                    </div>
+                );
+                return;
+            }
+            
+            // Title (optional) pattern
+            if (trimmed && !trimmed.startsWith('-') && !trimmed.startsWith('*') && !/^\d+\./.test(trimmed) && trimmed.length < 100 && i === 0) {
+                elements.push(
+                    <div key={key} className="text-sm text-white/70 mb-2 font-normal">
+                        {processInlines(trimmed)}
+                    </div>
+                );
+                return;
+            }
+            
+            // Bullet points
+            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                const content = trimmed.substring(2);
+                elements.push(
+                    <div key={key} className="flex gap-3 ml-2 md:ml-4 py-0.5">
+                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500/80 shrink-0" />
+                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(content)}</span>
+                    </div>
+                );
+                return;
+            }
+
+            // Numbered lists
+            if (/^\d+\.\s/.test(trimmed)) {
+                const match = trimmed.match(/^(\d+\.)\s(.*)/);
+                elements.push(
+                    <div key={key} className="flex gap-3 ml-4 py-0.5">
+                        <span className="text-emerald-400 font-mono text-xs mt-1">{match?.[1]}</span>
+                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(match?.[2] || "")}</span>
+                    </div>
+                );
+                return;
+            }
+
+            // Dividers
+            if (trimmed.startsWith('---')) {
+                elements.push(<hr key={key} className="border-white/10 my-6" />);
+                return;
+            }
+
+            // Empty lines for spacing
+            if (trimmed === '') {
+                elements.push(<div key={key} className="h-2" />);
+                return;
+            }
+
+            // Regular paragraphs
+            elements.push(
+                <p key={key} className="leading-relaxed opacity-90 font-light text-white/80">
+                    {processInlines(trimmed)}
+                </p>
+            );
+        });
+
+        return elements;
+    };
     
     return (
-        <div className="space-y-4 text-zen-text-primary text-sm md:text-base">
-            {lines.map((line, i) => {
-                const trimmed = line.trim();
-                
-                // Headers
-                if (trimmed.startsWith('### ')) {
-                    return (
-                        <h3 key={i} className="text-base md:text-lg font-semibold text-zen-primary mt-6 mb-2 flex items-center gap-2">
-                            <div className="w-1 h-5 bg-zen-primary/30 rounded-full" />
-                            {trimmed.replace('### ', '')}
-                        </h3>
-                    );
-                }
-                if (trimmed.startsWith('## ')) {
-                    return (
-                        <h2 key={i} className="text-lg md:text-xl font-bold text-zen-primary mt-8 mb-4 border-b border-zen-primary/10 pb-2">
-                            {trimmed.replace('## ', '')}
-                        </h2>
-                    );
-                }
-                
-                // Bullet points
-                if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                    const content = trimmed.substring(2);
-                    return (
-                        <div key={i} className="flex gap-3 ml-2 md:ml-4 py-0.5">
-                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zen-primary/80 shrink-0" />
-                            <span className="leading-relaxed opacity-90">{processInlines(content)}</span>
-                        </div>
-                    );
-                }
-
-                // Numbered lists
-                if (/^\d+\.\s/.test(trimmed)) {
-                    const match = trimmed.match(/^(\d+\.)\s(.*)/);
-                    return (
-                        <div key={i} className="flex gap-3 ml-4 py-0.5">
-                            <span className="text-zen-secondary font-mono text-xs mt-1">{match?.[1]}</span>
-                            <span className="leading-relaxed opacity-90">{processInlines(match?.[2] || "")}</span>
-                        </div>
-                    );
-                }
-
-                // Dividers
-                if (trimmed.startsWith('---')) {
-                    return <hr key={i} className="border-zen-surface my-6 opacity-50" />;
-                }
-
-                // Empty lines for spacing
-                if (trimmed === '') return <div key={i} className="h-2" />;
-
-                // Regular paragraphs
-                return (
-                    <p key={i} className="leading-relaxed opacity-90 font-light">
-                        {processInlines(trimmed)}
-                    </p>
-                );
-            })}
+        <div className="space-y-3 text-zen-text-primary text-sm md:text-base">
+            {parseContent()}
         </div>
     );
 };
@@ -494,27 +597,40 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 CRITICAL DIRECTIVE: The student has uploaded a programming task (lab, assignment, exercise). Your role is to produce the ACTUAL COMPLETED CODE as if you are the student submitting it.
 
 MANDATORY RULES:
-1. NEVER restate, summarize, or explain the instructions/requirements.
+1. NEVER restate, summarize, or explain the instructions/requirements inside code blocks.
 2. NEVER provide outlines, templates, or "how to approach this" advice.
 3. Output ONLY submission-ready code that directly fulfills each requirement.
 4. ALL code must be in proper markdown code blocks with language specification.
-5. Code must be clean, readable, and directly copy-pasteable.
+5. Code must be clean, readable, and directly copy-pasteable - IDE quality.
+6. NO comments inside code that explain the task or narrate requirements.
+7. NO "Task 1 / Task 2" text inside code blocks.
+8. Code blocks must contain ONLY executable code.
+
+STRICT OUTPUT FORMAT:
+For each programming requirement, use this EXACT structure:
+
+Title (optional)
+\`\`\`language
+// Only include code here - no task descriptions
+actual code here
+\`\`\`
+
+Call it:
+\`\`\`language
+// usage example only
+function call or usage code
+\`\`\`
 
 CODE FORMATTING RULES:
 - Always use triple backticks with language: \`\`\`javascript, \`\`\`python, \`\`\`java, etc.
-- If task says "Create a function" → provide the function in a code block.
-- If task says "Show how to call it" → provide example usage in a SEPARATE code block.
-- Keep code and explanations separate (explanations outside code blocks).
-- Follow ONLY what is described in the handout - no extra features or assumptions.
+- Code block contains ONLY code - no natural language explanations.
+- If showing function definition and usage, they must be in SEPARATE code blocks.
+- Use the label "Call it:" (exact text) before usage examples.
+- Explanations (if needed) go OUTSIDE code blocks, very brief.
+- Follow ONLY what is described in the handout - no extra features.
 
-OUTPUT STRUCTURE:
-- Begin directly with the first requirement's code.
-- For each function/program: provide the code, then example usage if applicable.
-- Follow the exact sequence of tasks/questions from the document.
-- Be concrete and specific - no placeholders like "your code here".
-
-EXAMPLE OUTPUT FORMAT:
-### Task 1: Create an add function
+EXAMPLE OUTPUT:
+Basic function example
 
 \`\`\`javascript
 function add(a, b) {
@@ -522,12 +638,12 @@ function add(a, b) {
 }
 \`\`\`
 
-**Example usage:**
+Call it:
 \`\`\`javascript
-console.log(add(5, 3)); // Output: 8
+console.log(add(5, 3));
 \`\`\`
 
-Produce complete, submission-quality programming work.`;
+Remember: Code must be textbook/IDE quality - clean, executable, copy-paste ready. No task narration inside code.`;
             } else if (useStudentMode) {
                 // STANDARD STUDENT ANSWER MODE - for non-programming tasks
                 systemPrompt = `You are Zen, an AI academic assistant operating in STUDENT ANSWER MODE.
