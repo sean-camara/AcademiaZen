@@ -1118,76 +1118,88 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                     )}
 
                     <form ref={formRef} onSubmit={handleSend} className="relative group">
-                        <div className="absolute inset-0 bg-emerald-500/5 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
-                        <div className="relative flex items-end gap-3 md:gap-4 bg-[#161B22] border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-2.5 md:p-3 pl-3 md:pl-4 focus-within:border-emerald-500/30 transition-all shadow-xl">
-                            <button 
-                                type="button"
-                                onClick={() => {
-                                    if (aiLocked) {
-                                        setShowUpgradeModal(true);
-                                        return;
-                                    }
-                                    setShowSelector(true);
-                                }}
-                                disabled={aiLocked}
-                                className={`w-12 h-12 rounded-xl transition-all flex items-center justify-center border ${
-                                    aiLocked
-                                        ? 'bg-white/5 border-white/5 text-gray-600 cursor-not-allowed'
-                                        : selectedRefs.length > 0
-                                            ? 'bg-emerald-500 text-[#091510] border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                }`}
-                            >
-                                <IconPaperclip className="w-5 h-5" />
-                            </button>
+                        <div className="absolute inset-0 bg-emerald-500/5 blur-3xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
+                        
+                        {/* Unified Prompt Terminal Container */}
+                        <div className="relative bg-[#161B22]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 focus-within:border-emerald-500/30 ring-1 ring-white/0 focus-within:ring-emerald-500/20 transition-all duration-300">
                             
+                            {/* Top: Auto-expanding Text Area */}
                             <textarea
                                 ref={textareaRef}
                                 value={input}
-                                onChange={e => setInput(e.target.value)}
+                                onChange={e => {
+                                    setInput(e.target.value);
+                                    // Auto-resize
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+                                }}
                                 onKeyDown={handleInputKeyDown}
                                 placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
                                 disabled={isLoading || aiLocked}
                                 rows={1}
-                                className="flex-1 bg-transparent border-none text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-600 font-light min-w-0 resize-none leading-relaxed py-3 max-h-32 mb-0.5"
+                                className="w-full bg-transparent border-none text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-600 font-light resize-none leading-relaxed min-h-[44px] max-h-[160px] py-0 px-1"
                             />
 
-                            <button 
-                                type="submit"
-                                disabled={!input.trim() || isLoading || aiLocked} 
-                                className="w-12 h-12 bg-white text-black rounded-xl hover:bg-emerald-400 hover:text-[#091510] transition-all disabled:opacity-10 flex items-center justify-center shrink-0 shadow-lg"
-                            >
-                                {isLoading ? (
-                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                    <IconChevronRight className="w-5 h-5" />
-                                )}
-                            </button>
+                            {/* Bottom: Toolbar Actions */}
+                            <div className="flex items-center justify-between pt-1">
+                                <div className="flex items-center gap-3">
+                                     {/* Attachment Button */}
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            if (aiLocked) {
+                                                setShowUpgradeModal(true);
+                                                return;
+                                            }
+                                            setShowSelector(true);
+                                        }}
+                                        disabled={aiLocked}
+                                        className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center border ${
+                                            aiLocked
+                                                ? 'bg-white/5 border-white/5 text-gray-600 cursor-not-allowed'
+                                                : selectedRefs.length > 0
+                                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                        title="Attach context"
+                                    >
+                                        <IconPaperclip className="w-4 h-4" />
+                                    </button>
+
+                                    {/* Integrated Mode Selector Pill */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
+                                        className={`h-9 px-4 rounded-xl border text-[10px] uppercase font-black tracking-wider transition-all flex items-center gap-2 ${
+                                            analysisMode === 'deep'
+                                                ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                                                : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-gray-500'}`} />
+                                        <span>{analysisMode === 'deep' ? 'Deep' : 'Fast'}</span>
+                                    </button>
+                                </div>
+
+                                {/* Send Button */}
+                                <button 
+                                    type="submit"
+                                    disabled={!input.trim() || isLoading || aiLocked} 
+                                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                        !input.trim() || isLoading || aiLocked 
+                                         ? 'bg-white/5 text-gray-600 cursor-not-allowed' 
+                                         : 'bg-emerald-500 text-[#091510] hover:bg-emerald-400 hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                                    }`}
+                                >
+                                    {isLoading ? (
+                                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <IconChevronRight className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </form>
-                    
-                    {/* Mode Selector - More Prominent */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-1">
-                         <button
-                            type="button"
-                            onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
-                            className={`px-4 py-2.5 rounded-xl border text-[10px] md:text-[11px] uppercase font-black tracking-wider transition-all flex items-center gap-2.5 shadow-lg ${
-                                analysisMode === 'deep'
-                                    ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10 shadow-emerald-500/20'
-                                    : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10 hover:border-white/20'
-                            }`}
-                        >
-                            <div className={`w-2 h-2 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-gray-500'}`} />
-                            <span>{analysisMode === 'deep' ? 'Deep Analysis' : 'Fast Mode'}</span>
-                            <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                            </svg>
-                        </button>
-
-                        <span className="text-[8px] md:text-[9px] uppercase font-black tracking-[0.2em] text-gray-700 select-none">
-                            Zen Synthetic Intelligence
-                        </span>
-                    </div>
                 </div>
             </div>
         </div>
