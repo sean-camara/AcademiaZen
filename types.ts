@@ -34,6 +34,60 @@ export interface Flashcard {
   nextReviewDate: string; // ISO Date
 }
 
+// AI Reviewer Types
+export type QuestionType = 'identification' | 'multiple_choice' | 'true_false' | 'word_matching';
+export type ReviewerDifficulty = 'easy' | 'medium' | 'hard';
+export type ReviewerQuestionMode = 'identification' | 'multiple_choice' | 'true_false' | 'word_matching' | 'hybrid';
+
+export interface MatchingPair {
+  id: string;
+  left: string;
+  right: string;
+}
+
+export interface ReviewerQuestion {
+  id: string;
+  type: QuestionType;
+  question: string;
+  options?: string[]; // For multiple choice
+  correctAnswer: string; // For identification, MC, T/F
+  pairs?: MatchingPair[]; // For word matching
+}
+
+export interface QuizAttempt {
+  id: string;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  timeTaken: number; // seconds
+  completedAt: string; // ISO date
+}
+
+export interface AIReviewer {
+  id: string;
+  name: string;
+  sourceId: string; // Library item ID (PDF)
+  sourceFolderId: string;
+  sourceName: string;
+  difficulty: ReviewerDifficulty;
+  questionCount: number;
+  questionMode: ReviewerQuestionMode;
+  timerMinutes: number | null; // null = unlimited
+  questions: ReviewerQuestion[];
+  createdAt: string;
+  attempts: QuizAttempt[];
+  status: 'generating' | 'ready' | 'error';
+  errorMessage?: string;
+}
+
+export interface QuizProgress {
+  reviewerId: string;
+  currentIndex: number;
+  answers: Record<string, string | string[]>; // questionId -> answer
+  startedAt: string;
+  timeRemaining: number | null; // seconds, null = unlimited
+}
+
 export interface FolderItem {
   id: string;
   title: string;
@@ -80,6 +134,8 @@ export interface ZenState {
   subjects: Subject[];
   flashcards: Flashcard[];
   folders: Folder[];
+  aiReviewers: AIReviewer[];
+  quizProgress: QuizProgress | null;
   profile: UserProfile;
   settings: AppSettings;
 }

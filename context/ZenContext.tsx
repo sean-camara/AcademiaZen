@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
-import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType } from '../types';
+import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType, AIReviewer, QuizProgress } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
 import { uploadPdfDataUrlToR2 } from '../utils/pdfStorage';
@@ -32,6 +32,12 @@ interface ZenContextType {
   resetTimer: (duration?: number) => void;
   setFocusSessionState: (updates: Partial<FocusSessionState>) => void;
   setAmbience: (ambience: AmbienceType) => void;
+  
+  // AI Reviewer Actions
+  addAIReviewer: (reviewer: AIReviewer) => void;
+  updateAIReviewer: (reviewer: AIReviewer) => void;
+  deleteAIReviewer: (id: string) => void;
+  setQuizProgress: (progress: QuizProgress | null) => void;
   
   // Data Management
   exportData: () => string;
@@ -452,6 +458,29 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     settings: { ...prev.settings, ...updates },
   }));
 
+  // AI Reviewer Actions
+  const addAIReviewer = (reviewer: AIReviewer) => setState(prev => ({ 
+    ...prev, 
+    aiReviewers: [...(prev.aiReviewers || []), reviewer] 
+  }));
+
+  const updateAIReviewer = (updatedReviewer: AIReviewer) => setState(prev => ({
+    ...prev,
+    aiReviewers: (prev.aiReviewers || []).map(r => r.id === updatedReviewer.id ? updatedReviewer : r)
+  }));
+
+  const deleteAIReviewer = (id: string) => setState(prev => ({
+    ...prev,
+    aiReviewers: (prev.aiReviewers || []).filter(r => r.id !== id),
+    // Clear quiz progress if it was for this reviewer
+    quizProgress: prev.quizProgress?.reviewerId === id ? null : prev.quizProgress
+  }));
+
+  const setQuizProgress = (progress: QuizProgress | null) => setState(prev => ({
+    ...prev,
+    quizProgress: progress
+  }));
+
   const startTimer = useCallback(() => {
     console.log('[ZenContext] startTimer called');
     setFocusSession(prev => {
@@ -523,6 +552,10 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       resetTimer,
       setFocusSessionState,
       setAmbience,
+      addAIReviewer,
+      updateAIReviewer,
+      deleteAIReviewer,
+      setQuizProgress,
       exportData,
       clearData,
       hideNavbar,

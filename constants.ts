@@ -30,6 +30,8 @@ export const INITIAL_STATE: ZenState = {
   subjects: [],
   flashcards: [],
   folders: INITIAL_FOLDERS,
+  aiReviewers: [],
+  quizProgress: null,
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
 };
