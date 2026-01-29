@@ -134,6 +134,25 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
+  // Handle Window Resize
+  useEffect(() => {
+    let resizeTimer: NodeJS.Timeout;
+
+    const handleResize = () => {
+      if (!pdfDoc) return;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        renderPage(pageNum, pdfDoc);
+      }, 200);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimer);
+    };
+  }, [pdfDoc, pageNum]);
+
   // Core render function
   const renderPage = async (num: number, doc: any) => {
     if (!doc) {
@@ -176,7 +195,14 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         throw new Error('Could not get canvas context');
       }
       
-      const viewport = page.getViewport({ scale: 1.5 });
+      // Calculate responsive scale
+      const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+      const baseViewport = page.getViewport({ scale: 1.0 });
+      // Target width: container width minus padding (32px), restricted to max 1200px or actual container width
+      const targetWidth = Math.min(containerWidth - 32, 1200);
+      const scale = targetWidth / baseViewport.width;
+
+      const viewport = page.getViewport({ scale });
 
       context.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -254,48 +280,42 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     <div className="fixed inset-0 bg-[#0A0C0F] z-[70] flex flex-col">
       {/* Floating Auto-Hide Header */}
       <div 
-        className={`absolute top-0 left-0 right-0 z-10 transition-all duration-300 ${
-          showHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        className={`absolute top-6 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[90%] transition-all duration-300 ${
+          showHeader ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'
         }`}
       >
-        <div className="m-3 sm:m-4 backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex-1 min-w-0 pr-4">
-              <h3 className="text-sm font-medium text-white truncate mb-1">{attachment.name}</h3>
-              {totalPages > 0 && (
-                <p className="text-xs text-gray-400">
-                  {totalPages} pages
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={sourceUrl ? viewAll : viewAllLegacy}
-                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all"
-                title="Open in new tab"
-              >
-                <IconExternalLink className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={onClose} 
-                className="p-2 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-all"
-              >
-                <IconX className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl px-6 py-2.5 flex items-center gap-4">
+          <div className="min-w-0 max-w-[200px] sm:max-w-xs">
+            <h3 className="text-xs font-bold text-gray-200 truncate uppercase tracking-wider">{attachment.name}</h3>
+          </div>
+          
+          <div className="w-px h-4 bg-white/10 md:block hidden" />
+
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={sourceUrl ? viewAll : viewAllLegacy}
+              className="p-1.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-full transition-all"
+              title="Open in new tab"
+            >
+              <IconExternalLink className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={onClose} 
+              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-full transition-all"
+            >
+              <IconX className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* PDF Canvas with Vignette Effect */}
+      {/* PDF Canvas Area */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto flex items-center justify-center relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-24 px-4 scroll-smooth"
         onTouchStart={handleTouchStartCanvas}
         onTouchEnd={handleTouchEndCanvas}
       >
-        {/* Vignette overlay */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-radial from-transparent via-transparent to-black/40" />
         
         {isLoading && !error ? (
           <div className="text-center z-10">
@@ -340,56 +360,45 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
 
       {/* Bottom Navigation Hub */}
       {totalPages > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe">
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl max-w-2xl mx-auto">
-            {/* Page Slider */}
-            {totalPages > 1 && (
-              <div className="px-4 pt-3 pb-2">
-                <div className="flex items-center space-x-3">
-                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
-                    Page {pageNum}
-                  </span>
-                  <input
-                    type="range"
-                    min="1"
-                    max={totalPages}
-                    value={pageNum}
-                    onChange={handlePageSliderChange}
-                    className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
-                    style={{
-                      background: `linear-gradient(to right, #64FFDA 0%, #64FFDA ${((pageNum - 1) / (totalPages - 1)) * 100}%, rgb(55, 65, 81) ${((pageNum - 1) / (totalPages - 1)) * 100}%, rgb(55, 65, 81) 100%)`
-                    }}
-                  />
-                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
-                    of {totalPages}
-                  </span>
-                </div>
-              </div>
-            )}
+        <div 
+          className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-auto transition-all duration-300 ${
+            showHeader ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl p-2 flex items-center gap-3 px-4">
+            
+            <button
+              onClick={handlePrevPage}
+              disabled={pageNum <= 1 || isRendering}
+              className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <IconChevronLeft className="w-5 h-5" />
+            </button>
 
-            {/* Controls */}
-            <div className="flex items-center justify-center px-4 py-3">
-              {/* Page Navigation */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handlePrevPage}
-                  disabled={pageNum <= 1 || isRendering}
-                  className="p-3 bg-white/5 hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center space-x-2 border border-white/10"
-                >
-                  <IconChevronLeft className="w-5 h-5" />
-                  <span className="hidden sm:inline text-sm font-medium">Prev</span>
-                </button>
-                
-                <button
-                  onClick={handleNextPage}
-                  disabled={pageNum >= totalPages || isRendering}
-                  className="p-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center space-x-2 border border-emerald-500/30"
-                >
-                  <span className="hidden sm:inline text-sm font-medium">Next</span>
-                  <IconChevronRight className="w-5 h-5" />
-                </button>
-              </div>
+            <div className="flex flex-col items-center min-w-[120px] sm:min-w-[160px]">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+                Page {pageNum} <span className="text-gray-600">of</span> {totalPages}
+              </span>
+              <input
+                type="range"
+                min="1"
+                max={totalPages}
+                value={pageNum}
+                onChange={handlePageSliderChange}
+                className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                style={{
+                   background: `linear-gradient(to right, #10B981 0%, #10B981 ${((pageNum - 1) / (Math.max(totalPages - 1, 1))) * 100}%, rgb(55, 65, 81) ${((pageNum - 1) / (Math.max(totalPages - 1, 1))) * 100}%, rgb(55, 65, 81) 100%)`
+                }}
+              />
             </div>
+            
+            <button
+              onClick={handleNextPage}
+              disabled={pageNum >= totalPages || isRendering}
+              className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <IconChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}
