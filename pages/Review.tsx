@@ -1240,16 +1240,17 @@ const Review: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                   <div className="flex-1 space-y-4">
                     {editingReviewerName === selectedReviewer.id ? (
-                      <div className="flex items-center gap-2 relative">
+                      <div className="relative">
                         <input
                           type="text"
                           value={newReviewerName}
                           onChange={(e) => setNewReviewerName(e.target.value)}
-                          className="w-full bg-transparent border-b-2 border-zen-primary pb-2 text-3xl md:text-5xl font-light text-zen-text-primary focus:outline-none placeholder-zen-text-disabled/30 pr-28"
+                          maxLength={50}
+                          className="w-full bg-transparent border-b-2 border-zen-primary pb-2 text-2xl md:text-4xl font-light text-zen-text-primary focus:outline-none placeholder-zen-text-disabled/30 pr-24"
                           autoFocus
                           placeholder="Reviewer Name"
                         />
-                        <div className="flex items-center gap-1 absolute right-0 bottom-3">
+                        <div className="flex items-center gap-1 absolute right-0 bottom-2">
                           <button
                             onClick={() => {
                               if (newReviewerName.trim()) {
