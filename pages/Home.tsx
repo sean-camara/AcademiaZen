@@ -198,9 +198,8 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       // Calculate responsive scale
       const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
       const baseViewport = page.getViewport({ scale: 1.0 });
-      // Target width: container width minus padding (48px for mobile, 96px for desktop), restricted to max 1000px
-      // This prevents the PDF from looking "too big" on large screens
-      const padding = window.innerWidth < 640 ? 32 : 96;
+      // Responsive padding: Near full-width on mobile (24px total), breathable on desktop (96px)
+      const padding = window.innerWidth < 640 ? 24 : 96;
       const targetWidth = Math.min(containerWidth - padding, 1000);
       const scale = targetWidth / baseViewport.width;
 
@@ -314,7 +313,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       {/* PDF Canvas Area */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-16 px-4 scroll-smooth custom-scrollbar"
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-20 px-0 sm:px-4 scroll-smooth custom-scrollbar"
         onTouchStart={handleTouchStartCanvas}
         onTouchEnd={handleTouchEndCanvas}
       >
