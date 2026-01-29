@@ -133,7 +133,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
-  const renderPage = async (num: number, doc = pdfDoc, customScale = scale) => {
+  const renderPage = useCallback(async (num: number, doc = pdfDoc, customScale = scale) => {
     if (!doc) {
       setIsRendering(false);
       return;
@@ -175,7 +175,14 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     } finally {
       setIsRendering(false);
     }
-  };
+  }, [pdfDoc, scale]);
+
+  // Re-render page when scale changes
+  useEffect(() => {
+    if (pdfDoc && !isLoading && !error) {
+      renderPage(pageNum, pdfDoc, scale);
+    }
+  }, [scale, pdfDoc, pageNum, isLoading, error, renderPage]);
 
   const handlePrevPage = () => {
     if (pageNum <= 1 || isRendering) return;
@@ -190,13 +197,11 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const handleZoomIn = () => {
     const newScale = Math.min(scale + 0.25, 3);
     setScale(newScale);
-    if (pdfDoc) renderPage(pageNum, pdfDoc, newScale);
   };
 
   const handleZoomOut = () => {
     const newScale = Math.max(scale - 0.25, 0.5);
     setScale(newScale);
-    if (pdfDoc) renderPage(pageNum, pdfDoc, newScale);
   };
 
   const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,23 +209,56 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     renderPage(newPage);
   };
 
-  // Touch gesture handling for swipe
+  // Touch gesture handling for swipe and pinch-to-zoom
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
+  const initialPinchDistance = useRef<number>(0);
+  const lastScale = useRef<number>(scale);
+
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch) => {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
   const handleTouchStartCanvas = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    if (e.touches.length === 2) {
+      // Pinch zoom started
+      initialPinchDistance.current = getTouchDistance(e.touches[0], e.touches[1]);
+      lastScale.current = scale;
+      e.preventDefault();
+    } else if (e.touches.length === 1) {
+      // Swipe started
+      touchStartX.current = e.touches[0].clientX;
+    }
+  };
+
+  const handleTouchMoveCanvas = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialPinchDistance.current > 0) {
+      // Handle pinch zoom
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
+      const scaleChange = currentDistance / initialPinchDistance.current;
+      const newScale = Math.max(0.5, Math.min(3, lastScale.current * scaleChange));
+      setScale(newScale);
+    }
   };
 
   const handleTouchEndCanvas = (e: React.TouchEvent) => {
-    touchEndX.current = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX.current;
-    
-    if (Math.abs(diff) > 50) { // Minimum swipe distance
-      if (diff > 0) {
-        handleNextPage();
-      } else {
-        handlePrevPage();
+    if (initialPinchDistance.current > 0) {
+      // Pinch zoom ended
+      initialPinchDistance.current = 0;
+    } else if (e.changedTouches.length === 1) {
+      // Swipe ended
+      touchEndX.current = e.changedTouches[0].clientX;
+      const diff = touchStartX.current - touchEndX.current;
+      
+      if (Math.abs(diff) > 50) { // Minimum swipe distance
+        if (diff > 0) {
+          handleNextPage();
+        } else {
+          handlePrevPage();
+        }
       }
     }
   };
@@ -267,6 +305,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         ref={containerRef}
         className="flex-1 overflow-auto flex items-center justify-center relative"
         onTouchStart={handleTouchStartCanvas}
+        onTouchMove={handleTouchMoveCanvas}
         onTouchEnd={handleTouchEndCanvas}
       >
         {/* Vignette overlay */}
