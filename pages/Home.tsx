@@ -133,7 +133,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
-  const renderPage = async (num: number, doc = pdfDoc) => {
+  const renderPage = async (num: number, doc = pdfDoc, customScale = scale) => {
     if (!doc) {
       setIsRendering(false);
       return;
@@ -141,7 +141,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     
     if (!canvasRef.current) {
       // Retry after a short delay to allow canvas to mount
-      setTimeout(() => renderPage(num, doc), 50);
+      setTimeout(() => renderPage(num, doc, customScale), 50);
       return;
     }
     
@@ -157,7 +157,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         throw new Error('Could not get canvas context');
       }
       
-      const scaledViewport = page.getViewport({ scale });
+      const scaledViewport = page.getViewport({ scale: customScale });
 
       canvas.height = scaledViewport.height;
       canvas.width = scaledViewport.width;
@@ -190,13 +190,13 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const handleZoomIn = () => {
     const newScale = Math.min(scale + 0.25, 3);
     setScale(newScale);
-    if (pdfDoc) renderPage(pageNum);
+    if (pdfDoc) renderPage(pageNum, pdfDoc, newScale);
   };
 
   const handleZoomOut = () => {
     const newScale = Math.max(scale - 0.25, 0.5);
     setScale(newScale);
-    if (pdfDoc) renderPage(pageNum);
+    if (pdfDoc) renderPage(pageNum, pdfDoc, newScale);
   };
 
   const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
