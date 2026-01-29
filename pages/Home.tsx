@@ -319,7 +319,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       >
         
         {isLoading && !error ? (
-          <div className="text-center z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10">
             <div className="relative">
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500/20 border-t-emerald-500 mx-auto mb-4"></div>
               <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl"></div>

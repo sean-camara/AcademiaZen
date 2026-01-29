@@ -43,10 +43,12 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
       const context = canvas.getContext('2d');
       if (!context) return;
 
-      const viewport = page.getViewport({ scale: 1.5 });
-      const containerWidth = canvas.parentElement?.clientWidth || 500;
-      const scale = (containerWidth - 32) / viewport.width;
-      const scaledViewport = page.getViewport({ scale: Math.min(scale, 1.8) });
+      const baseViewport = page.getViewport({ scale: 1.0 });
+      const containerWidth = canvas.parentElement?.clientWidth || window.innerWidth;
+      const padding = window.innerWidth < 640 ? 24 : 96;
+      const targetWidth = Math.min(containerWidth - padding, 1000);
+      const scale = targetWidth / baseViewport.width;
+      const scaledViewport = page.getViewport({ scale });
 
       canvas.height = scaledViewport.height;
       canvas.width = scaledViewport.width;
@@ -85,15 +87,23 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
   }, [pageNum, renderPage]);
 
   return (
-    <div className="w-full flex flex-col items-center justify-center min-h-[400px] relative">
+    <div className="w-full flex flex-col items-center justify-center relative">
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-          <div className="w-8 h-8 border-2 border-zen-primary border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-[10px] text-zen-primary uppercase tracking-[0.2em] animate-pulse">Scanning Document...</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-500/20 border-t-emerald-500 mx-auto mb-3"></div>
+            <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl"></div>
+          </div>
+          <p className="text-gray-400 font-medium text-sm">Loading your document...</p>
+          <p className="text-gray-600 text-xs mt-1">Preparing pages for viewing</p>
         </div>
       )}
       {error && <div className="text-zen-destructive text-sm font-medium">{error}</div>}
-      <canvas ref={canvasRef} className="max-w-full h-auto bg-white rounded-xl shadow-2xl animate-scale-in" />
+      <canvas
+        ref={canvasRef}
+        className="max-w-full h-auto shadow-2xl rounded-lg"
+        style={{ filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))' }}
+      />
     </div>
   );
 };
@@ -128,6 +138,8 @@ const Library: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [activePdfUrl, setActivePdfUrl] = useState<string>('');
+  const [showPdfControls, setShowPdfControls] = useState(true);
+  const hidePdfControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeFolder = folders.find(f => f.id === activeFolderId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,6 +149,40 @@ const Library: React.FC = () => {
     const hasModal = activeDoc !== null || isAddingItem || isAddingFolder || isEditingFolder;
     setHideNavbar(hasModal);
   }, [activeDoc, isAddingItem, isAddingFolder, isEditingFolder, setHideNavbar]);
+
+  useEffect(() => {
+    if (!activeDoc || activeDoc.type !== 'pdf') {
+      setShowPdfControls(true);
+      if (hidePdfControlsTimeoutRef.current) {
+        clearTimeout(hidePdfControlsTimeoutRef.current);
+        hidePdfControlsTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const resetHideTimer = () => {
+      setShowPdfControls(true);
+      if (hidePdfControlsTimeoutRef.current) {
+        clearTimeout(hidePdfControlsTimeoutRef.current);
+      }
+      hidePdfControlsTimeoutRef.current = setTimeout(() => {
+        setShowPdfControls(false);
+      }, 3000);
+    };
+
+    resetHideTimer();
+    window.addEventListener('mousemove', resetHideTimer);
+    window.addEventListener('touchstart', resetHideTimer);
+
+    return () => {
+      window.removeEventListener('mousemove', resetHideTimer);
+      window.removeEventListener('touchstart', resetHideTimer);
+      if (hidePdfControlsTimeoutRef.current) {
+        clearTimeout(hidePdfControlsTimeoutRef.current);
+        hidePdfControlsTimeoutRef.current = null;
+      }
+    };
+  }, [activeDoc]);
 
   // Sync total pages for text notes whenever a document is opened
   useEffect(() => {
@@ -425,71 +471,155 @@ const Library: React.FC = () => {
 
         {/* Document Reader */}
         {activeDoc && (
-          <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-2xl z-[110] flex items-center justify-center p-0 sm:p-4 md:p-6 animate-reveal">
-            <div className="bg-zen-card w-full h-full md:max-w-4xl md:h-[92vh] sm:rounded-[3rem] border-none sm:border border-zen-surface shadow-2xl flex flex-col overflow-hidden">
-              
-              {/* Reader Header */}
-              <header className="px-4 py-4 md:px-8 md:py-6 border-b border-zen-surface flex justify-between items-center bg-zen-card shrink-0">
-                <div className="flex items-center gap-3 md:gap-4">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-zen-surface rounded-xl md:rounded-2xl flex items-center justify-center text-zen-primary">
-                    {activeDoc.type === 'pdf' ? <IconPaperclip className="w-5 h-5 md:w-6 md:h-6" /> : <IconFileText className="w-5 h-5 md:w-6 md:h-6" />}
+          activeDoc.type === 'pdf' ? (
+            <div className="fixed inset-0 bg-[#0A0C0F] z-[110] flex flex-col">
+              {/* Floating Auto-Hide Header */}
+              <div
+                className={`absolute top-4 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[95%] transition-all duration-300 ${
+                  showPdfControls ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'
+                }`}
+              >
+                <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl px-4 py-2 flex items-center gap-3">
+                  <div className="min-w-0 max-w-[150px] sm:max-w-xs">
+                    <h3 className="text-[10px] font-bold text-gray-200 truncate uppercase tracking-wider">{activeDoc.title}</h3>
                   </div>
-                  <div>
-                    <h3 className="text-lg md:text-xl font-medium text-zen-text-primary truncate max-w-[50vw] sm:max-w-md">{activeDoc.title}</h3>
-                    <p className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-bold tracking-widest">Knowledge Archive &bull; {activeDoc.type.toUpperCase()}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 md:gap-3">
-                  <button onClick={openInNewTab} className="p-2 md:p-3 text-zen-text-secondary hover:text-zen-primary active:scale-90 transition-all" title="Open PDF Original">
-                    <IconExternalLink className="w-5 h-5 md:w-6 md:h-6" />
-                  </button>
-                  <button onClick={() => setActiveDoc(null)} className="p-2 md:p-3 text-zen-text-secondary hover:text-zen-text-primary active:scale-90 transition-all">
-                    <IconX className="w-5 h-5 md:w-6 md:h-6" />
-                  </button>
-                </div>
-              </header>
 
-              {/* Reader Body */}
-              <div className="flex-1 overflow-y-auto no-scrollbar p-0 md:p-8 bg-zen-bg/30 flex flex-col items-center">
-                {activeDoc.type === 'pdf' ? (
-                  activePdfUrl ? (
-                    <PdfPageRenderer source={activePdfUrl} pageNum={currentPage} onDocumentLoad={setTotalPages} />
-                  ) : (
-                    <div className="text-zen-text-secondary text-sm">Loading PDF...</div>
-                  )
+                  <div className="w-px h-3 bg-white/10 md:block hidden" />
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={openInNewTab}
+                      className="p-1 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-full transition-all"
+                      title="Open in new tab"
+                    >
+                      <IconExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setActiveDoc(null)}
+                      className="p-1 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-full transition-all"
+                    >
+                      <IconX className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* PDF Canvas Area */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-20 px-0 sm:px-4 scroll-smooth custom-scrollbar">
+                {activePdfUrl ? (
+                  <PdfPageRenderer source={activePdfUrl} pageNum={currentPage} onDocumentLoad={setTotalPages} />
                 ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10">
+                    <div className="relative">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-500/20 border-t-emerald-500 mx-auto mb-3"></div>
+                      <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl"></div>
+                    </div>
+                    <p className="text-gray-400 font-medium text-sm">Loading your document...</p>
+                    <p className="text-gray-600 text-xs mt-1">Preparing pages for viewing</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Navigation Hub */}
+              {totalPages > 0 && (
+                <div
+                  className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-auto transition-all duration-300 ${
+                    showPdfControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl p-1.5 flex items-center gap-2 px-3">
+                    <button
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <IconChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex flex-col items-center min-w-[100px] sm:min-w-[140px]">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                        Page {currentPage} <span className="text-gray-600">of</span> {totalPages}
+                      </span>
+                      <input
+                        type="range"
+                        min="1"
+                        max={totalPages}
+                        value={currentPage}
+                        onChange={(e) => setCurrentPage(parseInt(e.target.value, 10))}
+                        className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, #10B981 0%, #10B981 ${((currentPage - 1) / (Math.max(totalPages - 1, 1))) * 100}%, rgb(55, 65, 81) ${((currentPage - 1) / (Math.max(totalPages - 1, 1))) * 100}%, rgb(55, 65, 81) 100%)`
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage >= totalPages}
+                      className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <IconChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="fixed inset-0 bg-zen-bg/95 backdrop-blur-2xl z-[110] flex items-center justify-center p-0 sm:p-4 md:p-6 animate-reveal">
+              <div className="bg-zen-card w-full h-full md:max-w-4xl md:h-[92vh] sm:rounded-[3rem] border-none sm:border border-zen-surface shadow-2xl flex flex-col overflow-hidden">
+                
+                {/* Reader Header */}
+                <header className="px-4 py-4 md:px-8 md:py-6 border-b border-zen-surface flex justify-between items-center bg-zen-card shrink-0">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-zen-surface rounded-xl md:rounded-2xl flex items-center justify-center text-zen-primary">
+                      <IconFileText className="w-5 h-5 md:w-6 md:h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg md:text-xl font-medium text-zen-text-primary truncate max-w-[50vw] sm:max-w-md">{activeDoc.title}</h3>
+                      <p className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-bold tracking-widest">Knowledge Archive &bull; NOTE</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 md:gap-3">
+                    <button onClick={() => setActiveDoc(null)} className="p-2 md:p-3 text-zen-text-secondary hover:text-zen-text-primary active:scale-90 transition-all">
+                      <IconX className="w-5 h-5 md:w-6 md:h-6" />
+                    </button>
+                  </div>
+                </header>
+
+                {/* Reader Body */}
+                <div className="flex-1 overflow-y-auto no-scrollbar p-0 md:p-8 bg-zen-bg/30 flex flex-col items-center">
                   <div className="w-full max-w-2xl bg-zen-card p-6 md:p-12 sm:p-20 md:rounded-[3rem] border border-zen-surface shadow-xl animate-reveal mt-0 md:mt-4 h-full md:h-auto overflow-y-auto">
                     <div className="text-lg md:text-xl font-light text-zen-text-primary leading-relaxed whitespace-pre-wrap select-text selection:bg-zen-primary/30">
                       {textPages[currentPage - 1]}
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Reader Footer Navigation */}
-              <footer className="px-8 py-6 flex justify-center items-center gap-12 bg-zen-card border-t border-zen-surface shrink-0">
-                <button 
-                  disabled={currentPage <= 1} 
-                  onClick={() => setCurrentPage(p => p - 1)} 
-                  className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zen-surface text-zen-text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zen-primary hover:text-zen-bg transition-all active:scale-90"
-                >
-                  <IconChevronLeft className="w-6 h-6" />
-                </button>
-                <div className="flex items-center gap-3 px-6 py-2 bg-zen-bg rounded-full border border-zen-surface">
-                  <span className="text-2xl font-light text-zen-primary leading-none">{currentPage}</span>
-                  <span className="text-zen-text-disabled font-light">/</span>
-                  <span className="text-lg font-light text-zen-text-disabled leading-none">{totalPages}</span>
                 </div>
-                <button 
-                  disabled={currentPage >= totalPages} 
-                  onClick={() => setCurrentPage(p => p + 1)} 
-                  className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zen-surface text-zen-text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zen-primary hover:text-zen-bg transition-all active:scale-90"
-                >
-                  <IconChevronRight className="w-6 h-6" />
-                </button>
-              </footer>
+
+                {/* Reader Footer Navigation */}
+                <footer className="px-8 py-6 flex justify-center items-center gap-12 bg-zen-card border-t border-zen-surface shrink-0">
+                  <button
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zen-surface text-zen-text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zen-primary hover:text-zen-bg transition-all active:scale-90"
+                  >
+                    <IconChevronLeft className="w-6 h-6" />
+                  </button>
+                  <div className="flex items-center gap-3 px-6 py-2 bg-zen-bg rounded-full border border-zen-surface">
+                    <span className="text-2xl font-light text-zen-primary leading-none">{currentPage}</span>
+                    <span className="text-zen-text-disabled font-light">/</span>
+                    <span className="text-lg font-light text-zen-text-disabled leading-none">{totalPages}</span>
+                  </div>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zen-surface text-zen-text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zen-primary hover:text-zen-bg transition-all active:scale-90"
+                  >
+                    <IconChevronRight className="w-6 h-6" />
+                  </button>
+                </footer>
+              </div>
             </div>
-          </div>
+          )
         )}
       </div>
     );
