@@ -64,6 +64,9 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   // Confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancelSubscription, setShowCancelSubscription] = useState(false);
+  const [showManageSubscription, setShowManageSubscription] = useState(false);
+  const [showExtensionConfirm, setShowExtensionConfirm] = useState(false);
+  const [extensionLoading, setExtensionLoading] = useState(false);
 
   useEffect(() => {
     if (state.profile) {
@@ -254,6 +257,55 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     if (activeTab !== 'billing') return;
     loadBilling();
   }, [activeTab]);
+
+  // Helper: Check if subscription is near expiry (within 7 days)
+  const isNearExpiry = (billing: BillingInfo | null): boolean => {
+    if (!billing?.currentPeriodEnd) return false;
+    const expiryDate = new Date(billing.currentPeriodEnd);
+    const now = new Date();
+    const daysUntilExpiry = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+  };
+
+  // Helper: Check if extension is allowed
+  const canExtend = (billing: BillingInfo | null): boolean => {
+    if (!billing) return false;
+    return billing.status === 'active' && !billing.autoRenew && isNearExpiry(billing);
+  };
+
+  // Handle manual extension
+  const handleExtension = async () => {
+    setExtensionLoading(true);
+    setBillingError('');
+    try {
+      const res = await apiFetch('/api/billing/extend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          interval: billing?.interval || 'monthly',
+          method: 'gcash', // Default to gcash for extension
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error || 'Extension failed');
+      }
+
+      const data = await res.json();
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error('Missing checkout URL');
+      }
+    } catch (err) {
+      console.error('[Billing] Extension error:', err);
+      setBillingError(err instanceof Error ? err.message : 'Unable to extend subscription.');
+    } finally {
+      setExtensionLoading(false);
+      setShowExtensionConfirm(false);
+    }
+  };
 
   const { 
     isSupported: pushSupported,
@@ -557,22 +609,33 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="grid grid-cols-2 gap-4">
+                                            {billing?.status === 'active' && billing?.isActive ? (
+                                                /* Show Manage Subscription for ACTIVE users */
                                                 <button
-                                                    onClick={() => handleCheckout('gcash')}
-                                                    disabled={billingMethodLoading === 'gcash'}
-                                                    className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
+                                                    onClick={() => setShowManageSubscription(true)}
+                                                    className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0"
                                                 >
-                                                    {billingMethodLoading === 'gcash' ? 'Processing...' : 'Pay with GCash'}
+                                                    Manage Subscription
                                                 </button>
-                                                <button
-                                                    onClick={() => handleCheckout('bank')}
-                                                    disabled={billingMethodLoading === 'bank'}
-                                                    className="py-4 rounded-xl bg-[#1A1D21] text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#25282C] active:bg-[#151719] disabled:opacity-60"
-                                                >
-                                                    {billingMethodLoading === 'bank' ? 'Processing...' : 'Pay with Bank'}
-                                                </button>
-                                            </div>
+                                            ) : (
+                                                /* Show Payment Buttons for non-active users */
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <button
+                                                        onClick={() => handleCheckout('gcash')}
+                                                        disabled={billingMethodLoading === 'gcash'}
+                                                        className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
+                                                    >
+                                                        {billingMethodLoading === 'gcash' ? 'Processing...' : 'Pay with GCash'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCheckout('bank')}
+                                                        disabled={billingMethodLoading === 'bank'}
+                                                        className="py-4 rounded-xl bg-[#1A1D21] text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#25282C] active:bg-[#151719] disabled:opacity-60"
+                                                    >
+                                                        {billingMethodLoading === 'bank' ? 'Processing...' : 'Pay with Bank'}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Current Plan Manager */}
@@ -775,6 +838,151 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             cancelText="Keep Premium"
             isDangerous
         />
+
+        {/* Manage Subscription Modal */}
+        {showManageSubscription && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowManageSubscription(false)}>
+                <div className="relative w-full max-w-lg bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                    {/* Header */}
+                    <div className="p-8 pb-6 border-b border-white/5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-2xl text-white font-medium">Manage Subscription</h3>
+                            <button onClick={() => setShowManageSubscription(false)} className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+                                <IconX className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-sm text-gray-400">View and manage your Premium subscription details.</p>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-8 pt-6 space-y-6">
+                        {/* Status Grid */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Plan</p>
+                                <p className="text-base text-white capitalize font-medium">
+                                    {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
+                                </p>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Status</p>
+                                <p className="text-base text-emerald-400 capitalize font-medium">{billing?.status || 'Free'}</p>
+                            </div>
+                        </div>
+
+                        {/* Renewal Date */}
+                        <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
+                                {billing?.autoRenew ? 'Renews On' : 'Expires On'}
+                            </p>
+                            <p className="text-base text-white font-medium">{formatDate(billing?.currentPeriodEnd || null)}</p>
+                        </div>
+
+                        {/* Auto Renewal Toggle */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <div>
+                                <p className="text-sm font-medium text-white">Auto Renewal</p>
+                                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold mt-1">
+                                    {billing?.autoRenew ? 'Enabled' : 'Disabled'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleAutoRenewToggle}
+                                disabled={billingLoading}
+                                className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-white' : 'bg-[#21262D]'}`}
+                            >
+                                <div className={`w-4 h-4 rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%] bg-black' : 'bg-zen-text-disabled'}`} />
+                            </button>
+                        </div>
+
+                        {/* Manual Extension (only if conditions met) */}
+                        {canExtend(billing) && (
+                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                                <div className="flex items-start gap-3 mb-3">
+                                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                        <span className="text-emerald-500 text-xs font-black">!</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-white mb-1">Your subscription expires soon</p>
+                                        <p className="text-xs text-gray-400 mb-3">
+                                            Extend by 1 month for PHP {billing?.interval === 'yearly' ? '1490' : '149'}
+                                        </p>
+                                        <button
+                                            onClick={() => setShowExtensionConfirm(true)}
+                                            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#091510] text-xs font-bold uppercase tracking-wider transition-colors"
+                                        >
+                                            Extend by 1 Month
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Cancel Button */}
+                        {billing?.status === 'active' && (
+                            <button
+                                onClick={() => {
+                                    setShowManageSubscription(false);
+                                    setShowCancelSubscription(true);
+                                }}
+                                className="w-full py-4 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10"
+                            >
+                                Cancel Subscription
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Extension Confirmation Modal */}
+        {showExtensionConfirm && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[210] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowExtensionConfirm(false)}>
+                <div className="relative w-full max-w-md bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-8 space-y-6">
+                        <div className="text-center space-y-2">
+                            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+                                <IconCreditCard className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <h3 className="text-xl text-white font-medium">Confirm Extension</h3>
+                            <p className="text-sm text-gray-400 leading-relaxed">
+                                You will be charged <span className="text-white font-semibold">PHP {billing?.interval === 'yearly' ? '1490' : '149'}</span> to extend your subscription by 1 month.
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2 text-xs text-gray-400">
+                            <div className="flex justify-between">
+                                <span>Current Expiry:</span>
+                                <span className="text-white font-medium">{formatDate(billing?.currentPeriodEnd || null)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>New Expiry:</span>
+                                <span className="text-emerald-400 font-medium">
+                                    {billing?.currentPeriodEnd ? formatDate(new Date(new Date(billing.currentPeriodEnd).setMonth(new Date(billing.currentPeriodEnd).getMonth() + 1)).toISOString()) : '-'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setShowExtensionConfirm(false)}
+                                disabled={extensionLoading}
+                                className="py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleExtension}
+                                disabled={extensionLoading}
+                                className="py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091510] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                            >
+                                {extensionLoading ? 'Processing...' : 'Confirm & Pay'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };
