@@ -1226,83 +1226,109 @@ const Review: React.FC = () => {
           <div className="max-w-4xl mx-auto w-full">
             {/* Header */}
             <div className="mb-8">
-              <button 
+              <button
                 onClick={() => setSelectedReviewerId(null)}
-                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary mb-6 transition-all group"
+                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary mb-6 transition-all group active:scale-95"
               >
-                <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-sm font-medium">All Reviewers</span>
-            </button>
+                <div className="p-1.5 rounded-full bg-zen-surface group-hover:bg-zen-surface/80 transition-colors">
+                  <IconChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </div>
+                <span className="text-sm font-medium">Back to Reviewers</span>
+              </button>
 
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-              <div className="flex-1">
-                {editingReviewerName === selectedReviewer.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={newReviewerName}
-                      onChange={(e) => setNewReviewerName(e.target.value)}
-                      className="flex-1 bg-zen-card rounded-xl px-4 py-2 text-2xl text-zen-text-primary focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface"
-                      autoFocus
-                    />
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                  <div className="flex-1 space-y-4">
+                    {editingReviewerName === selectedReviewer.id ? (
+                      <div className="flex items-center gap-2 relative">
+                        <input
+                          type="text"
+                          value={newReviewerName}
+                          onChange={(e) => setNewReviewerName(e.target.value)}
+                          className="w-full bg-transparent border-b-2 border-zen-primary pb-2 text-3xl md:text-5xl font-light text-zen-text-primary focus:outline-none placeholder-zen-text-disabled/30"
+                          autoFocus
+                          placeholder="Reviewer Name"
+                        />
+                        <div className="flex items-center gap-1 absolute right-0 bottom-3">
+                          <button
+                            onClick={() => {
+                              if (newReviewerName.trim()) {
+                                updateAIReviewer({ ...selectedReviewer, name: newReviewerName.trim() });
+                              }
+                              setEditingReviewerName(null);
+                            }}
+                            className="p-2 bg-zen-primary text-zen-bg rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-zen-primary/20"
+                          >
+                            <IconCheck className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => setEditingReviewerName(null)}
+                            className="p-2 bg-zen-surface text-zen-text-secondary rounded-lg hover:bg-zen-surface/80 active:scale-95 transition-all"
+                          >
+                            <IconX className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 group/header">
+                        <div className="flex items-start gap-4">
+                          <h2 className="text-3xl md:text-5xl font-light text-zen-text-primary leading-tight break-words">
+                            {selectedReviewer.name}
+                          </h2>
+                          <button
+                            onClick={() => {
+                              setEditingReviewerName(selectedReviewer.id);
+                              setNewReviewerName(selectedReviewer.name);
+                            }}
+                            className="p-2 rounded-xl text-zen-text-disabled hover:text-zen-primary hover:bg-zen-primary/5 transition-all opacity-100 md:opacity-0 group-hover/header:opacity-100 shrink-0"
+                          >
+                            <IconEdit className="w-5 h-5" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-zen-surface/80 border border-zen-surface text-xs font-bold text-zen-text-secondary uppercase tracking-wider">
+                            {selectedReviewer.questionCount} Qs
+                          </span>
+                          <span className={'inline-flex items-center px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wider ' + 
+                            (selectedReviewer.difficulty === 'easy' ? 'bg-green-500/5 border-green-500/20 text-green-500' : 
+                             selectedReviewer.difficulty === 'medium' ? 'bg-yellow-500/5 border-yellow-500/20 text-yellow-500' : 
+                             'bg-red-500/5 border-red-500/20 text-red-500')}>
+                            {selectedReviewer.difficulty}
+                          </span>
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-zen-surface/80 border border-zen-surface text-xs font-bold text-zen-text-secondary uppercase tracking-wider">
+                            {selectedReviewer.questionMode.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2 text-zen-text-disabled text-sm">
+                       <span className="px-2 py-0.5 rounded bg-zen-surface/50 text-[10px] font-bold uppercase tracking-widest text-zen-text-disabled">From</span>
+                       <span className="truncate max-w-[200px] md:max-w-md" title={selectedReviewer.sourceName}>{selectedReviewer.sourceName}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
                     <button
-                      onClick={() => {
-                        if (newReviewerName.trim()) {
-                          updateAIReviewer({ ...selectedReviewer, name: newReviewerName.trim() });
-                        }
-                        setEditingReviewerName(null);
-                      }}
-                      className="p-2 bg-zen-primary text-zen-bg rounded-lg"
+                      onClick={() => handleRegenerate(selectedReviewer)}
+                      disabled={selectedReviewer.status === 'generating'}
+                      className="flex-1 md:flex-none justify-center px-6 py-3 bg-zen-surface text-zen-text-secondary rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-zen-surface/80 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                     >
-                      <IconCheck className="w-5 h-5" />
+                      <IconRefresh className="w-4 h-4" />
+                      <span className="md:hidden lg:inline">Regenerate</span>
                     </button>
                     <button
-                      onClick={() => setEditingReviewerName(null)}
-                      className="p-2 bg-zen-surface text-zen-text-secondary rounded-lg"
+                      onClick={() => handleDeleteReviewer(selectedReviewer.id)}
+                      className="flex-none px-6 py-3 bg-red-500/10 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/20 active:scale-95 transition-all"
+                      title="Delete Reviewer"
                     >
-                      <IconX className="w-5 h-5" />
+                      <IconTrash className="w-5 h-5" />
                     </button>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-2xl md:text-4xl font-light text-zen-text-primary">{selectedReviewer.name}</h2>
-                    <button
-                      onClick={() => {
-                        setEditingReviewerName(selectedReviewer.id);
-                        setNewReviewerName(selectedReviewer.name);
-                      }}
-                      className="p-2 text-zen-text-disabled hover:text-zen-text-primary transition-colors"
-                    >
-                      <IconEdit className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <p className="text-zen-text-secondary mt-2">
-                  {selectedReviewer.questionCount} questions  {selectedReviewer.difficulty}  {selectedReviewer.questionMode.replace('_', ' ')}
-                </p>
-                <p className="text-zen-text-disabled text-sm mt-1">
-                  From: {selectedReviewer.sourceName}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleRegenerate(selectedReviewer)}
-                  disabled={selectedReviewer.status === 'generating'}
-                  className="px-4 py-2 bg-zen-surface text-zen-text-secondary rounded-xl text-sm font-medium hover:bg-zen-surface/80 transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <IconRefresh className="w-4 h-4" />
-                  Regenerate
-                </button>
-                <button
-                  onClick={() => handleDeleteReviewer(selectedReviewer.id)}
-                  className="px-4 py-2 bg-red-500/10 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/20 transition-all"
-                >
-                  <IconTrash className="w-4 h-4" />
-                </button>
+                </div>
               </div>
             </div>
-          </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
