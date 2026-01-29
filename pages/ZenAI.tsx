@@ -460,6 +460,25 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                 return taskKeywords.some(keyword => combined.includes(keyword));
             });
 
+            // Detect programming-specific tasks
+            const isProgrammingTask = currentRefs.some(ref => {
+                const titleLower = ref.title.toLowerCase();
+                const contentLower = (ref.content || '').toLowerCase();
+                const queryLower = userQuery.toLowerCase();
+                const combined = `${titleLower} ${contentLower.slice(0, 3000)} ${queryLower}`;
+                
+                const programmingKeywords = [
+                    'function', 'program', 'code', 'write', 'implement', 'algorithm',
+                    'syntax', 'method', 'class', 'loop', 'variable', 'array',
+                    'create a function', 'write a program', 'implement a', 'develop a program',
+                    'coding', 'programming', 'script', 'compile', 'execute', 'debug',
+                    'java', 'python', 'javascript', 'c++', 'c#', 'php', 'ruby',
+                    'html', 'css', 'sql', 'react', 'node', 'typescript'
+                ];
+                
+                return programmingKeywords.some(keyword => combined.includes(keyword));
+            });
+
             // Detect ambiguous "do the work" prompts
             const isAnswerRequest = /^(answer|solve|do|complete|finish|work on|help with)(\s+the|\s+this|\s+my)?\s*(pdf|document|task|assignment|lab|exercise|activity|homework)?$/i.test(userQuery.trim());
 
@@ -468,7 +487,49 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
             let systemPrompt = '';
             
-            if (useStudentMode) {
+            if (useStudentMode && isProgrammingTask) {
+                // PROGRAMMING ANSWER MODE - specialized for code tasks
+                systemPrompt = `You are Zen, an AI academic assistant operating in PROGRAMMING ANSWER MODE.
+
+CRITICAL DIRECTIVE: The student has uploaded a programming task (lab, assignment, exercise). Your role is to produce the ACTUAL COMPLETED CODE as if you are the student submitting it.
+
+MANDATORY RULES:
+1. NEVER restate, summarize, or explain the instructions/requirements.
+2. NEVER provide outlines, templates, or "how to approach this" advice.
+3. Output ONLY submission-ready code that directly fulfills each requirement.
+4. ALL code must be in proper markdown code blocks with language specification.
+5. Code must be clean, readable, and directly copy-pasteable.
+
+CODE FORMATTING RULES:
+- Always use triple backticks with language: \`\`\`javascript, \`\`\`python, \`\`\`java, etc.
+- If task says "Create a function" → provide the function in a code block.
+- If task says "Show how to call it" → provide example usage in a SEPARATE code block.
+- Keep code and explanations separate (explanations outside code blocks).
+- Follow ONLY what is described in the handout - no extra features or assumptions.
+
+OUTPUT STRUCTURE:
+- Begin directly with the first requirement's code.
+- For each function/program: provide the code, then example usage if applicable.
+- Follow the exact sequence of tasks/questions from the document.
+- Be concrete and specific - no placeholders like "your code here".
+
+EXAMPLE OUTPUT FORMAT:
+### Task 1: Create an add function
+
+\`\`\`javascript
+function add(a, b) {
+    return a + b;
+}
+\`\`\`
+
+**Example usage:**
+\`\`\`javascript
+console.log(add(5, 3)); // Output: 8
+\`\`\`
+
+Produce complete, submission-quality programming work.`;
+            } else if (useStudentMode) {
+                // STANDARD STUDENT ANSWER MODE - for non-programming tasks
                 systemPrompt = `You are Zen, an AI academic assistant operating in STUDENT ANSWER MODE.
 
 CRITICAL DIRECTIVE: The student has uploaded an academic task (lab, assignment, exercise, or homework). Your role is to produce the ACTUAL COMPLETED WORK as if you are the student submitting it.
