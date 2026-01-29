@@ -6,6 +6,7 @@ import { AIReviewer, ReviewerQuestion, QuizAttempt, QuizProgress, ReviewerDiffic
 import ConfirmModal from '../components/ConfirmModal';
 import { apiFetch } from '../utils/api';
 import { showLocalNotification } from '../utils/pushNotifications';
+import { getPdfSignedUrl } from '../utils/pdfStorage';
 
 // Loading messages for generation
 const LOADING_MESSAGES = [
@@ -210,12 +211,71 @@ const Review: React.FC = () => {
   // Get selected reviewer
   const selectedReviewer = aiReviewers.find(r => r.id === selectedReviewerId);
 
-  // Handle PDF text extraction
+  // Handle PDF text extraction using pdf.js
   const extractPdfText = async (pdfItem: FolderItem): Promise<string> => {
-    if (pdfItem.file?.text) {
+    // First check if text is already cached
+    if (pdfItem.file?.text && pdfItem.file.text.trim().length > 0) {
       return pdfItem.file.text;
     }
-    return '';
+    
+    try {
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) {
+        console.error('pdf.js library not loaded');
+        return '';
+      }
+      
+      let pdfSource: string | { data: Uint8Array } | null = null;
+      
+      // Get PDF source - either from URL/key or content
+      if (pdfItem.file?.key) {
+        pdfSource = pdfItem.file.url || await getPdfSignedUrl(pdfItem.file.key);
+      } else if (pdfItem.content && pdfItem.content.startsWith('data:')) {
+        // Convert base64 to Uint8Array
+        const base64 = pdfItem.content.split(',')[1] || '';
+        if (!base64) return '';
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        pdfSource = { data: bytes };
+      }
+      
+      if (!pdfSource) {
+        console.error('No PDF source found');
+        return '';
+      }
+      
+      // Load and extract text from PDF
+      const loadingTask = pdfjsLib.getDocument(pdfSource);
+      const pdf = await loadingTask.promise;
+      const maxPages = Math.min(pdf.numPages || 0, 50); // Limit to 50 pages
+      let fullText = '';
+      
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = (textContent.items || [])
+          .map((item: any) => item?.str || '')
+          .join(' ');
+        fullText += pageText + '\n';
+        
+        // Limit total text to prevent huge payloads
+        if (fullText.length >= 100000) {
+          fullText = fullText.slice(0, 100000);
+          break;
+        }
+      }
+      
+      const cleaned = fullText.replace(/\s+/g, ' ').trim();
+      console.log('Extracted PDF text:', cleaned.length, 'characters');
+      return cleaned;
+      
+    } catch (error) {
+      console.error('Failed to extract PDF text:', error);
+      return '';
+    }
   };
 
   // Create new reviewer
