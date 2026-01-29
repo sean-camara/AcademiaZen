@@ -736,6 +736,8 @@ const Home: React.FC = () => {
                             const progress = total === 0 ? 0 : (completed / total) * 100;
                             const showActions = showSubjectActions === subject.id;
 
+                            const unchecked = total - completed;
+
                             return (
                                 <div key={subject.id} className="relative group animate-reveal stagger-1">
                                     <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative overflow-hidden">
@@ -744,7 +746,12 @@ const Home: React.FC = () => {
                                                 <div className={`w-2 h-8 rounded-full ${subject.color}`} />
                                                 <h4 className="font-medium text-zen-text-primary">{subject.name}</h4>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
+                                            <div className="flex items-center gap-2">
+                                                {unchecked > 0 && (
+                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zen-primary text-zen-bg text-[10px] font-black">{unchecked}</span>
+                                                )}
+                                                <button onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2 mt-3">
                                             <div className="flex-1 h-1 bg-zen-surface rounded-full overflow-hidden"><div className={`h-full ${subject.color} opacity-70`} style={{ width: `${progress}%` }} /></div>
