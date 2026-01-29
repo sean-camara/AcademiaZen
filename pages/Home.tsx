@@ -21,6 +21,13 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideHeaderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const renderTaskRef = useRef<any>(null); // Track current render task for cancellation
+  const scaleRef = useRef(scale); // Track scale without causing re-renders
+
+  // Keep scaleRef in sync
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
 
   // Auto-hide header on inactivity
   useEffect(() => {
@@ -120,7 +127,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setIsLoading(false);
-        renderPage(1, pdf);
+        renderPage(1, pdf, scaleRef.current);
       } catch (err: any) {
         console.error('[PDF] Load Error:', err);
         setError(err.message || 'Failed to load study material. Try using "View All" to open in browser.');
@@ -133,9 +140,9 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
-  const renderPage = useCallback(async (num: number, doc = pdfDoc, customScale = scale) => {
+  // Core render function - not using useCallback to avoid dependency issues
+  const renderPage = async (num: number, doc: any, customScale: number) => {
     if (!doc) {
-      setIsRendering(false);
       return;
     }
     
@@ -143,6 +150,16 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       // Retry after a short delay to allow canvas to mount
       setTimeout(() => renderPage(num, doc, customScale), 50);
       return;
+    }
+
+    // Cancel any ongoing render task
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+      } catch (e) {
+        // Ignore cancel errors
+      }
+      renderTaskRef.current = null;
     }
     
     setIsRendering(true);
@@ -167,51 +184,62 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         viewport: scaledViewport,
       };
 
-      await page.render(renderContext).promise;
+      // Store the render task so we can cancel it if needed
+      const renderTask = page.render(renderContext);
+      renderTaskRef.current = renderTask;
+      
+      await renderTask.promise;
+      renderTaskRef.current = null;
       setPageNum(num);
-    } catch (err) {
-      console.error('[PDF] Render Error:', err);
-      setError('Error rendering page.');
+    } catch (err: any) {
+      // Ignore cancellation errors
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error('[PDF] Render Error:', err);
+        setError('Error rendering page.');
+      }
     } finally {
       setIsRendering(false);
     }
-  }, [pdfDoc, scale]);
+  };
 
   // Re-render page when scale changes
   useEffect(() => {
-    if (pdfDoc && !isLoading && !error) {
+    if (pdfDoc && !isLoading && !error && pageNum > 0) {
       renderPage(pageNum, pdfDoc, scale);
     }
-  }, [scale, pdfDoc, pageNum, isLoading, error, renderPage]);
+  }, [scale, pdfDoc, pageNum, isLoading, error]);
 
   const handlePrevPage = () => {
-    if (pageNum <= 1 || isRendering) return;
-    renderPage(pageNum - 1);
+    if (pageNum <= 1 || isRendering || !pdfDoc) return;
+    const newPage = pageNum - 1;
+    setPageNum(newPage);
+    renderPage(newPage, pdfDoc, scale);
   };
 
   const handleNextPage = () => {
-    if (pageNum >= totalPages || isRendering) return;
-    renderPage(pageNum + 1);
+    if (pageNum >= totalPages || isRendering || !pdfDoc) return;
+    const newPage = pageNum + 1;
+    setPageNum(newPage);
+    renderPage(newPage, pdfDoc, scale);
   };
 
   const handleZoomIn = () => {
-    const newScale = Math.min(scale + 0.25, 3);
-    setScale(newScale);
+    setScale(prev => Math.min(prev + 0.25, 3));
   };
 
   const handleZoomOut = () => {
-    const newScale = Math.max(scale - 0.25, 0.5);
-    setScale(newScale);
+    setScale(prev => Math.max(prev - 0.25, 0.5));
   };
 
   const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!pdfDoc) return;
     const newPage = parseInt(e.target.value);
-    renderPage(newPage);
+    setPageNum(newPage);
+    renderPage(newPage, pdfDoc, scale);
   };
 
   // Touch gesture handling for swipe and pinch-to-zoom
   const touchStartX = useRef<number>(0);
-  const touchEndX = useRef<number>(0);
   const initialPinchDistance = useRef<number>(0);
   const lastScale = useRef<number>(scale);
 
@@ -225,8 +253,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     if (e.touches.length === 2) {
       // Pinch zoom started
       initialPinchDistance.current = getTouchDistance(e.touches[0], e.touches[1]);
-      lastScale.current = scale;
-      e.preventDefault();
+      lastScale.current = scaleRef.current;
     } else if (e.touches.length === 1) {
       // Swipe started
       touchStartX.current = e.touches[0].clientX;
@@ -235,8 +262,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
 
   const handleTouchMoveCanvas = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialPinchDistance.current > 0) {
-      // Handle pinch zoom
-      e.preventDefault();
+      // Handle pinch zoom - only update state, useEffect will handle re-render
       const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
       const scaleChange = currentDistance / initialPinchDistance.current;
       const newScale = Math.max(0.5, Math.min(3, lastScale.current * scaleChange));
@@ -250,8 +276,8 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       initialPinchDistance.current = 0;
     } else if (e.changedTouches.length === 1) {
       // Swipe ended
-      touchEndX.current = e.changedTouches[0].clientX;
-      const diff = touchStartX.current - touchEndX.current;
+      const touchEndX = e.changedTouches[0].clientX;
+      const diff = touchStartX.current - touchEndX;
       
       if (Math.abs(diff) > 50) { // Minimum swipe distance
         if (diff > 0) {
