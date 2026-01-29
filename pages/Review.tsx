@@ -751,6 +751,10 @@ const Review: React.FC = () => {
   // --- RENDER: Quiz Taking ---
   if (isQuizActive && selectedReviewer) {
     const question = selectedReviewer.questions[currentQuestionIndex];
+    if (!question) {
+      setIsQuizActive(false);
+      return null;
+    }
     const progress = ((currentQuestionIndex) / selectedReviewer.questions.length) * 100;
     const currentAnswer = quizAnswers[question.id];
 
@@ -862,7 +866,7 @@ const Review: React.FC = () => {
               </div>
             )}
 
-            {question.type === 'word_matching' && question.pairs && (
+            {question.type === 'word_matching' && question.pairs && question.pairs.length > 0 && (
               <div className="space-y-6">
                 <p className="text-sm text-zen-text-secondary mb-4">Tap a term, then tap its matching definition</p>
                 <div className="grid grid-cols-2 gap-4">
@@ -896,7 +900,7 @@ const Review: React.FC = () => {
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest mb-2">Definitions</p>
                     {question.pairs.map(pair => {
-                      const isMatched = Object.values(matchingSelections.pairs).includes(pair.right);
+                      const isMatched = matchingSelections?.pairs ? Object.values(matchingSelections.pairs).includes(pair.right) : false;
                       return (
                         <button
                           key={pair.id}
