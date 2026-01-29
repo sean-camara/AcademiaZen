@@ -15,19 +15,21 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sourceUrl, setSourceUrl] = useState<string>('');
-  const [scale, setScale] = useState(1.2);
+  const [renderedScale, setRenderedScale] = useState(1.2); // The scale at which PDF was actually rendered
+  const [visualScale, setVisualScale] = useState(1.2); // Current visual scale (for instant feedback)
   const [showHeader, setShowHeader] = useState(true);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideHeaderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const renderTaskRef = useRef<any>(null); // Track current render task for cancellation
-  const scaleRef = useRef(scale); // Track scale without causing re-renders
+  const scaleRef = useRef(visualScale); // Track scale without causing re-renders
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep scaleRef in sync
   useEffect(() => {
-    scaleRef.current = scale;
-  }, [scale]);
+    scaleRef.current = visualScale;
+  }, [visualScale]);
 
   // Auto-hide header on inactivity
   useEffect(() => {
@@ -202,46 +204,61 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     }
   };
 
-  // Re-render page when scale changes
+  // Debounced re-render when scale changes
   useEffect(() => {
-    if (pdfDoc && !isLoading && !error && pageNum > 0) {
-      renderPage(pageNum, pdfDoc, scale);
+    if (!pdfDoc || isLoading || error || pageNum <= 0) return;
+    
+    // Clear any existing debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  }, [scale, pdfDoc, pageNum, isLoading, error]);
+    
+    // Debounce the actual PDF re-render by 300ms
+    debounceTimerRef.current = setTimeout(() => {
+      renderPage(pageNum, pdfDoc, visualScale);
+      setRenderedScale(visualScale);
+    }, 300);
+    
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [visualScale, pdfDoc, pageNum, isLoading, error]);
 
   const handlePrevPage = () => {
     if (pageNum <= 1 || isRendering || !pdfDoc) return;
     const newPage = pageNum - 1;
     setPageNum(newPage);
-    renderPage(newPage, pdfDoc, scale);
+    renderPage(newPage, pdfDoc, visualScale);
   };
 
   const handleNextPage = () => {
     if (pageNum >= totalPages || isRendering || !pdfDoc) return;
     const newPage = pageNum + 1;
     setPageNum(newPage);
-    renderPage(newPage, pdfDoc, scale);
+    renderPage(newPage, pdfDoc, visualScale);
   };
 
   const handleZoomIn = () => {
-    setScale(prev => Math.min(prev + 0.25, 3));
+    setVisualScale(prev => Math.min(prev + 0.25, 3));
   };
 
   const handleZoomOut = () => {
-    setScale(prev => Math.max(prev - 0.25, 0.5));
+    setVisualScale(prev => Math.max(prev - 0.25, 0.5));
   };
 
   const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!pdfDoc) return;
     const newPage = parseInt(e.target.value);
     setPageNum(newPage);
-    renderPage(newPage, pdfDoc, scale);
+    renderPage(newPage, pdfDoc, visualScale);
   };
 
   // Touch gesture handling for swipe and pinch-to-zoom
   const touchStartX = useRef<number>(0);
   const initialPinchDistance = useRef<number>(0);
-  const lastScale = useRef<number>(scale);
+  const lastScale = useRef<number>(visualScale);
 
   const getTouchDistance = (touch1: React.Touch, touch2: React.Touch) => {
     const dx = touch1.clientX - touch2.clientX;
@@ -262,11 +279,11 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
 
   const handleTouchMoveCanvas = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialPinchDistance.current > 0) {
-      // Handle pinch zoom - only update state, useEffect will handle re-render
+      // Handle pinch zoom - CSS transform for instant feedback, debounced re-render
       const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
       const scaleChange = currentDistance / initialPinchDistance.current;
       const newScale = Math.max(0.5, Math.min(3, lastScale.current * scaleChange));
-      setScale(newScale);
+      setVisualScale(newScale);
     }
   };
 
@@ -303,7 +320,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
               <h3 className="text-sm font-medium text-white truncate mb-1">{attachment.name}</h3>
               {totalPages > 0 && (
                 <p className="text-xs text-gray-400">
-                  {totalPages} pages • {Math.round(scale * 100)}% zoom
+                  {totalPages} pages • {Math.round(visualScale * 100)}% zoom
                 </p>
               )}
             </div>
@@ -364,9 +381,11 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
           <div className="relative p-4">
             <canvas 
               ref={canvasRef}
-              className="max-w-full h-auto shadow-2xl rounded-lg"
+              className="max-w-full h-auto shadow-2xl rounded-lg transition-transform duration-100"
               style={{ 
                 filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))',
+                transform: renderedScale > 0 ? `scale(${visualScale / renderedScale})` : 'scale(1)',
+                transformOrigin: 'center center',
               }}
             />
             {isRendering && (
@@ -413,18 +432,18 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
               <div className="flex items-center space-x-1 bg-white/5 rounded-xl p-1">
                 <button
                   onClick={handleZoomOut}
-                  disabled={scale <= 0.5}
+                  disabled={visualScale <= 0.5}
                   className="p-2.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Zoom out"
                 >
                   <IconZoomOut className="w-5 h-5" />
                 </button>
                 <div className="px-3 py-1 text-xs font-medium text-gray-400 min-w-[3rem] text-center">
-                  {Math.round(scale * 100)}%
+                  {Math.round(visualScale * 100)}%
                 </div>
                 <button
                   onClick={handleZoomIn}
-                  disabled={scale >= 3}
+                  disabled={visualScale >= 3}
                   className="p-2.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Zoom in"
                 >
