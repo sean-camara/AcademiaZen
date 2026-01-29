@@ -457,14 +457,6 @@ const TaskActionModal: React.FC<{
                         {formattedDate}
                     </div>
 
-                    {task.notes && (
-                        <div className="mt-5 pt-4 border-t border-white/5">
-                             <div className="flex items-start gap-2 mb-1.5 opacity-50">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Notes</span>
-                             </div>
-                             <p className="text-sm text-gray-300/90 leading-relaxed font-light whitespace-pre-wrap">{task.notes}</p>
-                        </div>
-                    )}
                 </div>
 
                 {/* Primary Actions Grid */}
