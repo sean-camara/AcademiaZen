@@ -881,7 +881,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 relative z-[115] w-full max-w-3xl mx-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 lg:p-12 space-y-6 md:space-y-8 relative z-[115] w-full max-w-4xl mx-auto custom-scrollbar">
                 {!billingChecked && (
                     <div className="py-2 px-4 rounded-lg bg-white/5 border border-white/5 text-center text-xs text-gray-500 animate-pulse">
                         Verifying subscription status...
@@ -936,15 +936,15 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
                         {msg.refs && msg.refs.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-2 mr-2">
+                            <div className="flex flex-wrap gap-2 mb-3 mr-2">
                                 {msg.refs.map((r, i) => (
-                                    <span key={i} className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-medium">
+                                    <span key={i} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-medium">
                                         {r}
                                     </span>
                                 ))}
                             </div>
                         )}
-                        <div className={`max-w-[85%] lg:max-w-[70%] p-4 md:p-6 rounded-2xl text-sm md:text-base leading-7 relative ${
+                        <div className={`max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative ${
                             msg.role === 'user' 
                                 ? 'bg-white/10 text-white rounded-br-sm' 
                                 : 'bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md'
@@ -1099,14 +1099,14 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             )}
 
             {/* Input Bar Section */}
-            <div className="p-4 md:p-6 pb-6 md:pb-8 bg-[#0A0C0F]/95 backdrop-blur-2xl relative z-[130]">
-                <div className="max-w-3xl mx-auto space-y-4">
+            <div className="p-4 md:p-6 lg:p-8 pb-6 md:pb-8 bg-[#0A0C0F]/95 backdrop-blur-2xl relative z-[130] border-t border-white/5">
+                <div className="max-w-4xl mx-auto space-y-4">
                     
                     {/* Active Context Tokens */}
                     {selectedRefs.length > 0 && (
-                        <div className="flex flex-wrap gap-2 animate-reveal">
+                        <div className="flex flex-wrap gap-2 md:gap-3 animate-reveal">
                             {selectedRefs.map(ref => (
-                                <div key={ref.id} className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-3 pr-2 py-1.5 shadow-sm">
+                                <div key={ref.id} className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-3 pr-2 py-2 shadow-sm">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 truncate max-w-[150px]">{ref.title}</span>
                                     <button type="button" onClick={() => toggleRef(ref)} className="p-0.5 rounded hover:bg-emerald-500/20 text-emerald-500 transition-colors">
                                         <IconX className="w-3 h-3" />
@@ -1119,7 +1119,7 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
 
                     <form ref={formRef} onSubmit={handleSend} className="relative group">
                         <div className="absolute inset-0 bg-emerald-500/5 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
-                        <div className="relative flex items-end gap-3 bg-[#161B22] border border-white/10 rounded-[1.5rem] p-2 pl-3 focus-within:border-emerald-500/30 transition-all shadow-xl">
+                        <div className="relative flex items-end gap-3 md:gap-4 bg-[#161B22] border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-2.5 md:p-3 pl-3 md:pl-4 focus-within:border-emerald-500/30 transition-all shadow-xl">
                             <button 
                                 type="button"
                                 onClick={() => {
@@ -1166,21 +1166,25 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                         </div>
                     </form>
                     
-                    <div className="flex items-center justify-between px-2 pt-1">
+                    {/* Mode Selector - More Prominent */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-1">
                          <button
                             type="button"
                             onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
-                            className={`px-3 py-1.5 rounded-full border text-[9px] uppercase font-black tracking-widest transition-all flex items-center gap-2 ${
+                            className={`px-4 py-2.5 rounded-xl border text-[10px] md:text-[11px] uppercase font-black tracking-wider transition-all flex items-center gap-2.5 shadow-lg ${
                                 analysisMode === 'deep'
-                                    ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/5'
-                                    : 'border-white/5 text-gray-600 hover:text-gray-400'
+                                    ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10 shadow-emerald-500/20'
+                                    : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10 hover:border-white/20'
                             }`}
                         >
-                            <div className={`w-1.5 h-1.5 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
-                            {analysisMode === 'deep' ? 'Deep Analysis Mode' : 'Fast Mode'}
+                            <div className={`w-2 h-2 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-gray-500'}`} />
+                            <span>{analysisMode === 'deep' ? 'Deep Analysis' : 'Fast Mode'}</span>
+                            <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                            </svg>
                         </button>
 
-                        <span className="text-[8px] uppercase font-black tracking-[0.2em] text-gray-700 select-none">
+                        <span className="text-[8px] md:text-[9px] uppercase font-black tracking-[0.2em] text-gray-700 select-none">
                             Zen Synthetic Intelligence
                         </span>
                     </div>
