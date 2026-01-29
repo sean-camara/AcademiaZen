@@ -87,7 +87,7 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
   }, [pageNum, renderPage]);
 
   return (
-    <div className="w-full flex flex-col items-center justify-center relative">
+    <>
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center">
           <div className="relative">
@@ -98,13 +98,13 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
           <p className="text-gray-600 text-xs mt-1">Preparing pages for viewing</p>
         </div>
       )}
-      {error && <div className="text-zen-destructive text-sm font-medium">{error}</div>}
+      {error && <div className="text-red-400 text-sm font-medium">{error}</div>}
       <canvas
         ref={canvasRef}
-        className="max-w-full h-auto shadow-2xl rounded-lg"
+        className="max-w-full h-auto shadow-2xl"
         style={{ filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))' }}
       />
-    </div>
+    </>
   );
 };
 
