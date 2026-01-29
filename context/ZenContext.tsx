@@ -144,10 +144,10 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Save state to localStorage with user-specific key to prevent data leakage
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && isHydrated) {
       localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
     }
-  }, [state, user?.uid]);
+  }, [state, user?.uid, isHydrated]);
 
   // Load remote state once user is authenticated
   useEffect(() => {
@@ -158,31 +158,53 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsHydrated(true);
         return;
       }
+      
+      // First, try to load from user-specific localStorage (for offline support)
+      const userLocalKey = `${LOCAL_STORAGE_KEY}_${user.uid}`;
+      const cachedData = localStorage.getItem(userLocalKey);
+      let localState: ZenState | null = null;
+      
+      if (cachedData) {
+        try {
+          localState = JSON.parse(cachedData) as ZenState;
+        } catch (e) {
+          console.warn('[Zen] Failed to parse local cache');
+        }
+      }
+      
       try {
         const response = await apiFetch('/api/state');
         if (!response.ok) throw new Error('Failed to load state');
         const data = await response.json();
         if (!cancelled) {
-          // If server returns state, use it; otherwise reset to initial state for new users
+          // If server returns state, use it
           if (data?.state) {
             setState(data.state as ZenState);
+          } else if (localState) {
+            // No server state but we have local cache for this user - use it
+            setState(localState);
           } else {
-            // New user - reset to clean initial state
+            // New user with no data anywhere - use initial state
             setState(INITIAL_STATE);
           }
         }
       } catch (err) {
-        console.warn('[Zen] Failed to load remote state, resetting to initial state', err);
+        console.warn('[Zen] Failed to load remote state, using local cache if available', err);
         if (!cancelled) {
-          // On error, reset to initial state to avoid data leakage between accounts
-          setState(INITIAL_STATE);
+          // Backend offline - use local cache for this specific user if available
+          if (localState) {
+            setState(localState);
+          } else {
+            // No local cache for this user - new account, use initial state
+            setState(INITIAL_STATE);
+          }
         }
       } finally {
         if (!cancelled) setIsHydrated(true);
       }
     };
 
-    // Reset state immediately when user changes to prevent data leakage
+    // Reset to initial state while loading (prevents showing wrong user's data)
     setState(INITIAL_STATE);
     setIsHydrated(false);
     
