@@ -69,6 +69,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [extensionLoading, setExtensionLoading] = useState(false);
 
+  // ... (Hooks and effects remain largely same but simplified calls)
   useEffect(() => {
     if (state.profile) {
         setLocalName(state.profile.name || '');
@@ -85,9 +86,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     setProfileSaved(false);
-    
     updateProfile({ name: localName, university: localUni });
-    
     try {
         await new Promise(resolve => setTimeout(resolve, 800)); 
         setProfileSaved(true);
@@ -109,9 +108,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   };
 
   const updateBillingState = (nextBilling: BillingInfo | null) => {
-    console.log('[Billing] Updated state:', nextBilling);
-    console.log('[Billing] isActive:', nextBilling?.isActive);
-    console.log('[Billing] status:', nextBilling?.status);
     setBilling(nextBilling);
     const plan = nextBilling?.effectivePlan || 'free';
     window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan, billing: nextBilling } }));
@@ -129,11 +125,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         updateBillingState(statusData.billing);
-        if (statusData.billing?.interval === 'yearly') {
-          setSelectedInterval('yearly');
-        } else if (statusData.billing?.interval === 'monthly') {
-          setSelectedInterval('monthly');
-        }
+        if (statusData.billing?.interval === 'yearly') setSelectedInterval('yearly');
+        else if (statusData.billing?.interval === 'monthly') setSelectedInterval('monthly');
       }
 
       if (plansRes.ok) {
@@ -141,7 +134,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         setBillingPlans(plansData.plans);
       }
     } catch (err) {
-      console.error('[Billing] Load failed:', err);
       setBillingError('Unable to load billing details.');
     } finally {
       setBillingLoading(false);
@@ -158,7 +150,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         if (data.billing) updateBillingState(data.billing);
       }
     } catch (err) {
-      console.error('[Billing] Refresh failed:', err);
       setBillingError('Unable to refresh billing.');
     } finally {
       setBillingLoading(false);
@@ -191,7 +182,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         throw new Error('Missing checkout URL');
       }
     } catch (err) {
-      console.error('[Billing] Checkout error:', err);
       setBillingError(err instanceof Error ? err.message : 'Unable to start checkout.');
     } finally {
       setBillingMethodLoading(null);
@@ -212,7 +202,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       if (!res.ok) throw new Error('Update failed');
       setBilling(prev => prev ? { ...prev, autoRenew: nextValue } : prev);
     } catch (err) {
-      console.error('[Billing] Auto-renew error:', err);
       setBillingError('Unable to update auto-renew.');
     } finally {
       setBillingLoading(false);
@@ -232,7 +221,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       if (data.billing) updateBillingState(data.billing);
       setBillingNotice('Subscription canceled. You will retain access until the period ends.');
     } catch (err) {
-      console.error('[Billing] Cancel failed:', err);
       setBillingError('Unable to cancel subscription.');
     } finally {
       setBillingCancelLoading(false);
@@ -262,7 +250,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     loadBilling();
   }, [activeTab]);
 
-  // Helper: Check if subscription is near expiry (within 7 days)
   const isNearExpiry = (billing: BillingInfo | null): boolean => {
     if (!billing?.currentPeriodEnd) return false;
     const expiryDate = new Date(billing.currentPeriodEnd);
@@ -271,13 +258,11 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
   };
 
-  // Helper: Check if extension is allowed
   const canExtend = (billing: BillingInfo | null): boolean => {
     if (!billing) return false;
-    return billing.status === 'active' && !billing.autoRenew && isNearExpiry(billing);
+    return billing.isActive && !billing.autoRenew && isNearExpiry(billing);
   };
 
-  // Handle manual extension
   const handleExtension = async () => {
     setExtensionLoading(true);
     setBillingError('');
@@ -286,8 +271,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          interval: billing?.interval || 'monthly',
-          method: 'gcash', // Default to gcash for extension
+           interval: billing?.interval || 'monthly',
+           method: 'gcash',
         }),
       });
 
@@ -303,7 +288,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         throw new Error('Missing checkout URL');
       }
     } catch (err) {
-      console.error('[Billing] Extension error:', err);
       setBillingError(err instanceof Error ? err.message : 'Unable to extend subscription.');
     } finally {
       setExtensionLoading(false);
@@ -338,101 +322,87 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   };
 
   const tabs = [
-      { id: 'focus', label: 'Focus Timer', icon: <IconFocus className="w-5 h-5" />, desc: 'Configure focus and sounds' },
-      { id: 'notifications', label: 'Notifications', icon: <IconBot className="w-5 h-5" />, desc: 'Manage your alerts' },
-      { id: 'billing', label: 'Billing', icon: <IconCreditCard className="w-5 h-5" />, desc: 'Upgrade your plan' },
-      { id: 'profile', label: 'Profile', icon: <IconSettings className="w-5 h-5" />, desc: 'Update your personal info' },
-      { id: 'data', label: 'Account', icon: <IconLibrary className="w-5 h-5" />, desc: 'Manage your data' }
+      { id: 'focus', label: 'Focus', icon: IconFocus },
+      { id: 'notifications', label: 'Alerts', icon: IconBot },
+      { id: 'billing', label: 'Plans', icon: IconCreditCard },
+      { id: 'profile', label: 'Me', icon: IconSettings },
+      { id: 'data', label: 'Data', icon: IconLibrary }
   ];
 
   return (
-    <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-2xl z-[150] flex items-center justify-center animate-fade-in md:p-10">
-        <div className="bg-zen-bg w-full h-full md:max-w-6xl md:h-[80vh] md:rounded-[3rem] overflow-hidden border-none md:border border-zen-surface shadow-2xl flex flex-col md:flex-row animate-scale-in">
+    <div className="fixed inset-0 z-[150] flex flex-col items-center justify-end md:justify-center animate-fade-in">
+        {/* Backdrop */}
+        <div 
+            className="absolute inset-0 bg-[#050505]/60 backdrop-blur-xl transition-all" 
+            onClick={onClose}
+        />
+        
+        {/* Main Panel - Zen Control Center */}
+        <div className="relative w-full md:w-auto h-[92vh] md:h-auto md:max-h-[85vh] md:aspect-[1.3/1] md:min-w-[950px] flex flex-col bg-[#0D1117]/80 backdrop-blur-2xl border-t md:border border-white/5 rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up-mobile md:animate-scale-in">
             
-            {/* Navigation (Sidebar Desktop / Top Mobile) */}
-            <div className="md:w-80 md:border-r border-zen-surface flex flex-col bg-zen-card/30">
-                {/* Header (Always Visible) */}
-                <div className="p-8 pb-4 flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zen-primary/20 flex items-center justify-center text-zen-primary">
-                            <IconSettings className="w-5 h-5" />
-                        </div>
-                        <h2 className="text-xl font-bold text-zen-text-primary tracking-tight">Settings</h2>
-                     </div>
-                     <button onClick={onClose} className="md:hidden p-2 text-zen-text-secondary bg-zen-surface rounded-full">
+            {/* Header & Navigation */}
+            <div className="flex-none p-6 md:p-8 md:pb-6 flex flex-col gap-6 md:gap-8 z-10 border-b border-white/5 bg-[#0D1117]/50">
+                <div className="flex items-center justify-between pl-2">
+                    <h2 className="text-xl md:text-2xl font-light text-white tracking-tight flex items-center gap-3">
+                        <IconSettings className="w-6 h-6 text-emerald-500" />
+                        Settings
+                    </h2>
+                    <button 
+                        onClick={onClose}
+                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all transform hover:rotate-90"
+                    >
                         <IconX className="w-5 h-5" />
-                     </button>
+                    </button>
                 </div>
 
-                {/* Tabs Grid (Mobile) */}
-                <div className="md:hidden grid grid-cols-2 gap-2 px-4 py-3 border-b border-zen-surface/30">
-                     {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`flex flex-col items-center justify-center gap-1 py-2.5 px-3 rounded-xl transition-all ${activeTab === tab.id ? 'bg-zen-primary text-zen-bg shadow-glow' : 'bg-zen-surface text-zen-text-disabled uppercase text-[8px] font-black tracking-widest'}`}
-                        >
-                            <span className="text-[11px]">{tab.label}</span>
-                        </button>
-                     ))}
-                </div>
-
-                {/* Nav Items (Desktop) */}
-                <nav className="hidden md:flex flex-col flex-1 p-6 space-y-2">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`group w-full flex flex-col items-start gap-1 px-6 py-5 rounded-[2rem] transition-all relative overflow-hidden ${activeTab === tab.id ? 'bg-zen-primary text-zen-bg shadow-lg shadow-zen-primary/10' : 'text-zen-text-secondary hover:bg-zen-surface hover:text-zen-text-primary'}`}
-                        >
-                            <span className={`text-base font-medium leading-none ${activeTab === tab.id ? 'text-zen-bg' : 'text-zen-text-primary group-hover:text-zen-primary'}`}>{tab.label}</span>
-                            <span className={`text-[10px] font-medium opacity-60 leading-none ${activeTab === tab.id ? 'text-zen-bg' : 'text-zen-text-disabled'}`}>{tab.desc}</span>
-                        </button>
-                    ))}
-                </nav>
-
-                <div className="p-6 md:p-8 border-t border-zen-surface/30">
-                     <button 
-                        onClick={() => setShowLogoutConfirm(true)}
-                        className="flex items-center gap-2.5 md:gap-3 w-full px-4 py-3 md:p-4 rounded-xl md:rounded-2xl bg-red-400/5 text-red-400 hover:bg-red-400/10 transition-all border border-red-400/20 group"
-                     >
-                        <IconLogOut className="w-4 h-4 md:w-5 md:h-5 group-hover:rotate-12 transition-transform" />
-                        <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest">Logout</span>
-                     </button>
+                {/* Pill Navigation */}
+                <div className="flex items-center justify-center">
+                    <div className="flex items-center gap-1 p-1.5 rounded-2xl bg-[#000000]/30 border border-white/5 overflow-x-auto no-scrollbar max-w-full">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`relative px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2.5 ${
+                                    activeTab === tab.id 
+                                        ? 'bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                }`}
+                            >
+                                <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-emerald-500' : 'opacity-70'}`} />
+                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500 opacity-50" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto no-scrollbar relative flex flex-col p-6 md:p-12 lg:p-16">
-                
-                <div className="hidden md:flex justify-end mb-12 absolute top-10 right-10">
-                    <button onClick={onClose} className="p-3 text-zen-text-secondary hover:text-zen-text-primary bg-zen-surface rounded-full transition-all hover:scale-110 active:scale-90">
-                        <IconX className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <div className="max-w-2xl mx-auto w-full space-y-12">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 bg-gradient-to-b from-transparent to-black/20">
+                <div className="max-w-4xl mx-auto space-y-8 min-h-full pb-10">
                     
-                    {/* Page Header (Desktop) */}
-                    <div className="hidden md:block">
-                         <h3 className="text-[10px] text-zen-primary font-black uppercase tracking-[0.4em] mb-3">Settings / Configuration</h3>
-                         <h2 className="text-4xl lg:text-5xl font-extralight text-zen-text-primary tracking-tight">{tabs.find(t => t.id === activeTab)?.label}</h2>
-                    </div>
-
-                    {/* Content Switcher */}
-                    <div className="animate-reveal">
-                        
-                        {/* Focus Settings */}
-                        {activeTab === 'focus' && (
-                            <div className="space-y-8 md:space-y-12">
-                                <section>
-                                    <h4 className="text-[9px] text-zen-text-disabled uppercase font-black tracking-[0.2em] mb-3 ml-2">Focus Duration</h4>
+                    {/* Focus Settings */}
+                    {activeTab === 'focus' && (
+                        <div className="animate-reveal space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Focus Duration */}
+                                <section className="p-8 rounded-[2rem] bg-white/5 border border-white/5 hover:border-white/10 transition-all">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center"><IconFocus className="w-4 h-4 text-emerald-500" /></div>
+                                        <h3 className="text-base font-medium text-white">Focus Duration</h3>
+                                    </div>
                                     <div className="grid grid-cols-3 gap-3">
                                         {FOCUS_DURATIONS.map(dur => (
                                             <button
                                                 key={dur}
                                                 onClick={() => updateSettings({ focusDuration: dur })}
-                                                className={`py-3 md:py-5 rounded-2xl md:rounded-[1.5rem] font-bold transition-all text-sm md:text-lg ${state.settings.focusDuration === dur ? 'bg-zen-primary text-zen-bg shadow-glow-sm scale-[1.02]' : 'bg-zen-card text-zen-text-secondary border border-zen-surface hover:border-zen-primary/30'}`}
+                                                className={`py-4 rounded-2xl text-sm font-bold transition-all ${
+                                                    state.settings.focusDuration === dur 
+                                                        ? 'bg-emerald-500 text-[#091510] shadow-lg shadow-emerald-500/20 scale-[1.02]' 
+                                                        : 'bg-black/20 text-gray-400 hover:bg-white/10 hover:text-white'
+                                                }`}
                                             >
                                                 {dur}m
                                             </button>
@@ -440,383 +410,353 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                     </div>
                                 </section>
 
-                                <section className="p-5 md:p-8 bg-zen-card rounded-3xl md:rounded-[2.5rem] border border-zen-surface flex items-center justify-between group hover:border-zen-primary/30 transition-all">
-                                    <div className="space-y-0.5">
-                                        <span className="text-base md:text-lg font-light text-zen-text-primary block">Auto-Break</span>
-                                        <span className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">Start break automatically after focus</span>
-                                    </div>
-                                    <button 
-                                        onClick={() => updateSettings({ autoBreak: !state.settings.autoBreak })}
-                                        className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${state.settings.autoBreak ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
-                                    >
-                                        <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${state.settings.autoBreak ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
-                                    </button>
-                                </section>
-
-                                <section>
-                                    <h4 className="text-[9px] text-zen-text-disabled uppercase font-black tracking-[0.2em] mb-4 ml-2">Ambience Sounds</h4>
-                                    <div className="grid grid-cols-4 gap-2 md:gap-4">
-                                        {AMBIENCE_OPTIONS.map(opt => (
-                                            <button 
-                                                key={opt.id}
-                                                onClick={() => updateSettings({ ambience: opt.id as any })}
-                                                className={`aspect-square rounded-2xl md:rounded-[2rem] flex flex-col items-center justify-center gap-1.5 md:gap-2 transition-all group ${state.settings.ambience === opt.id ? 'bg-zen-primary/10 border border-zen-primary/50 text-zen-primary' : 'bg-zen-card border border-zen-surface text-zen-text-disabled hover:bg-zen-surface/50'}`}
-                                            >
-                                                <span className="text-xl md:text-2xl group-hover:scale-110 transition-transform">{opt.icon}</span>
-                                                <span className="text-[8px] md:text-[9px] uppercase font-black tracking-widest opacity-60 px-1 text-center line-clamp-1">{opt.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </section>
-                            </div>
-                        )}
-
-                        {/* Notifications Settings */}
-                        {activeTab === 'notifications' && (
-                            <div className="space-y-6 md:space-y-10">
-                                {!pushSupported ? (
-                                  <div className="p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] bg-red-400/5 border border-red-400/20 text-red-400 text-sm text-center font-light">
-                                    Push notifications are not supported on this device.
-                                  </div>
-                                ) : (
-                                    <div className={`p-5 md:p-8 rounded-3xl md:rounded-[2.5rem] border transition-all flex items-center justify-between ${isPushSubscribed ? 'bg-zen-primary/5 border-zen-primary/20 shadow-glow-sm' : 'bg-zen-card border-zen-surface'}`}>
-                                        <div className="space-y-0.5">
-                                            <p className="text-base md:text-lg font-light text-zen-text-primary">Push Notifications</p>
-                                            <p className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">{pushLoading ? 'Updating...' : isPushSubscribed ? 'Notifications Enabled' : 'Disabled'}</p>
+                                {/* Auto Break */}
+                                <section className={`p-8 rounded-[2rem] border transition-all flex flex-col justify-between ${
+                                    state.settings.autoBreak 
+                                        ? 'bg-emerald-500/5 border-emerald-500/20' 
+                                        : 'bg-white/5 border-white/5'
+                                }`}>
+                                   <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className={`text-base font-medium ${state.settings.autoBreak ? 'text-emerald-400' : 'text-white'}`}>Auto-Break Mode</h3>
+                                            <p className="text-xs text-gray-400 mt-2 leading-relaxed">Automatically start a break timer when your focus session completes.</p>
                                         </div>
                                         <button 
-                                            onClick={handlePushToggle}
-                                            disabled={pushLoading || pushPermission === 'denied'}
-                                            className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${isPushSubscribed ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
+                                            onClick={() => updateSettings({ autoBreak: !state.settings.autoBreak })}
+                                            className={`w-12 h-7 rounded-full p-1 transition-all flex-shrink-0 ${state.settings.autoBreak ? 'bg-emerald-500' : 'bg-white/10'}`}
                                         >
-                                            {pushLoading ? (
-                                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                                            ) : (
-                                              <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${isPushSubscribed ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
-                                            )}
+                                            <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${state.settings.autoBreak ? 'translate-x-5' : 'translate-x-0'}`} />
                                         </button>
-                                    </div>
-                                )}
-
-                                {isPushSubscribed && (
-                                    <div className="space-y-3 md:space-y-4 pt-2 md:pt-4">
-                                         {[
-                                             { key: 'deadlineAlerts', label: 'Deadline Alerts', desc: 'Alerts before tasks are due' },
-                                             { key: 'dailyBriefing', label: 'Morning Summary', desc: 'Daily agenda at 08:00' },
-                                             { key: 'studyReminders', label: 'Study Reminders', desc: 'Evening recall reminder at 18:00' },
-                                         ].map(item => (
-                                            <div key={item.key} className="flex items-center justify-between p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-zen-card border border-zen-surface hover:border-zen-primary/20 transition-all">
-                                                <div className="space-y-0.5">
-                                                  <span className="text-sm md:text-base font-light text-zen-text-primary block">{item.label}</span>
-                                                  <span className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">{item.desc}</span>
-                                                </div>
-                                                <button 
-                                                    onClick={() => updateSettings({ [item.key]: !state.settings[item.key as keyof typeof state.settings] })}
-                                                    className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${(state.settings as any)[item.key] ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
-                                                >
-                                                    <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${(state.settings as any)[item.key] ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
-                                                </button>
-                                            </div>
-                                         ))}
-                                         
-                                         <button 
-                                            onClick={() => testNotification('System Check', { body: 'Notifications are working correctly.' })}
-                                            className="w-full mt-4 md:mt-8 py-3 md:py-4 rounded-xl md:rounded-2xl bg-zen-surface text-zen-text-disabled text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] border border-zen-surface hover:border-zen-primary/20 transition-all active:scale-95"
-                                         >
-                                             Send Test Notification
-                                         </button>
-                                    </div>
-                                )}
+                                   </div>
+                                </section>
                             </div>
-                        )}
 
-                        {/* Billing Settings */}
-                        {activeTab === 'billing' && (
-                            <div className="space-y-8 animate-reveal">
-                                {billingNotice && (
-                                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium tracking-wide">
-                                    {billingNotice}
-                                  </div>
-                                )}
-                                {billingError && (
-                                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wide">
-                                    {billingError}
-                                  </div>
-                                )}
+                             {/* Ambience */}
+                             <section className="space-y-4 pt-4">
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 ml-2">Soundscapes</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    {AMBIENCE_OPTIONS.map(opt => (
+                                        <button 
+                                            key={opt.id}
+                                            onClick={() => updateSettings({ ambience: opt.id as any })}
+                                            className={`p-6 rounded-[2rem] border transition-all flex flex-col items-center gap-4 group ${
+                                                state.settings.ambience === opt.id 
+                                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]' 
+                                                    : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white hover:-translate-y-1'
+                                            }`}
+                                        >
+                                            <span className="text-3xl filter drop-shadow-lg group-hover:scale-110 transition-transform duration-300">{opt.icon}</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                             </section>
+                        </div>
+                    )}
 
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-[1fr_1.4fr] lg:gap-8 min-h-[600px]">
-                                    
-                                    {/* Left Column: Free Plan */}
-                                    <div className="p-10 rounded-[2.5rem] bg-[#0A0C0F] border border-zen-surface hover:border-zen-surface-brighter transition-all flex flex-col h-full relative group">
-                                        <div className="mb-auto space-y-6">
-                                            <span className="text-[10px] uppercase tracking-[0.3em] text-zen-text-disabled font-black">Freemium</span>
+                    {/* Notification Settings */}
+                    {activeTab === 'notifications' && (
+                        <div className="animate-reveal space-y-6 max-w-2xl mx-auto">
+                            {!pushSupported ? (
+                                <div className="p-8 rounded-[2rem] bg-red-500/5 border border-red-500/20 text-red-400 text-center">
+                                    <IconX className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    Push notifications are not supported on this device.
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handlePushToggle}
+                                    disabled={pushLoading || pushPermission === 'denied'}
+                                    className={`w-full p-8 rounded-[2rem] border transition-all flex items-center justify-between group ${
+                                        isPushSubscribed 
+                                            ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.1)]' 
+                                            : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                                            isPushSubscribed ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-400'
+                                        }`}>
+                                            <IconBot className="w-6 h-6" />
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className={`text-lg font-medium ${isPushSubscribed ? 'text-white' : 'text-gray-300'}`}>
+                                                Push Notifications
+                                            </h3>
+                                            <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-bold">
+                                                {pushLoading ? 'Updating...' : isPushSubscribed ? 'Active' : 'Disabled'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-14 h-8 rounded-full p-1 transition-all ${isPushSubscribed ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                                        <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${isPushSubscribed ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </div>
+                                </button>
+                            )}
+                            
+                            {isPushSubscribed && (
+                                <div className="grid gap-3 pt-2">
+                                     {[
+                                         { key: 'deadlineAlerts', label: 'Deadline Alerts', desc: 'Get notified before tasks are due' },
+                                         { key: 'dailyBriefing', label: 'Morning Brief', desc: 'Daily agenda summary at 8:00 AM' },
+                                         { key: 'studyReminders', label: 'Study Nudges', desc: 'Review reminders at 6:00 PM' },
+                                     ].map(item => (
+                                        <div key={item.key} className="flex items-center justify-between p-6 rounded-[2rem] bg-white/5 border border-white/5">
                                             <div>
-                                                <h3 className="text-5xl lg:text-6xl font-normal text-white tracking-tight">Free</h3>
-                                                <p className="text-sm text-zen-text-secondary mt-6 leading-relaxed max-w-[200px]">
-                                                    Core planning, focus tools, and basic library features.
-                                                </p>
+                                                <h4 className="text-sm font-medium text-white">{item.label}</h4>
+                                                <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
                                             </div>
+                                            <button 
+                                                onClick={() => updateSettings({ [item.key]: !state.settings[item.key as keyof typeof state.settings] })}
+                                                className={`w-10 h-6 rounded-full p-1 transition-all ${
+                                                    (state.settings as any)[item.key] ? 'bg-emerald-500' : 'bg-white/10'
+                                                }`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                                    (state.settings as any)[item.key] ? 'translate-x-4' : 'translate-x-0'
+                                                }`} />
+                                            </button>
                                         </div>
-                                        
-                                        <div className="mt-12 text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black opacity-40 group-hover:opacity-100 transition-opacity">
-                                            Ideal for light usage
-                                        </div>
-                                    </div>
-
-                                    {/* Right Column: Premium & Management */}
-                                    <div className="space-y-6 flex flex-col">
-                                        
-                                        {/* Premium Card */}
-                                        <div className={`p-10 rounded-[2.5rem] bg-[#0A1A16] border transition-all relative overflow-hidden flex-1 flex flex-col justify-between ${billing?.effectivePlan === 'premium' ? 'border-emerald-500/50 shadow-[0_0_30px_-10px_rgba(16,185,129,0.2)]' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}>
-                                            
-                                            {/* Header */}
-                                            <div className="flex items-start justify-between mb-8">
-                                                <span className="text-[10px] uppercase tracking-[0.35em] text-zen-text-disabled font-black mt-1">Premium</span>
-                                                {billing?.effectivePlan === 'premium' && (
-                                                    <span className="px-3 py-1 rounded-full bg-emerald-500 text-[#091510] text-[10px] uppercase tracking-widest font-black shadow-lg shadow-emerald-500/20">Active</span>
-                                                )}
-                                            </div>
-
-                                            {/* Price */}
-                                            <div className="mb-10">
-                                                <div className="flex items-baseline gap-3">
-                                                    <span className="text-5xl lg:text-6xl font-normal text-white">
-                                                        PHP {selectedInterval === 'yearly' ? '1490' : '149'}
-                                                    </span>
-                                                    <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
-                                                        / {selectedInterval === 'yearly' ? 'MONTH' : 'MONTH'}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-zen-text-secondary mt-4 leading-relaxed max-w-sm">
-                                                    Full access to Zen Intelligence and advanced study workflows.
-                                                </p>
-                                            </div>
-
-                                            {/* Selectors */}
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <button
-                                                    onClick={() => setSelectedInterval('monthly')}
-                                                    className={`p-5 rounded-2xl border text-left transition-all relative group ${selectedInterval === 'monthly' ? 'bg-emerald-500/10 border-emerald-500 text-white' : 'bg-transparent border-zen-surface text-zen-text-disabled hover:border-zen-text-disabled/50'}`}
-                                                >
-                                                    <p className={`text-[9px] uppercase tracking-[0.2em] font-black mb-2 ${selectedInterval === 'monthly' ? 'text-emerald-400' : 'text-zen-text-disabled'}`}>Monthly</p>
-                                                    <p className="text-xl font-medium">PHP 149</p>
-                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-1">Per Month</p>
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedInterval('yearly')}
-                                                    className={`p-5 rounded-2xl border text-left transition-all relative group ${selectedInterval === 'yearly' ? 'bg-emerald-500/10 border-emerald-500 text-white' : 'bg-transparent border-zen-surface text-zen-text-disabled hover:border-zen-text-disabled/50'}`}
-                                                >
-                                                    <p className={`text-[9px] uppercase tracking-[0.2em] font-black mb-2 ${selectedInterval === 'yearly' ? 'text-emerald-400' : 'text-zen-text-disabled'}`}>Yearly</p>
-                                                    <p className="text-xl font-medium">PHP 1490</p>
-                                                    <p className="text-[8px] uppercase tracking-wider opacity-60 mt-1">Per Year</p>
-                                                </button>
-                                            </div>
-
-                                            {/* Actions */}
-                                            {billing?.isActive ? (
-                                                /* Show Manage Subscription for users with active billing (includes both 'active' and 'canceled' status with valid period) */
-                                                <button
-                                                    onClick={() => setShowManageSubscription(true)}
-                                                    className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0"
-                                                >
-                                                    Manage Subscription
-                                                </button>
-                                            ) : (
-                                                /* Show Payment Buttons for users without active billing */
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <button
-                                                        onClick={() => handleCheckout('gcash')}
-                                                        disabled={billingMethodLoading === 'gcash'}
-                                                        className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
-                                                    >
-                                                        {billingMethodLoading === 'gcash' ? 'Processing...' : 'Pay with GCash'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleCheckout('bank')}
-                                                        disabled={billingMethodLoading === 'bank'}
-                                                        className="py-4 rounded-xl bg-[#1A1D21] text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#25282C] active:bg-[#151719] disabled:opacity-60"
-                                                    >
-                                                        {billingMethodLoading === 'bank' ? 'Processing...' : 'Pay with Bank'}
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Current Plan Manager */}
-                                        <div className="p-8 rounded-[2.5rem] bg-[#0D1117] border border-zen-surface space-y-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="text-[9px] uppercase tracking-[0.25em] text-zen-text-disabled font-black">Current Plan</p>
-                                                    <p className="text-xl font-bold text-white tracking-tight">
-                                                        {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    onClick={refreshBilling}
-                                                    disabled={billingLoading}
-                                                    className="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] bg-[#1A1D21] text-zen-text-secondary hover:text-white transition-all disabled:opacity-50"
-                                                >
-                                                    {billingLoading ? '...' : 'Refresh'}
-                                                </button>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-2xl bg-[#161B22]">
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-2">Status</p>
-                                                    <p className="text-base text-white capitalize font-medium">{billing?.status || 'Free'}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-[#161B22]">
-                                                    <p className="text-[9px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold mb-2">
-                                                        {billing?.effectivePlan === 'premium' ? 'Renews / Expires' : 'Renewal'}
-                                                    </p>
-                                                    <p className="text-base text-white font-medium">{billing?.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : '-'}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-[#161B22]">
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">Auto Billing</p>
-                                                    <p className="text-[8px] text-zen-text-disabled uppercase tracking-wider font-bold mt-1">
-                                                      Toggle auto-renewal
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    onClick={handleAutoRenewToggle}
-                                                    disabled={billingLoading || (billing?.effectivePlan !== 'premium' && billing?.status !== 'pending')}
-                                                    className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-white' : 'bg-[#21262D]'}`}
-                                                >
-                                                    <div className={`w-4 h-4 rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%] bg-black' : 'bg-zen-text-disabled'}`} />
-                                                </button>
-                                            </div>
-
-                                            {billing?.effectivePlan === 'premium' && billing?.status === 'active' && (
-                                              <button
-                                                onClick={() => setShowCancelSubscription(true)}
-                                                disabled={billingCancelLoading}
-                                                className="w-full py-4 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10 disabled:opacity-60"
-                                              >
-                                                {billingCancelLoading ? 'Canceling...' : 'Cancel Subscription'}
-                                              </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Identity Settings */}
-                        {activeTab === 'profile' && (
-                            <div className="space-y-6 md:space-y-8">
-                                <div className="grid grid-cols-1 gap-6 md:gap-8">
-                                    <div className="space-y-3 md:space-y-4">
-                                         <label className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black ml-4">Full Name</label>
-                                         <input 
-                                            type="text" 
-                                            placeholder="Your Name"
-                                            value={localName}
-                                            onChange={e => setLocalName(e.target.value)}
-                                            className="w-full bg-zen-card rounded-2xl md:rounded-[2rem] p-4 md:p-6 text-base md:text-lg text-zen-text-primary border border-zen-surface focus:border-zen-primary/50 transition-all outline-none"
-                                         />
-                                    </div>
-                                    <div className="space-y-3 md:space-y-4">
-                                         <label className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase tracking-[0.3em] font-black ml-4">University / School</label>
-                                         <input 
-                                            type="text" 
-                                            placeholder="Your University"
-                                            value={localUni}
-                                            onChange={e => setLocalUni(e.target.value)}
-                                            className="w-full bg-zen-card rounded-2xl md:rounded-[2rem] p-4 md:p-6 text-base md:text-lg text-zen-text-primary border border-zen-surface focus:border-zen-primary/50 transition-all outline-none"
-                                         />
-                                    </div>
-                                    <button 
-                                        onClick={handleSaveProfile}
-                                        disabled={isSavingProfile}
-                                        className={`w-full py-4 md:py-6 rounded-2xl md:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all flex items-center justify-center gap-3 relative overflow-hidden ${
-                                            profileSaved 
-                                            ? 'bg-zen-primary/10 text-zen-primary border border-zen-primary/50' 
-                                            : 'bg-zen-primary text-zen-bg shadow-xl shadow-zen-primary/20 active:scale-[0.98]'
-                                        }`}
-                                    >
-                                        {isSavingProfile ? (
-                                            <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-zen-bg border-t-transparent rounded-full animate-spin" />
-                                        ) : profileSaved ? (
-                                            <>
-                                                <IconCheck className="w-4 h-4 md:w-5 md:h-5" />
-                                                Profile Saved Successfully
-                                            </>
-                                        ) : (
-                                            'Save Profile'
-                                        )}
-                                    </button>
-                                </div>
-                                
-                                <div className="p-5 md:p-8 bg-zen-card rounded-3xl md:rounded-[2.5rem] border border-zen-surface flex items-center justify-between hover:border-zen-primary/20 transition-all">
-                                    <div className="space-y-0.5">
-                                        <span className="text-base md:text-lg font-light text-zen-text-primary block">Daily Quotes</span>
-                                        <span className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-widest">Show daily quotes on your dashboard</span>
-                                    </div>
-                                    <button 
-                                        onClick={() => updateProfile({ quoteEnabled: !state.profile.quoteEnabled })}
-                                        className={`w-12 h-6 md:w-14 md:h-7 rounded-full p-1.5 transition-all ${state.profile.quoteEnabled ? 'bg-zen-primary shadow-glow' : 'bg-zen-surface border border-zen-surface-brighter'}`}
-                                    >
-                                        <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full transition-transform ${state.profile.quoteEnabled ? 'translate-x-[140%] md:translate-x-[150%]' : ''}`} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Core (Data) Settings */}
-                        {activeTab === 'data' && (
-                            <div className="space-y-6 md:space-y-8">
-                                <div className="grid grid-cols-1 gap-4">
-                                    <button
-                                      onClick={() => {
-                                        const data = JSON.stringify(state, null, 2);
-                                        const blob = new Blob([data], { type: 'application/json' });
-                                        const url = URL.createObjectURL(blob);
-                                        const link = document.createElement('a');
-                                        link.href = url;
-                                        link.download = 'zen-backup.json';
-                                        link.click();
-                                        URL.revokeObjectURL(url);
-                                      }}
-                                      className="group flex flex-col items-start p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface hover:border-zen-primary/30 transition-all text-left relative overflow-hidden"
-                                    >
-                                      <span className="text-lg md:text-xl font-light text-zen-text-primary">Backup Data</span>
-                                      <span className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-[0.2em] mt-1.5 md:mt-2">Export your app data as a JSON file</span>
-                                      <div className="absolute right-6 md:right-10 top-1/2 -translate-y-1/2 opacity-5 md:opacity-10 group-hover:opacity-100 group-hover:translate-x-2 transition-all">
-                                          <IconBot className="w-10 h-10 md:w-12 md:h-12" />
-                                      </div>
-                                    </button>
-                                    
-                                    <button
-                                      onClick={() => clearData()}
-                                      className="group flex flex-col items-start p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] bg-zen-card border border-zen-surface hover:border-zen-secondary/30 transition-all text-left relative overflow-hidden"
-                                    >
-                                      <span className="text-lg md:text-xl font-light text-zen-text-primary">Clear App Cache</span>
-                                      <span className="text-[9px] md:text-[10px] text-zen-text-disabled uppercase font-black tracking-[0.2em] mt-1.5 md:mt-2">Reset current session and clear local cache</span>
-                                    </button>
-                                </div>
-                                
-                                <div className="p-8 md:p-12 bg-red-400/5 rounded-3xl md:rounded-[3rem] border border-red-400/20 space-y-4 md:space-y-6">
-                                     <div>
-                                         <h4 className="text-red-400 font-black uppercase tracking-[0.3em] text-[9px] md:text-[10px]">Danger Zone</h4>
-                                         <p className="text-xs md:text-sm text-zen-text-secondary mt-2 md:mt-3 font-light leading-relaxed">This will permanently delete your account and all data. This process cannot be undone.</p>
-                                     </div>
+                                     ))}
+                                     
                                      <button 
-                                        onClick={() => setShowDeleteConfirm(true)}
-                                        className="px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl bg-red-400/10 text-red-400 font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-red-400 hover:text-white transition-all border border-red-400/30"
+                                        onClick={() => testNotification('System Check', { body: 'Notifications are working correctly.' })}
+                                        className="mt-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-all"
                                      >
-                                        Delete My Account
+                                         Send Test Notification
                                      </button>
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Billing Settings */}
+                    {activeTab === 'billing' && (
+                        <div className="animate-reveal space-y-8">
+                             {/* Status Messages */}
+                             {(billingNotice || billingError) && (
+                                <div className={`p-4 rounded-2xl text-xs font-medium text-center ${
+                                    billingError ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                }`}>
+                                    {billingNotice || billingError}
+                                </div>
+                             )}
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
+                                {/* Free Plan Card */}
+                                <div className="p-10 rounded-[2.5rem] bg-[#161B22] border border-white/5 flex flex-col justify-between relative overflow-hidden group">
+                                    <div className="space-y-6 relative z-10">
+                                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white"><IconLibrary className="w-6 h-6" /></div>
+                                        <div>
+                                            <h3 className="text-4xl font-light text-white">Free</h3>
+                                            <p className="text-sm text-gray-400 mt-4 leading-relaxed">Essential tools for personal study planning and focus.</p>
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-0 right-0 p-10 opacity-10 grayscale group-hover:grayscale-0 transition-all duration-500">
+                                        <IconFocus className="w-32 h-32" />
+                                    </div>
+                                </div>
+
+                                {/* Premium Zen Card */}
+                                <div className={`p-10 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between transition-all duration-500 ${
+                                    billing?.effectivePlan === 'premium' 
+                                        ? 'bg-gradient-to-br from-[#0D1117] to-emerald-900/20 border border-emerald-500/30 shadow-[0_0_50px_-10px_rgba(16,185,129,0.15)]' 
+                                        : 'bg-gradient-to-br from-[#0D1117] to-black border border-white/10 hover:border-emerald-500/30'
+                                }`}>
+                                    {/* Background decorative glow */}
+                                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointing-events-none" />
+                                    
+                                    {/* Header */}
+                                    <div className="relative z-10 flex justify-between items-start">
+                                        <div>
+                                            <h3 className="text-lg font-medium text-white flex items-center gap-2">
+                                                Premium
+                                                {billing?.effectivePlan === 'premium' && (
+                                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider">Active</span>
+                                                )}
+                                            </h3>
+                                            <p className="text-xs text-gray-400 mt-1">Unlock Zen Intelligence</p>
+                                        </div>
+                                        {/* Toggle Year/Month */}
+                                        <div className="flex bg-black/40 rounded-lg p-1">
+                                            {(['monthly', 'yearly'] as const).map(interval => (
+                                                <button
+                                                    key={interval}
+                                                    onClick={() => setSelectedInterval(interval)}
+                                                    className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold transition-all ${
+                                                        selectedInterval === interval ? 'bg-white/20 text-white' : 'text-gray-500 hover:text-white'
+                                                    }`}
+                                                >
+                                                    {interval === 'yearly' ? 'Year' : 'Mo'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Price */}
+                                    <div className="relative z-10 py-8">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-5xl font-light text-white tracking-tight">
+                                                ₱{selectedInterval === 'yearly' ? '1490' : '149'}
+                                            </span>
+                                            <span className="text-xl text-gray-500 font-light">
+                                                /{selectedInterval === 'yearly' ? 'yr' : 'mo'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="relative z-10">
+                                        {billing?.isActive ? (
+                                            <button
+                                                onClick={() => setShowManageSubscription(true)}
+                                                className="w-full py-4 rounded-xl bg-white/10 text-white hover:bg-white/20 text-xs font-bold uppercase tracking-widest transition-all backdrop-blur-md"
+                                            >
+                                                Manage Subscription
+                                            </button>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                 <button
+                                                    onClick={() => handleCheckout('gcash')}
+                                                    className="py-4 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+                                                 >
+                                                     {billingMethodLoading === 'gcash' ? '...' : 'GCash'}
+                                                 </button>
+                                                 <button
+                                                    onClick={() => handleCheckout('bank')}
+                                                    className="py-4 rounded-xl bg-white/10 text-white hover:bg-white/20 text-xs font-bold uppercase tracking-widest transition-all"
+                                                 >
+                                                     {billingMethodLoading === 'bank' ? '...' : 'Bank'}
+                                                 </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Profile Settings */}
+                    {activeTab === 'profile' && (
+                        <div className="animate-reveal space-y-8 max-w-2xl mx-auto">
+                            <div className="flex flex-col items-center mb-8">
+                                <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-indigo-400 mb-4 shadow-2xl">
+                                    <IconSettings className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-xl text-white font-light">Student Profile</h3>
+                            </div>
+
+                            <div className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">Full Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={localName}
+                                        onChange={e => setLocalName(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all font-light"
+                                        placeholder="Enter your name"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">University</label>
+                                    <input 
+                                        type="text" 
+                                        value={localUni}
+                                        onChange={e => setLocalUni(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all font-light"
+                                        placeholder="Where do you study?"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-6 rounded-3xl bg-white/5 border border-white/5">
+                                <div>
+                                    <h3 className="text-sm font-medium text-white">Daily Inspiration</h3>
+                                    <p className="text-xs text-gray-500 mt-1">Show me quotes on dashboard</p>
+                                </div>
+                                <button 
+                                    onClick={() => updateProfile({ quoteEnabled: !state.profile.quoteEnabled })}
+                                    className={`w-12 h-7 rounded-full p-1 transition-all ${state.profile.quoteEnabled ? 'bg-purple-500' : 'bg-white/10'}`}
+                                >
+                                    <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${state.profile.quoteEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+
+                            <button 
+                                onClick={handleSaveProfile}
+                                disabled={isSavingProfile}
+                                className={`w-full py-5 rounded-2xl font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
+                                    profileSaved 
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' 
+                                        : 'bg-white text-black hover:bg-gray-200'
+                                }`}
+                            >
+                                {isSavingProfile ? 'Saving...' : profileSaved ? <><IconCheck className="w-4 h-4" />Saved</> : 'Save Changes'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Data Settings */}
+                    {activeTab === 'data' && (
+                        <div className="animate-reveal space-y-8 max-w-2xl mx-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => {
+                                        const data = JSON.stringify(state, null, 2);
+                                        const blob = new Blob([data], { type: 'application/json' });
+                                        const link = document.createElement('a');
+                                        link.href = URL.createObjectURL(blob);
+                                        link.download = 'zen-backup.json';
+                                        link.click();
+                                    }}
+                                    className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-500/50 transition-all text-left group"
+                                >
+                                    <IconSettings className="w-8 h-8 text-indigo-400 mb-4 group-hover:scale-110 transition-transform" />
+                                    <h3 className="text-lg font-medium text-indigo-200">Export Data</h3>
+                                    <p className="text-xs text-indigo-400/60 mt-2 leading-relaxed">Download a JSON backup of your current session.</p>
+                                </button>
+
+                                <button
+                                    onClick={() => clearData()}
+                                    className="p-8 rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-left group"
+                                >
+                                    <IconLibrary className="w-8 h-8 text-gray-300 mb-4 group-hover:scale-110 transition-transform" />
+                                    <h3 className="text-lg font-medium text-white">Clear Cache</h3>
+                                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">Resolve issues by resetting your local session.</p>
+                                </button>
+                            </div>
+
+                            <div className="pt-8 border-t border-white/5">
+                                <button 
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="w-full py-4 rounded-xl border border-red-500/20 text-red-500/80 hover:text-red-400 hover:bg-red-500/5 text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Delete Account
+                                </button>
+                                <p className="text-[10px] text-center text-gray-600 mt-4 max-w-xs mx-auto">
+                                    Irreversible action. All your documents and history will be wiped from our servers.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-none p-6 md:p-8 pt-0 border-t border-white/5 bg-[#0D1117]/80 backdrop-blur-xl">
+                 <div className="flex items-center justify-between max-w-4xl mx-auto w-full pt-4 opacity-50 hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">AcademiaZen v2.0 // Student OS</span>
+                    <button 
+                        onClick={() => setShowLogoutConfirm(true)}
+                        className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest flex items-center gap-2"
+                    >
+                        Log Out
+                        <IconLogOut className="w-3 h-3" />
+                    </button>
                 </div>
             </div>
         </div>
 
+        {/* Existing Modals Reused */}
         <ConfirmModal
             isOpen={showDeleteConfirm}
             onClose={() => setShowDeleteConfirm(false)}
@@ -853,93 +793,67 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             isDangerous
         />
 
-        {/* Manage Subscription Modal */}
+        {/* Manage Subscription Modal for Active Users */}
         {showManageSubscription && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowManageSubscription(false)}>
-                <div className="relative w-full max-w-lg bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
-                    {/* Header */}
-                    <div className="p-8 pb-6 border-b border-white/5">
+                <div className="relative w-full max-w-lg bg-[#0D1117] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-8 pb-6 border-b border-white/5 bg-gradient-to-br from-[#161B22] to-black">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-2xl text-white font-medium">Manage Subscription</h3>
-                            <button onClick={() => setShowManageSubscription(false)} className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+                            <h3 className="text-xl text-white font-medium">Subscription Details</h3>
+                            <button onClick={() => setShowManageSubscription(false)} className="p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-all">
                                 <IconX className="w-5 h-5" />
                             </button>
                         </div>
-                        <p className="text-sm text-gray-400">View and manage your Premium subscription details.</p>
+                        <div className="flex items-center gap-3">
+                             <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">Premium Active</div>
+                             <div className="px-3 py-1 rounded-full bg-white/5 text-gray-400 text-xs font-medium border border-white/5">{billing?.interval === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}</div>
+                        </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-8 pt-6 space-y-6">
-                        {/* Status Grid */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Plan</p>
-                                <p className="text-base text-white capitalize font-medium">
-                                    {billing?.effectivePlan === 'premium' ? 'Premium' : 'Freemium'}
-                                </p>
-                            </div>
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Status</p>
-                                <p className="text-base text-emerald-400 capitalize font-medium">{billing?.status || 'Free'}</p>
-                            </div>
-                        </div>
-
-                        {/* Renewal Date */}
-                        <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
-                                {billing?.autoRenew ? 'Renews On' : 'Expires On'}
-                            </p>
-                            <p className="text-base text-white font-medium">{formatDate(billing?.currentPeriodEnd || null)}</p>
-                        </div>
-
-                        {/* Auto Renewal Toggle */}
+                    <div className="p-8 space-y-6">
                         <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
                             <div>
-                                <p className="text-sm font-medium text-white">Auto Renewal</p>
-                                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold mt-1">
-                                    {billing?.autoRenew ? 'Enabled' : 'Disabled'}
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">
+                                    {billing?.autoRenew ? 'Renews On' : 'Expires On'}
                                 </p>
+                                <p className="text-lg text-white font-light">{formatDate(billing?.currentPeriodEnd || null)}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">State</p>
+                                <p className={`text-lg font-medium capitalize ${billing?.status === 'active' ? 'text-emerald-400' : 'text-yellow-400'}`}>{billing?.status || '-'}</p>
+                            </div>
+                        </div>
+
+                         <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <div>
+                                <p className="text-sm font-medium text-white">Auto Renewal</p>
+                                <p className="text-xs text-gray-500 mt-1">{billing?.autoRenew ? 'You will be charged automatically.' : 'Subscription will end on expiry.'}</p>
                             </div>
                             <button
                                 onClick={handleAutoRenewToggle}
                                 disabled={billingLoading}
-                                className={`w-11 h-6 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-white' : 'bg-[#21262D]'}`}
+                                className={`w-12 h-7 rounded-full p-1 transition-all ${billing?.autoRenew ? 'bg-emerald-500' : 'bg-gray-700'}`}
                             >
-                                <div className={`w-4 h-4 rounded-full shadow-sm transition-transform ${billing?.autoRenew ? 'translate-x-[125%] bg-black' : 'bg-zen-text-disabled'}`} />
+                                <div className={`w-5 h-5 rounded-full shadow-sm transition-transform bg-white ${billing?.autoRenew ? 'translate-x-5' : 'translate-x-0'}`} />
                             </button>
                         </div>
 
-                        {/* Manual Extension (only if conditions met) */}
                         {canExtend(billing) && (
-                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="flex items-start gap-3 mb-3">
-                                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                                        <span className="text-emerald-500 text-xs font-black">!</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-white mb-1">Your subscription expires soon</p>
-                                        <p className="text-xs text-gray-400 mb-3">
-                                            Extend by 1 month for PHP {billing?.interval === 'yearly' ? '1490' : '149'}
-                                        </p>
-                                        <button
-                                            onClick={() => setShowExtensionConfirm(true)}
-                                            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#091510] text-xs font-bold uppercase tracking-wider transition-colors"
-                                        >
-                                            Extend by 1 Month
-                                        </button>
-                                    </div>
-                                </div>
+                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                                <div className="text-emerald-400 text-sm font-medium">Extend for 1 Month</div>
+                                <button
+                                    onClick={() => setShowExtensionConfirm(true)}
+                                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#091510] text-xs font-bold uppercase tracking-wider"
+                                >
+                                    Extend
+                                </button>
                             </div>
                         )}
 
-                        {/* Cancel Button */}
                         {billing?.status === 'active' && (
                             <button
-                                onClick={() => {
-                                    setShowManageSubscription(false);
-                                    setShowCancelSubscription(true);
-                                }}
-                                className="w-full py-4 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-red-500/10"
+                                onClick={() => { setShowManageSubscription(false); setShowCancelSubscription(true); }}
+                                className="w-full py-4 text-xs font-bold text-red-500 hover:text-red-400 uppercase tracking-widest transition-colors"
                             >
                                 Cancel Subscription
                             </button>
@@ -949,53 +863,29 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             </div>
         )}
 
-        {/* Extension Confirmation Modal */}
+        {/* Extension Confirm Modal */}
         {showExtensionConfirm && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[210] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowExtensionConfirm(false)}>
-                <div className="relative w-full max-w-md bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
-                    <div className="p-8 space-y-6">
-                        <div className="text-center space-y-2">
-                            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
-                                <IconCreditCard className="w-8 h-8 text-emerald-500" />
-                            </div>
-                            <h3 className="text-xl text-white font-medium">Confirm Extension</h3>
-                            <p className="text-sm text-gray-400 leading-relaxed">
-                                You will be charged <span className="text-white font-semibold">PHP {billing?.interval === 'yearly' ? '1490' : '149'}</span> to extend your subscription by 1 month.
-                            </p>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2 text-xs text-gray-400">
-                            <div className="flex justify-between">
-                                <span>Current Expiry:</span>
-                                <span className="text-white font-medium">{formatDate(billing?.currentPeriodEnd || null)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>New Expiry:</span>
-                                <span className="text-emerald-400 font-medium">
-                                    {billing?.currentPeriodEnd ? formatDate(new Date(new Date(billing.currentPeriodEnd).setMonth(new Date(billing.currentPeriodEnd).getMonth() + 1)).toISOString()) : '-'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => setShowExtensionConfirm(false)}
-                                disabled={extensionLoading}
-                                className="py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleExtension}
-                                disabled={extensionLoading}
-                                className="py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091510] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
-                            >
-                                {extensionLoading ? 'Processing...' : 'Confirm & Pay'}
-                            </button>
-                        </div>
+             <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[210] flex items-center justify-center p-4" onClick={() => setShowExtensionConfirm(false)}>
+                <div className="w-full max-w-sm bg-[#0D1117] border border-white/10 rounded-[2rem] p-8 text-center space-y-6" onClick={e => e.stopPropagation()}>
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto text-emerald-500 border border-emerald-500/20">
+                        <IconCreditCard className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-medium text-white">Confirm Extension</h3>
+                        <p className="text-sm text-gray-400 mt-2">Charge <strong className="text-white">PHP {billing?.interval === 'yearly' ? '1490' : '149'}</strong> to extend by 1 month?</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => setShowExtensionConfirm(false)} className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase">Cancel</button>
+                        <button 
+                            onClick={handleExtension}
+                            disabled={extensionLoading} 
+                            className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold uppercase"
+                        >
+                            {extensionLoading ? 'Processing' : 'Confirm'}
+                        </button>
                     </div>
                 </div>
-            </div>
+             </div>
         )}
     </div>
   );
