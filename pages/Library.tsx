@@ -5,6 +5,7 @@ import { useZen } from '../context/ZenContext';
 import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary, IconEdit } from '../components/Icons';
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
+import AddKnowledgeModal from '../components/AddKnowledgeModal';
 import { PdfAttachment } from '../types';
 import { uploadPdfToR2, getPdfSignedUrl } from '../utils/pdfStorage';
 
@@ -128,11 +129,6 @@ const Library: React.FC = () => {
   }>({ isOpen: false, title: '', message: '', action: () => {} });
 
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [itemType, setItemType] = useState<'note' | 'pdf'>('note');
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemContent, setNewItemContent] = useState('');
-  const [newItemPdf, setNewItemPdf] = useState<PdfAttachment | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [activeDoc, setActiveDoc] = useState<{ id: string; title: string; type: 'note' | 'pdf'; content?: string; file?: PdfAttachment } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -142,8 +138,7 @@ const Library: React.FC = () => {
   const hidePdfControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeFolder = folders.find(f => f.id === activeFolderId);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   // Hide navbar when viewing documents or adding items
   useEffect(() => {
     const hasModal = activeDoc !== null || isAddingItem || isAddingFolder || isEditingFolder;
@@ -247,25 +242,21 @@ const Library: React.FC = () => {
     setEditingFolderName('');
   };
 
-  const handleSaveItem = () => {
-    if (!activeFolderId || !newItemTitle.trim()) return;
+  const handleSaveItem = (title: string, type: 'note' | 'pdf', content: string, pdf?: PdfAttachment) => {
+    if (!activeFolderId) return;
     const item = {
       id: generateId(),
-      title: newItemTitle.trim() + (itemType === 'note' ? '.txt' : '.pdf'),
-      type: itemType,
-      content: itemType === 'note' ? newItemContent : '',
-      file: itemType === 'pdf' ? (newItemPdf || undefined) : undefined,
+      title: title.trim() + (type === 'note' ? '.txt' : '.pdf'),
+      type: type,
+      content: type === 'note' ? content : '',
+      file: type === 'pdf' ? (pdf || undefined) : undefined,
     };
     addItemToFolder(activeFolderId, item);
-    setIsAddingItem(false); setNewItemTitle(''); setNewItemContent(''); setNewItemPdf(null); setUploadError(null);
+    setIsAddingItem(false);
   };
 
   const resetAddItem = () => {
     setIsAddingItem(false);
-    setNewItemTitle('');
-    setNewItemContent('');
-    setNewItemPdf(null);
-    setUploadError(null);
   };
 
   const openInNewTab = () => {
@@ -403,70 +394,11 @@ const Library: React.FC = () => {
 
         {/* Create Item Modal */}
         {isAddingItem && (
-          <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-6 animate-reveal">
-            <div className="bg-zen-card w-full max-w-xl rounded-[2rem] md:rounded-[2.5rem] border border-zen-primary/30 shadow-2xl p-6 md:p-8 space-y-6 md:space-y-8 animate-reveal overflow-y-auto max-h-full">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl md:text-2xl font-light text-zen-text-primary">Add Knowledge</h3>
-                <button onClick={resetAddItem} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors"><IconX className="w-5 h-5 md:w-6 md:h-6" /></button>
-              </div>
-              
-              <div className="flex bg-zen-surface rounded-xl md:rounded-2xl p-1">
-                <button onClick={() => setItemType('note')} className={`flex-1 py-2 md:py-3 text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all ${itemType === 'note' ? 'bg-zen-bg text-zen-primary shadow-lg' : 'text-zen-text-disabled'}`}>Text Note</button>
-                <button onClick={() => setItemType('pdf')} className={`flex-1 py-2 md:py-3 text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all ${itemType === 'pdf' ? 'bg-zen-bg text-zen-primary shadow-lg' : 'text-zen-text-disabled'}`}>PDF Archive</button>
-              </div>
-
-              <div className="space-y-4 md:space-y-6">
-                <div className="space-y-2 md:space-y-3">
-                  <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Document Title</label>
-                  <input autoFocus placeholder="e.g. Modern Physics Summary" className="w-full bg-zen-surface rounded-xl md:rounded-2xl p-3 md:p-4 text-base md:text-lg text-zen-text-primary focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface transition-all placeholder:text-zen-text-disabled/30" value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} />
-                </div>
-                
-                {itemType === 'note' ? (
-                  <div className="space-y-2 md:space-y-3">
-                    <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Notes Content</label>
-                    <textarea placeholder="Paste or type your knowledge here..." className="w-full h-48 md:h-64 bg-zen-surface rounded-xl md:rounded-2xl p-4 md:p-5 text-zen-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface transition-all placeholder:text-zen-text-disabled/30 text-sm md:text-base" value={newItemContent} onChange={e => setNewItemContent(e.target.value)} />
-                  </div>
-                ) : (
-                  <div className="space-y-2 md:space-y-3">
-                     <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Archive File</label>
-                     <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 md:h-48 border-2 border-dashed border-zen-surface rounded-[1.5rem] md:rounded-[2rem] flex flex-col items-center justify-center gap-2 md:gap-4 cursor-pointer group hover:border-zen-primary/50 transition-all bg-zen-surface/30">
-                        <input type="file" ref={fileInputRef} accept="application/pdf" onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          setUploadError(null);
-                          if (file) {
-                            if (file.type !== 'application/pdf') {
-                              setUploadError('Please select a PDF file.');
-                              return;
-                            }
-                            try {
-                              const uploaded = await uploadPdfToR2(file);
-                              setNewItemPdf(uploaded);
-                              if (!newItemTitle) setNewItemTitle(file.name.replace('.pdf', ''));
-                            } catch (err: any) {
-                              setUploadError(err?.message || 'Upload failed. Please try again.');
-                            }
-                          }
-                        }} className="hidden" />
-                        <div className="w-10 h-10 md:w-14 md:h-14 bg-zen-surface group-hover:bg-zen-primary/10 rounded-full flex items-center justify-center transition-colors">
-                            <IconPaperclip className={`w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:scale-110 ${newItemPdf ? 'text-zen-primary' : 'text-zen-text-disabled'}`} />
-                        </div>
-                        <p className="text-xs md:text-sm font-medium text-zen-text-secondary px-6 truncate w-full text-center">{newItemPdf ? newItemPdf.name : 'Select or drop PDF document'}</p>
-                      </div>
-                      {uploadError && (
-                        <p className="text-zen-destructive text-[10px] font-black uppercase tracking-wider mt-2 ml-1 animate-reveal">{uploadError}</p>
-                      )}
-                  </div>
-                )}
-                
-                <div className="flex gap-4 pt-2 md:pt-4">
-                    <button onClick={resetAddItem} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
-                    <button onClick={handleSaveItem} disabled={!newItemTitle || (itemType === 'pdf' && !newItemPdf)} className="flex-[2] py-3 md:py-4 bg-zen-primary text-zen-bg font-bold uppercase tracking-widest text-xs md:text-sm rounded-xl shadow-lg shadow-zen-primary/20 active:scale-95 transition-all disabled:opacity-30">
-                      Save to Collection
-                    </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AddKnowledgeModal
+            onClose={() => setIsAddingItem(false)}
+            onSave={handleSaveItem}
+            folderName={activeFolder?.name}
+          />
         )}
 
         {/* Document Reader */}
