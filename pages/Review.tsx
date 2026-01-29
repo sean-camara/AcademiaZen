@@ -1455,13 +1455,22 @@ const Review: React.FC = () => {
 
                       {/* Content */}
                       <div className="flex-1">
-                        <h4 className="text-lg md:text-xl font-medium text-zen-text-primary mb-2 line-clamp-2">
+                        <h4 className="text-lg md:text-xl font-medium text-zen-text-primary mb-2 line-clamp-2 leading-tight group-hover:text-zen-primary transition-colors">
                           {reviewer.name}
                         </h4>
-                        <p className="text-xs text-zen-text-disabled mb-1">
-                          {reviewer.questionCount} questions  {reviewer.difficulty}
-                        </p>
-                        <p className="text-xs text-zen-text-disabled line-clamp-1">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-zen-surface text-zen-text-secondary px-2 py-1 rounded-md">
+                            {reviewer.questionCount} Qs
+                          </span>
+                          <span className={'text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ' + 
+                            (reviewer.difficulty === 'easy' ? 'bg-green-500/10 text-green-400' : 
+                             reviewer.difficulty === 'medium' ? 'bg-yellow-500/10 text-yellow-400' : 
+                             'bg-red-500/10 text-red-400')}>
+                            {reviewer.difficulty}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zen-text-disabled line-clamp-1 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-zen-text-disabled/50"></span>
                           {reviewer.sourceName}
                         </p>
                       </div>
@@ -1470,20 +1479,20 @@ const Review: React.FC = () => {
                       <div className="flex items-end justify-between border-t border-zen-surface/50 pt-4 mt-4">
                         <div>
                           {bestScore !== null ? (
-                            <>
-                              <p className="text-xl md:text-2xl font-light text-zen-primary">{bestScore}%</p>
-                              <p className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">Best Score</p>
-                            </>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold mb-0.5">Best Score</span>
+                              <span className="text-2xl font-light text-zen-primary leading-none">{bestScore}%</span>
+                            </div>
                           ) : (
-                            <>
-                              <p className="text-xl md:text-2xl font-light text-zen-text-disabled">-</p>
-                              <p className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">Not Taken</p>
-                            </>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold mb-0.5">Status</span>
+                              <span className="text-sm font-medium text-zen-text-secondary">Not Taken</span>
+                            </div>
                           )}
                         </div>
                         {reviewer.status === 'ready' && (
-                          <div className="p-2 rounded-full bg-zen-surface group-hover:bg-zen-primary group-hover:text-zen-bg text-zen-text-secondary transition-colors">
-                            <IconChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                          <div className="w-8 h-8 rounded-full bg-zen-surface group-hover:bg-zen-primary group-hover:text-zen-bg text-zen-text-secondary flex items-center justify-center transition-all group-hover:scale-110 shadow-sm">
+                            <IconChevronRight className="w-5 h-5" />
                           </div>
                         )}
                         {reviewer.status === 'generating' && (
