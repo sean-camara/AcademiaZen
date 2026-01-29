@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
 import { getGreeting, formatDateFull, generateId } from '../utils/helpers';
-import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical, IconCalendar } from '../components/Icons';
+import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, IconChevronRight, IconRefresh, IconExternalLink, IconEdit, IconTrash, IconMoreVertical, IconCalendar, IconZoomIn, IconZoomOut } from '../components/Icons';
 import { Subject, Task, PdfAttachment } from '../types';
 import AddTaskModal from '../components/AddTaskModal';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
@@ -15,9 +15,40 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sourceUrl, setSourceUrl] = useState<string>('');
+  const [scale, setScale] = useState(1.2);
+  const [showHeader, setShowHeader] = useState(true);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hideHeaderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-hide header on inactivity
+  useEffect(() => {
+    const resetHideTimer = () => {
+      setShowHeader(true);
+      if (hideHeaderTimeoutRef.current) {
+        clearTimeout(hideHeaderTimeoutRef.current);
+      }
+      hideHeaderTimeoutRef.current = setTimeout(() => {
+        setShowHeader(false);
+      }, 3000);
+    };
+
+    const handleMouseMove = () => resetHideTimer();
+    const handleTouchStart = () => resetHideTimer();
+
+    resetHideTimer();
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouchStart);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+      if (hideHeaderTimeoutRef.current) {
+        clearTimeout(hideHeaderTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const viewAll = () => {
     if (!sourceUrl) return;
@@ -126,10 +157,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         throw new Error('Could not get canvas context');
       }
       
-      const viewport = page.getViewport({ scale: 1 });
-      const containerWidth = containerRef.current?.clientWidth || 600;
-      const scale = (containerWidth - 40) / viewport.width; 
-      const scaledViewport = page.getViewport({ scale: Math.min(scale, 2) });
+      const scaledViewport = page.getViewport({ scale });
 
       canvas.height = scaledViewport.height;
       canvas.width = scaledViewport.width;
@@ -159,93 +187,210 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     renderPage(pageNum + 1);
   };
 
+  const handleZoomIn = () => {
+    const newScale = Math.min(scale + 0.25, 3);
+    setScale(newScale);
+    if (pdfDoc) renderPage(pageNum);
+  };
+
+  const handleZoomOut = () => {
+    const newScale = Math.max(scale - 0.25, 0.5);
+    setScale(newScale);
+    if (pdfDoc) renderPage(pageNum);
+  };
+
+  const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPage = parseInt(e.target.value);
+    renderPage(newPage);
+  };
+
+  // Touch gesture handling for swipe
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+
+  const handleTouchStartCanvas = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEndCanvas = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX.current;
+    
+    if (Math.abs(diff) > 50) { // Minimum swipe distance
+      if (diff > 0) {
+        handleNextPage();
+      } else {
+        handlePrevPage();
+      }
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[70] flex flex-col animate-reveal overflow-hidden">
-      <div className="flex justify-between items-center p-4 border-b border-zen-surface bg-zen-bg/80 shrink-0">
-        <div className="flex-1 min-w-0 pr-4">
-           <h3 className="text-sm font-medium text-zen-text-primary truncate">{attachment.name}</h3>
-        </div>
-        <div className="flex items-center gap-2">
-            <button 
+    <div className="fixed inset-0 bg-[#0A0C0F] z-[70] flex flex-col">
+      {/* Floating Auto-Hide Header */}
+      <div 
+        className={`absolute top-0 left-0 right-0 z-10 transition-all duration-300 ${
+          showHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        }`}
+      >
+        <div className="m-3 sm:m-4 backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex-1 min-w-0 pr-4">
+              <h3 className="text-sm font-medium text-white truncate mb-1">{attachment.name}</h3>
+              {totalPages > 0 && (
+                <p className="text-xs text-gray-400">
+                  {totalPages} pages • {Math.round(scale * 100)}% zoom
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
                 onClick={sourceUrl ? viewAll : viewAllLegacy}
-                className="p-2 text-zen-primary hover:bg-zen-primary/10 rounded-lg transition-colors flex items-center gap-1.5 active:scale-95"
-                title="View Full Document"
-            >
+                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all"
+                title="Open in new tab"
+              >
                 <IconExternalLink className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">View All</span>
-            </button>
-            <button onClick={onClose} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors active:scale-95">
-                <IconX className="w-6 h-6" />
-            </button>
+              </button>
+              <button 
+                onClick={onClose} 
+                className="p-2 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-all"
+              >
+                <IconX className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* PDF Canvas with Vignette Effect */}
       <div 
         ref={containerRef}
-        className="flex-1 w-full bg-[#1e1e1e] relative flex items-center justify-center p-4 overflow-hidden"
+        className="flex-1 overflow-auto flex items-center justify-center relative"
+        onTouchStart={handleTouchStartCanvas}
+        onTouchEnd={handleTouchEndCanvas}
       >
+        {/* Vignette overlay */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-radial from-transparent via-transparent to-black/40" />
+        
         {isLoading && !error ? (
-          <div className="text-center space-y-4 animate-reveal">
-            <div className="w-12 h-12 border-2 border-zen-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-zen-text-secondary text-sm">Loading PDF...</p>
+          <div className="text-center z-10">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500/20 border-t-emerald-500 mx-auto mb-4"></div>
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl"></div>
+            </div>
+            <p className="text-gray-400 font-medium">Loading your document...</p>
+            <p className="text-gray-600 text-sm mt-1">Preparing pages for viewing</p>
           </div>
         ) : error ? (
-          <div className="text-center space-y-4 animate-reveal px-4">
-            <div className="w-16 h-16 bg-zen-destructive/10 text-zen-destructive rounded-full flex items-center justify-center mx-auto">
-              <IconX className="w-8 h-8" />
+          <div className="text-center z-10 max-w-md mx-auto px-4">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
+              <IconX className="w-8 h-8 text-red-400" />
             </div>
-            <p className="text-zen-text-secondary text-sm">{error}</p>
-            <div className="flex flex-col gap-2">
-              <button 
-                onClick={sourceUrl ? viewAll : viewAllLegacy} 
-                className="bg-zen-primary text-zen-bg px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90"
-              >
-                Open in Browser
-              </button>
-              <button onClick={onClose} className="text-zen-text-secondary text-sm">Close</button>
-            </div>
+            <p className="text-red-400 font-medium mb-2">Failed to load PDF</p>
+            <p className="text-gray-500 text-sm mb-4">{error}</p>
+            <button 
+              onClick={sourceUrl ? viewAll : viewAllLegacy} 
+              className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium border border-emerald-500/30 transition-all"
+            >
+              Open in Browser
+            </button>
           </div>
         ) : (
-          <div className="relative group max-h-full">
+          <div className="relative p-4">
+            <canvas 
+              ref={canvasRef}
+              className="max-w-full h-auto shadow-2xl rounded-lg"
+              style={{ 
+                filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))',
+              }}
+            />
             {isRendering && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-                <div className="w-8 h-8 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg backdrop-blur-sm">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500/20 border-t-emerald-500"></div>
               </div>
             )}
-            <canvas 
-              ref={canvasRef} 
-              id="pdf-canvas"
-              className={`transition-opacity duration-300 max-w-full ${isRendering ? 'opacity-50' : 'opacity-100'}`}
-            />
           </div>
         )}
       </div>
 
-      <div className="bg-zen-bg/95 border-t border-zen-surface p-4 pb-8 flex justify-center items-center gap-8 shrink-0">
-          <button 
-            onClick={handlePrevPage}
-            disabled={pageNum <= 1 || isRendering}
-            className={`p-2 rounded-lg transition-all ${pageNum <= 1 ? 'text-zen-text-disabled cursor-not-allowed' : 'text-zen-primary hover:bg-zen-primary/10 active:scale-90'}`}
-          >
-              <IconChevronLeft className="w-6 h-6" />
-          </button>
-          
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-zen-surface rounded-full shadow-inner">
-              <span className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold">Page</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg text-zen-primary font-mono font-bold leading-none">{pageNum}</span>
-                <span className="text-xs text-zen-text-disabled leading-none">/ {totalPages || '...'}</span>
+      {/* Bottom Navigation Hub */}
+      {totalPages > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe">
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl max-w-2xl mx-auto">
+            {/* Page Slider */}
+            {totalPages > 1 && (
+              <div className="px-4 pt-3 pb-2">
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                    Page {pageNum}
+                  </span>
+                  <input
+                    type="range"
+                    min="1"
+                    max={totalPages}
+                    value={pageNum}
+                    onChange={handlePageSliderChange}
+                    className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                    style={{
+                      background: `linear-gradient(to right, #64FFDA 0%, #64FFDA ${((pageNum - 1) / (totalPages - 1)) * 100}%, rgb(55, 65, 81) ${((pageNum - 1) / (totalPages - 1)) * 100}%, rgb(55, 65, 81) 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                    of {totalPages}
+                  </span>
+                </div>
               </div>
-          </div>
+            )}
 
-          <button 
-            onClick={handleNextPage}
-            disabled={pageNum >= totalPages || isRendering}
-            className={`p-2 rounded-lg transition-all ${pageNum >= totalPages ? 'text-zen-text-disabled cursor-not-allowed' : 'text-zen-primary hover:bg-zen-primary/10 active:scale-90'}`}
-          >
-              <IconChevronRight className="w-6 h-6" />
-          </button>
-      </div>
+            {/* Controls */}
+            <div className="flex items-center justify-between px-4 py-3">
+              {/* Zoom Controls */}
+              <div className="flex items-center space-x-1 bg-white/5 rounded-xl p-1">
+                <button
+                  onClick={handleZoomOut}
+                  disabled={scale <= 0.5}
+                  className="p-2.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Zoom out"
+                >
+                  <IconZoomOut className="w-5 h-5" />
+                </button>
+                <div className="px-3 py-1 text-xs font-medium text-gray-400 min-w-[3rem] text-center">
+                  {Math.round(scale * 100)}%
+                </div>
+                <button
+                  onClick={handleZoomIn}
+                  disabled={scale >= 3}
+                  className="p-2.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Zoom in"
+                >
+                  <IconZoomIn className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Page Navigation */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={pageNum <= 1 || isRendering}
+                  className="p-3 bg-white/5 hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center space-x-2 border border-white/10"
+                >
+                  <IconChevronLeft className="w-5 h-5" />
+                  <span className="hidden sm:inline text-sm font-medium">Prev</span>
+                </button>
+                
+                <button
+                  onClick={handleNextPage}
+                  disabled={pageNum >= totalPages || isRendering}
+                  className="p-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center space-x-2 border border-emerald-500/30"
+                >
+                  <span className="hidden sm:inline text-sm font-medium">Next</span>
+                  <IconChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

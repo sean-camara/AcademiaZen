@@ -63,3 +63,41 @@
 .custom-scrollbar::-webkit-scrollbar-corner {
     background: transparent;
 }
+/* Range Slider Thumb Styles for PDF Viewer */
+input[type="range"].slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #64FFDA;
+    cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(100, 255, 218, 0.2);
+    transition: all 0.15s ease;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 6px rgba(100, 255, 218, 0.3);
+    transform: scale(1.1);
+}
+
+input[type="range"].slider-thumb::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #64FFDA;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 0 4px rgba(100, 255, 218, 0.2);
+    transition: all 0.15s ease;
+}
+
+input[type="range"].slider-thumb::-moz-range-thumb:hover {
+    box-shadow: 0 0 0 6px rgba(100, 255, 218, 0.3);
+    transform: scale(1.1);
+}
