@@ -6,7 +6,7 @@ import { IconPlus, IconChevronLeft, IconChevronRight, IconTrash, IconEdit, IconS
 import { AIReviewer, ReviewerQuestion, QuizAttempt, QuizProgress, ReviewerDifficulty, ReviewerQuestionMode, FolderItem, Folder } from '../types';
 import ConfirmModal from '../components/ConfirmModal';
 import { apiFetch } from '../utils/api';
-import { sendZenNotification } from '../utils/pushNotifications';
+import { showLocalNotification } from '../utils/pushNotifications';
 
 // Loading messages for generation
 const LOADING_MESSAGES = [
@@ -258,11 +258,10 @@ const Review: React.FC = () => {
         status: 'ready'
       });
 
-      showToast('', 'Your AI Reviewer is ready!');
+      showToast('✨', 'Your AI Reviewer is ready!');
       
-      sendZenNotification('AI Reviewer Ready! ', {
-        body: "$+{data.suggestedName || pdfItem.title}" reviewer is ready to use.,
-        url: '/?page=review'
+      showLocalNotification('AI Reviewer Ready! 📚', {
+        body: `"${data.suggestedName || pdfItem.title}" reviewer is ready to use.`,
       });
 
     } catch (err: any) {
