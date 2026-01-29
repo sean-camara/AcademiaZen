@@ -966,11 +966,11 @@ const Home: React.FC = () => {
                             return (
                                 <div key={subject.id} className="relative group animate-reveal stagger-1">
                                     {unchecked > 0 && (
-                                        <span className="absolute -top-2 -right-1 z-20 inline-flex items-center justify-center w-6 h-6 rounded-full bg-zen-primary text-zen-bg text-[10px] font-black shadow-lg ring-4 ring-[#0D1117]">
+                                        <span className="absolute -top-2 -right-2 z-20 inline-flex items-center justify-center w-6 h-6 rounded-full bg-zen-primary text-zen-bg text-[10px] font-black shadow-lg ring-4 ring-[#0D1117]">
                                             {unchecked}
                                         </span>
                                     )}
-                                    <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative overflow-hidden">
+                                    <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative">
                                         <div className="flex justify-between items-center mb-2 z-10 relative">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-8 rounded-full ${subject.color}`} />
