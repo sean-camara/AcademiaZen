@@ -441,7 +441,61 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const systemPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
+            // Detect academic task keywords in document titles and content
+            const isAcademicTask = currentRefs.some(ref => {
+                const titleLower = ref.title.toLowerCase();
+                const contentLower = (ref.content || '').toLowerCase();
+                const combined = `${titleLower} ${contentLower.slice(0, 2000)}`;
+                
+                const taskKeywords = [
+                    'laboratory', 'lab exercise', 'lab activity', 'lab ', 'assignment',
+                    'task', 'exercise', 'activity', 'homework', 'exam', 'quiz',
+                    'problem set', 'worksheet', 'practical', 'assessment',
+                    'instructions:', 'procedure:', 'requirements:', 'deliverables:',
+                    'objective:', 'objectives:', 'submit', 'submission', 'answer the following',
+                    'complete the', 'perform the', 'write a program', 'implement',
+                    'create a', 'develop a', 'design a'
+                ];
+                
+                return taskKeywords.some(keyword => combined.includes(keyword));
+            });
+
+            // Detect ambiguous "do the work" prompts
+            const isAnswerRequest = /^(answer|solve|do|complete|finish|work on|help with)(\s+the|\s+this|\s+my)?\s*(pdf|document|task|assignment|lab|exercise|activity|homework)?$/i.test(userQuery.trim());
+
+            // Activate STUDENT ANSWER MODE if academic task detected or ambiguous answer request
+            const useStudentMode = isAcademicTask || (isAnswerRequest && currentRefs.length > 0);
+
+            let systemPrompt = '';
+            
+            if (useStudentMode) {
+                systemPrompt = `You are Zen, an AI academic assistant operating in STUDENT ANSWER MODE.
+
+CRITICAL DIRECTIVE: The student has uploaded an academic task (lab, assignment, exercise, or homework). Your role is to produce the ACTUAL COMPLETED WORK as if you are the student submitting it.
+
+MANDATORY RULES:
+1. NEVER restate, summarize, or explain the instructions/requirements.
+2. NEVER provide outlines, templates, or "how to approach this" advice.
+3. NEVER use placeholders like "[insert topic]" or "your answer here".
+4. Produce ONLY submission-ready content that directly fulfills each requirement.
+5. If a requirement cannot be generated (e.g., screenshots, diagrams), replace it with a descriptive placeholder:
+   Example: "[Screenshot showing the main interface with toolbar at top and canvas in center]"
+   Do NOT skip the requirement.
+
+FORMATTING:
+- Use '### ' for section headers matching the task structure.
+- Use bullet points (- ) and numbered lists (1. ) as appropriate.
+- Use **bold** for emphasis.
+- Maintain clear, academic writing style.
+
+OUTPUT STRUCTURE:
+- Begin directly with the first requirement's answer.
+- Follow the exact sequence of tasks/questions from the document.
+- Be concrete and specific - no abstract filler.
+
+If the task has multiple parts, number them clearly. Produce complete, submission-quality work.`;
+            } else {
+                systemPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
 
 FORMATTING RULES:
 1. Use '### ' for section headers.
@@ -452,6 +506,7 @@ FORMATTING RULES:
 
 TONE:
 Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.`;
+            }
 
             let userMessage = '';
 
@@ -488,7 +543,9 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
                     Math.floor(MAX_CONTEXT_CHARS / Math.max(resolvedRefs.length, 1))
                 );
 
-                userMessage += "CONTEXT PROVIDED BY STUDENT:\n\n";
+                const contextLabel = useStudentMode ? "ACADEMIC TASK DOCUMENT:" : "CONTEXT PROVIDED BY STUDENT:";
+                userMessage += `${contextLabel}\n\n`;
+                
                 resolvedRefs.forEach(ref => {
                     let content = (ref.content || '').trim();
 
@@ -507,7 +564,15 @@ Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis
             }
             
             setThinkingContext('Formulating response...');
-            userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
+            
+            if (useStudentMode) {
+                userMessage += `\nSTUDENT REQUEST: Complete all tasks/requirements from the document above. Produce submission-ready work.\n`;
+                if (userQuery.trim().length > 0 && !isAnswerRequest) {
+                    userMessage += `Additional context: ${userQuery}`;
+                }
+            } else {
+                userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
+            }
 
             const prompt = `${systemPrompt}\n\n${userMessage}`;
 
