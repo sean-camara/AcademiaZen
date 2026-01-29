@@ -121,13 +121,34 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
   }, [attachment, sourceUrl]);
 
   const renderPage = async (num: number, doc = pdfDoc) => {
-    if (!doc || !canvasRef.current) return;
+    console.log('[PDF] renderPage called:', { num, hasDoc: !!doc, hasCanvas: !!canvasRef.current });
+    
+    if (!doc) {
+      console.error('[PDF] No document available for rendering');
+      setIsRendering(false);
+      return;
+    }
+    
+    if (!canvasRef.current) {
+      console.error('[PDF] Canvas ref not available, retrying...');
+      // Retry after a short delay to allow canvas to mount
+      setTimeout(() => renderPage(num, doc), 50);
+      return;
+    }
+    
     setIsRendering(true);
 
     try {
+      console.log('[PDF] Getting page', num);
       const page = await doc.getPage(num);
+      console.log('[PDF] Page retrieved successfully');
+      
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
       
       const viewport = page.getViewport({ scale: 1 });
       const containerWidth = containerRef.current?.clientWidth || 600;
@@ -142,12 +163,15 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         viewport: scaledViewport,
       };
 
+      console.log('[PDF] Starting render...');
       await page.render(renderContext).promise;
+      console.log('[PDF] Render complete!');
       setPageNum(num);
     } catch (err) {
-      console.error('Render Error:', err);
+      console.error('[PDF] Render Error:', err);
       setError('Error rendering page.');
     } finally {
+      console.log('[PDF] Clearing rendering state');
       setIsRendering(false);
     }
   };
