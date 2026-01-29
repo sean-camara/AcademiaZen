@@ -198,8 +198,10 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       // Calculate responsive scale
       const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
       const baseViewport = page.getViewport({ scale: 1.0 });
-      // Target width: container width minus padding (32px), restricted to max 1200px or actual container width
-      const targetWidth = Math.min(containerWidth - 32, 1200);
+      // Target width: container width minus padding (48px for mobile, 96px for desktop), restricted to max 1000px
+      // This prevents the PDF from looking "too big" on large screens
+      const padding = window.innerWidth < 640 ? 32 : 96;
+      const targetWidth = Math.min(containerWidth - padding, 1000);
       const scale = targetWidth / baseViewport.width;
 
       const viewport = page.getViewport({ scale });
@@ -280,30 +282,30 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     <div className="fixed inset-0 bg-[#0A0C0F] z-[70] flex flex-col">
       {/* Floating Auto-Hide Header */}
       <div 
-        className={`absolute top-6 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[90%] transition-all duration-300 ${
+        className={`absolute top-4 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[95%] transition-all duration-300 ${
           showHeader ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'
         }`}
       >
-        <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl px-6 py-2.5 flex items-center gap-4">
-          <div className="min-w-0 max-w-[200px] sm:max-w-xs">
-            <h3 className="text-xs font-bold text-gray-200 truncate uppercase tracking-wider">{attachment.name}</h3>
+        <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl px-4 py-2 flex items-center gap-3">
+          <div className="min-w-0 max-w-[150px] sm:max-w-xs">
+            <h3 className="text-[10px] font-bold text-gray-200 truncate uppercase tracking-wider">{attachment.name}</h3>
           </div>
           
-          <div className="w-px h-4 bg-white/10 md:block hidden" />
+          <div className="w-px h-3 bg-white/10 md:block hidden" />
 
           <div className="flex items-center gap-1">
             <button 
               onClick={sourceUrl ? viewAll : viewAllLegacy}
-              className="p-1.5 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-full transition-all"
+              className="p-1 text-gray-400 hover:text-emerald-400 hover:bg-white/10 rounded-full transition-all"
               title="Open in new tab"
             >
-              <IconExternalLink className="w-4 h-4" />
+              <IconExternalLink className="w-3.5 h-3.5" />
             </button>
             <button 
               onClick={onClose} 
-              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-full transition-all"
+              className="p-1 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-full transition-all"
             >
-              <IconX className="w-4 h-4" />
+              <IconX className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -312,7 +314,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       {/* PDF Canvas Area */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-24 px-4 scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-16 px-4 scroll-smooth custom-scrollbar"
         onTouchStart={handleTouchStartCanvas}
         onTouchEnd={handleTouchEndCanvas}
       >
@@ -361,22 +363,22 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
       {/* Bottom Navigation Hub */}
       {totalPages > 0 && (
         <div 
-          className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-auto transition-all duration-300 ${
+          className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-auto transition-all duration-300 ${
             showHeader ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'
           }`}
         >
-          <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl p-2 flex items-center gap-3 px-4">
+          <div className="backdrop-blur-xl bg-[#0F1115]/90 border border-white/10 rounded-full shadow-2xl p-1.5 flex items-center gap-2 px-3">
             
             <button
               onClick={handlePrevPage}
               disabled={pageNum <= 1 || isRendering}
-              className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <IconChevronLeft className="w-5 h-5" />
+              <IconChevronLeft className="w-4 h-4" />
             </button>
 
-            <div className="flex flex-col items-center min-w-[120px] sm:min-w-[160px]">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+            <div className="flex flex-col items-center min-w-[100px] sm:min-w-[140px]">
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">
                 Page {pageNum} <span className="text-gray-600">of</span> {totalPages}
               </span>
               <input
@@ -395,9 +397,9 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
             <button
               onClick={handleNextPage}
               disabled={pageNum >= totalPages || isRendering}
-              className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <IconChevronRight className="w-5 h-5" />
+              <IconChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
