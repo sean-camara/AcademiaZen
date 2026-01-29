@@ -609,8 +609,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
 
                                             {/* Actions */}
-                                            {billing?.status === 'active' && billing?.isActive ? (
-                                                /* Show Manage Subscription for ACTIVE users */
+                                            {billing?.isActive ? (
+                                                /* Show Manage Subscription for users with active billing (includes both 'active' and 'canceled' status with valid period) */
                                                 <button
                                                     onClick={() => setShowManageSubscription(true)}
                                                     className="py-4 rounded-xl bg-[#64FFDA] text-black text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:shadow-[0_0_20px_rgba(100,255,218,0.4)] hover:-translate-y-0.5 active:translate-y-0"
@@ -618,7 +618,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                     Manage Subscription
                                                 </button>
                                             ) : (
-                                                /* Show Payment Buttons for non-active users */
+                                                /* Show Payment Buttons for users without active billing */
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <button
                                                         onClick={() => handleCheckout('gcash')}
