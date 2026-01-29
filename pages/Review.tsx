@@ -1252,12 +1252,24 @@ const Review: React.FC = () => {
                 <div className="w-5 h-5 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
                 <span className="text-zen-text-secondary">{LOADING_MESSAGES[loadingMessageIndex]}</span>
               </div>
-              <button
-                onClick={cancelGeneration}
-                className="w-full py-3 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all border-t border-zen-bg/20"
-              >
-                Cancel Generation
-              </button>
+              <div className="flex border-t border-zen-bg/20">
+                <button
+                  onClick={cancelGeneration}
+                  className="flex-1 py-3 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    deleteAIReviewer(selectedReviewer.id);
+                    setSelectedReviewerId(null);
+                    showToast('', 'Reviewer deleted');
+                  }}
+                  className="flex-1 py-3 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all border-l border-zen-bg/20"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           )}
 
@@ -1423,8 +1435,8 @@ const Review: React.FC = () => {
                   return (
                     <div
                       key={reviewer.id}
-                      onClick={() => reviewer.status !== 'generating' && setSelectedReviewerId(reviewer.id)}
-                      className={'group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all '+(reviewer.status !== 'generating' ? 'cursor-pointer hover:-translate-y-1 hover:shadow-xl' : '')+' animate-reveal min-h-[160px] flex flex-col'}
+                      onClick={() => setSelectedReviewerId(reviewer.id)}
+                      className={'group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-xl animate-reveal min-h-[160px] flex flex-col'}
                       style={{ animationDelay: idx * 0.05+'s' }}
                     >
                       {/* Status Badge */}
