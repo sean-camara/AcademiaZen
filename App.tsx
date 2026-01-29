@@ -3,6 +3,7 @@ import { ZenProvider } from './context/ZenContext';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './pages/Auth';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const VerifyEmail: React.FC = () => {
   const { user, resendVerification, signOut } = useAuth();
@@ -123,9 +124,11 @@ const AppInner: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <AuthProvider>
-    <AppInner />
-  </AuthProvider>
+  <ErrorBoundary>
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  </ErrorBoundary>
 );
 
 export default App;
