@@ -1495,8 +1495,8 @@ const Review: React.FC = () => {
         {/* Empty State */}
         {!hasReviewers && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-24 h-24 rounded-full bg-zen-primary/10 flex items-center justify-center mb-6">
-              <span className="text-5xl"></span>
+            <div className="w-24 h-24 rounded-full bg-zen-surface flex items-center justify-center mb-6 overflow-hidden border border-zen-primary/20 shadow-lg shadow-zen-primary/10">
+              <img src="/icons/icon.svg" alt="AcademiaZen" className="w-14 h-14 opacity-90" />
             </div>
             <h3 className="text-xl md:text-2xl font-light text-zen-text-primary mb-2">Create your first AI Reviewer</h3>
             <p className="text-zen-text-secondary max-w-md mb-8">
