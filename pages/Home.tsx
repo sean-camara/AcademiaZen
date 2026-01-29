@@ -46,20 +46,11 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
 
   useEffect(() => {
     const loadPdf = async () => {
-      console.log('[PDF] Starting load process...', { 
-        hasKey: !!attachment?.key, 
-        hasUrl: !!attachment?.url,
-        hasSourceUrl: !!sourceUrl,
-        hasLegacyData: !!(attachment as any)?.data
-      });
-
       try {
         // Step 1: Fetch signed URL if needed
         if (!sourceUrl && attachment?.key) {
-          console.log('[PDF] Fetching signed URL for key:', attachment.key);
           setIsLoading(true);
           const url = attachment.url || await getPdfSignedUrl(attachment.key);
-          console.log('[PDF] Got signed URL:', url);
           setSourceUrl(url);
           return; // Wait for next render with sourceUrl populated
         }
@@ -69,26 +60,21 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         const hasLegacyData = legacyData && String(legacyData).startsWith('data:');
         
         if (!sourceUrl && !hasLegacyData) {
-          console.error('[PDF] No valid PDF source available');
           throw new Error('No PDF source available');
         }
         
-        console.log('[PDF] Loading document...', { sourceUrl: !!sourceUrl, hasLegacyData });
         setIsLoading(true);
         setIsRendering(true);
         
         if (!(window as any).pdfjsLib) {
-          console.error('[PDF] PDF.js library not available');
           throw new Error('PDF library not loaded. Please refresh the page.');
         }
         
         // Step 3: Load PDF document
         let loadingTask;
         if (sourceUrl) {
-          console.log('[PDF] Using URL source');
           loadingTask = (window as any).pdfjsLib.getDocument({ url: sourceUrl, withCredentials: false });
         } else if (hasLegacyData) {
-          console.log('[PDF] Using legacy base64 data');
           const base64Data = String(legacyData).split(',')[1] || '';
           const binaryString = atob(base64Data);
           const len = binaryString.length;
@@ -99,14 +85,10 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
           loadingTask = (window as any).pdfjsLib.getDocument({ data: bytes });
         }
         
-        console.log('[PDF] Awaiting PDF document...');
         const pdf = await loadingTask.promise;
-        console.log('[PDF] PDF loaded successfully, pages:', pdf.numPages);
-        
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setIsLoading(false);
-        console.log('[PDF] Rendering page 1...');
         renderPage(1, pdf);
       } catch (err: any) {
         console.error('[PDF] Load Error:', err);
@@ -120,17 +102,17 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     return () => clearTimeout(timer);
   }, [attachment, sourceUrl]);
 
+    const timer = setTimeout(loadPdf, 100);
+    return () => clearTimeout(timer);
+  }, [attachment, sourceUrl]);
+
   const renderPage = async (num: number, doc = pdfDoc) => {
-    console.log('[PDF] renderPage called:', { num, hasDoc: !!doc, hasCanvas: !!canvasRef.current });
-    
     if (!doc) {
-      console.error('[PDF] No document available for rendering');
       setIsRendering(false);
       return;
     }
     
     if (!canvasRef.current) {
-      console.error('[PDF] Canvas ref not available, retrying...');
       // Retry after a short delay to allow canvas to mount
       setTimeout(() => renderPage(num, doc), 50);
       return;
@@ -139,9 +121,7 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
     setIsRendering(true);
 
     try {
-      console.log('[PDF] Getting page', num);
       const page = await doc.getPage(num);
-      console.log('[PDF] Page retrieved successfully');
       
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
@@ -163,15 +143,12 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
         viewport: scaledViewport,
       };
 
-      console.log('[PDF] Starting render...');
       await page.render(renderContext).promise;
-      console.log('[PDF] Render complete!');
       setPageNum(num);
     } catch (err) {
       console.error('[PDF] Render Error:', err);
       setError('Error rendering page.');
     } finally {
-      console.log('[PDF] Clearing rendering state');
       setIsRendering(false);
     }
   };
