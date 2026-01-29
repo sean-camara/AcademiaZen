@@ -451,6 +451,12 @@ const TaskActionModal: React.FC<{
                     </div>
 
                     <h3 className="text-2xl font-medium text-white mb-3 leading-tight tracking-tight">{task.title}</h3>
+
+                    {task.notes && (
+                      <p className="text-sm text-gray-300/90 leading-relaxed font-light whitespace-pre-wrap mb-4">
+                        {task.notes}
+                      </p>
+                    )}
                     
                     <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
                         <IconCalendar className="w-4 h-4 opacity-70" />
