@@ -832,11 +832,6 @@ const Home: React.FC = () => {
                                         )}
                                     </div>
                                     
-                                    {task.notes && (
-                                        <p className="text-sm text-zen-text-secondary line-clamp-1 mt-3 pl-3 border-l-2 border-zen-surface/50">
-                                            {task.notes}
-                                        </p>
-                                    )}
                                 </div>
                             </div>
                         </li>
