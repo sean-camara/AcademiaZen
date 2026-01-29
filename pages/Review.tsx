@@ -220,16 +220,29 @@ const Review: React.FC = () => {
 
   // Create new reviewer
   const handleCreateReviewer = async () => {
-    if (!selectedPdfId || !selectedFolderId) return;
+    console.log('handleCreateReviewer called', { selectedPdfId, selectedFolderId });
+    
+    if (!selectedPdfId || !selectedFolderId) {
+      console.log('Missing PDF or folder selection');
+      showToast('⚠️', 'Please select a PDF first');
+      return;
+    }
     
     const folder = folders.find(f => f.id === selectedFolderId);
     const pdfItem = folder?.items.find(i => i.id === selectedPdfId);
-    if (!pdfItem || !pdfItem.file) return;
+    console.log('Found folder and PDF:', { folder: folder?.name, pdfItem: pdfItem?.title });
+    
+    if (!pdfItem || !pdfItem.file) {
+      console.log('PDF item or file not found');
+      showToast('❌', 'PDF file not found');
+      return;
+    }
 
     const pdfText = await extractPdfText(pdfItem);
+    console.log('Extracted PDF text length:', pdfText?.length);
     
     if (!pdfText || pdfText.trim().length < 100) {
-      showToast('', "This PDF doesn't contain readable text");
+      showToast('❌', "This PDF doesn't contain readable text. Try a different PDF.");
       return;
     }
 
