@@ -51,6 +51,7 @@ const Review: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingReviewerId, setGeneratingReviewerId] = useState<string | null>(null);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Creation form state
   const [selectedFolderId, setSelectedFolderId] = useState<string>('');
@@ -331,6 +332,9 @@ const Review: React.FC = () => {
     setGeneratingReviewerId(reviewerId);
     setLoadingMessageIndex(0);
 
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       const response = await apiFetch('/api/ai/generate-reviewer', {
         method: 'POST',
@@ -363,6 +367,11 @@ const Review: React.FC = () => {
       });
 
     } catch (err: any) {
+      // Don't show error if it was cancelled by user
+      if (err.name === 'AbortError') {
+        console.log('Generation cancelled by user');
+        return;
+      }
       console.error('Failed to generate reviewer:', err);
       updateAIReviewer({
         ...newReviewer,
@@ -373,6 +382,7 @@ const Review: React.FC = () => {
     } finally {
       setIsGenerating(false);
       setGeneratingReviewerId(null);
+      abortControllerRef.current = null;
     }
 
     setSelectedFolderId('');
@@ -508,6 +518,23 @@ const Review: React.FC = () => {
     });
   };
 
+  // Cancel ongoing generation
+  const cancelGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Remove the generating reviewer
+    if (generatingReviewerId) {
+      deleteAIReviewer(generatingReviewerId);
+    }
+    
+    setIsGenerating(false);
+    setGeneratingReviewerId(null);
+    showToast('', 'Generation cancelled');
+  };
+
   // Regenerate reviewer
   const handleRegenerate = async (reviewer: AIReviewer) => {
     const folder = folders.find(f => f.id === reviewer.sourceFolderId);
@@ -528,10 +555,14 @@ const Review: React.FC = () => {
     setGeneratingReviewerId(reviewer.id);
     setLoadingMessageIndex(0);
 
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       const response = await apiFetch('/api/ai/generate-reviewer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           pdfText,
           config: {
@@ -559,6 +590,11 @@ const Review: React.FC = () => {
       showToast('', 'New questions generated!');
 
     } catch (err: any) {
+      // Don't show error if it was cancelled by user
+      if (err.name === 'AbortError') {
+        console.log('Regeneration cancelled by user');
+        return;
+      }
       updateAIReviewer({
         ...reviewer,
         status: 'error',
@@ -568,6 +604,7 @@ const Review: React.FC = () => {
     } finally {
       setIsGenerating(false);
       setGeneratingReviewerId(null);
+      abortControllerRef.current = null;
     }
   };
 
@@ -1204,11 +1241,17 @@ const Review: React.FC = () => {
           )}
 
           {selectedReviewer.status === 'generating' && (
-            <div className="w-full py-5 bg-zen-surface rounded-2xl text-center mb-8">
-              <div className="flex items-center justify-center gap-3">
+            <div className="w-full bg-zen-surface rounded-2xl mb-8 overflow-hidden">
+              <div className="py-5 flex items-center justify-center gap-3">
                 <div className="w-5 h-5 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
                 <span className="text-zen-text-secondary">{LOADING_MESSAGES[loadingMessageIndex]}</span>
               </div>
+              <button
+                onClick={cancelGeneration}
+                className="w-full py-3 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all border-t border-zen-bg/20"
+              >
+                Cancel Generation
+              </button>
             </div>
           )}
 
@@ -1424,6 +1467,17 @@ const Review: React.FC = () => {
                           <div className="p-2 rounded-full bg-zen-surface group-hover:bg-zen-primary group-hover:text-zen-bg text-zen-text-secondary transition-colors">
                             <IconChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                           </div>
+                        )}
+                        {reviewer.status === 'generating' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cancelGeneration();
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-all"
+                          >
+                            Cancel
+                          </button>
                         )}
                       </div>
                     </div>
