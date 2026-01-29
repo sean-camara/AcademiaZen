@@ -66,6 +66,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [showCancelSubscription, setShowCancelSubscription] = useState(false);
   const [showManageSubscription, setShowManageSubscription] = useState(false);
   const [showExtensionConfirm, setShowExtensionConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [extensionLoading, setExtensionLoading] = useState(false);
 
   useEffect(() => {
@@ -392,7 +393,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                 <div className="p-6 md:p-8 border-t border-zen-surface/30">
                      <button 
-                        onClick={signOut}
+                        onClick={() => setShowLogoutConfirm(true)}
                         className="flex items-center gap-2.5 md:gap-3 w-full px-4 py-3 md:p-4 rounded-xl md:rounded-2xl bg-red-400/5 text-red-400 hover:bg-red-400/10 transition-all border border-red-400/20 group"
                      >
                         <IconLogOut className="w-4 h-4 md:w-5 md:h-5 group-hover:rotate-12 transition-transform" />
@@ -839,6 +840,16 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             message="Your premium access will remain active until the end of your current billing period."
             confirmText="Cancel Subscription"
             cancelText="Keep Premium"
+            isDangerous
+        />
+
+        <ConfirmModal
+            isOpen={showLogoutConfirm}
+            onClose={() => setShowLogoutConfirm(false)}
+            onConfirm={signOut}
+            title="Log out?"
+            message="Are you sure you want to log out of your account?"
+            confirmText="Log Out"
             isDangerous
         />
 
