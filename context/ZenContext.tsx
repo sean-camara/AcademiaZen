@@ -142,9 +142,12 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Save state to localStorage with user-specific key to prevent data leakage
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    if (user?.uid) {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
+    }
+  }, [state, user?.uid]);
 
   // Load remote state once user is authenticated
   useEffect(() => {
@@ -159,16 +162,30 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const response = await apiFetch('/api/state');
         if (!response.ok) throw new Error('Failed to load state');
         const data = await response.json();
-        if (!cancelled && data?.state) {
-          setState(data.state as ZenState);
+        if (!cancelled) {
+          // If server returns state, use it; otherwise reset to initial state for new users
+          if (data?.state) {
+            setState(data.state as ZenState);
+          } else {
+            // New user - reset to clean initial state
+            setState(INITIAL_STATE);
+          }
         }
       } catch (err) {
-        console.warn('[Zen] Failed to load remote state, using local cache', err);
+        console.warn('[Zen] Failed to load remote state, resetting to initial state', err);
+        if (!cancelled) {
+          // On error, reset to initial state to avoid data leakage between accounts
+          setState(INITIAL_STATE);
+        }
       } finally {
         if (!cancelled) setIsHydrated(true);
       }
     };
 
+    // Reset state immediately when user changes to prevent data leakage
+    setState(INITIAL_STATE);
+    setIsHydrated(false);
+    
     loadRemoteState();
 
     return () => {
