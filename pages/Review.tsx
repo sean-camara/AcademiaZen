@@ -624,30 +624,68 @@ const Review: React.FC = () => {
   // --- RENDER: Loading billing status ---
   if (!billingChecked) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-zen-bg">
-        <div className="w-8 h-8 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <>
+        <div className="h-full w-full flex items-center justify-center bg-zen-bg">
+          <div className="w-8 h-8 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+        
+        {/* Global Modals */}
+        <ConfirmModal
+          isOpen={confirmState.isOpen}
+          onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmState.action}
+          title={confirmState.title}
+          message={confirmState.message}
+          isDangerous
+          confirmText="Delete"
+        />
+        {toast && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+            <span className="text-2xl">{toast.emoji}</span>
+            <span className="text-zen-text-primary font-medium">{toast.message}</span>
+          </div>
+        )}
+      </>
     );
   }
 
   // --- RENDER: Premium Paywall ---
   if (!isPremium) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-zen-bg p-6 text-center animate-reveal">
-        <div className="w-20 h-20 rounded-full bg-zen-primary/10 flex items-center justify-center mb-6">
-          <span className="text-4xl"></span>
+      <>
+        <div className="h-full w-full flex flex-col items-center justify-center bg-zen-bg p-6 text-center animate-reveal">
+          <div className="w-20 h-20 rounded-full bg-zen-primary/10 flex items-center justify-center mb-6">
+            <span className="text-4xl"></span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-light text-zen-text-primary mb-3">Premium Feature</h2>
+          <p className="text-zen-text-secondary max-w-md mb-8">
+            AI-powered reviewers are available exclusively for premium members. Upgrade to unlock intelligent quiz generation from your PDFs.
+          </p>
+          <a 
+            href="/?page=settings" 
+            className="px-8 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-105 active:scale-95 transition-all"
+          >
+            Upgrade to Premium
+          </a>
         </div>
-        <h2 className="text-2xl md:text-3xl font-light text-zen-text-primary mb-3">Premium Feature</h2>
-        <p className="text-zen-text-secondary max-w-md mb-8">
-          AI-powered reviewers are available exclusively for premium members. Upgrade to unlock intelligent quiz generation from your PDFs.
-        </p>
-        <a 
-          href="/?page=settings" 
-          className="px-8 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-105 active:scale-95 transition-all"
-        >
-          Upgrade to Premium
-        </a>
-      </div>
+        
+        {/* Global Modals */}
+        <ConfirmModal
+          isOpen={confirmState.isOpen}
+          onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmState.action}
+          title={confirmState.title}
+          message={confirmState.message}
+          isDangerous
+          confirmText="Delete"
+        />
+        {toast && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+            <span className="text-2xl">{toast.emoji}</span>
+            <span className="text-zen-text-primary font-medium">{toast.message}</span>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -657,37 +695,56 @@ const Review: React.FC = () => {
     const { emoji, message } = getScoreMessage(percentage);
 
     return (
-      <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col items-center justify-center p-6 animate-reveal overflow-y-auto">
-        <div className="max-w-lg w-full text-center">
-          <div className="text-7xl mb-6">{emoji}</div>
-          <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary mb-2">{message}</h2>
-          <p className="text-zen-text-secondary mb-8">You scored {correct} out of {total} questions</p>
-          
-          <div className="bg-zen-card rounded-3xl p-8 mb-8 border border-zen-surface">
-            <div className="text-6xl font-light text-zen-primary mb-2">{percentage}%</div>
-            <p className="text-sm text-zen-text-disabled uppercase tracking-widest">Final Score</p>
-          </div>
+      <>
+        <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col items-center justify-center p-6 animate-reveal overflow-y-auto">
+          <div className="max-w-lg w-full text-center">
+            <div className="text-7xl mb-6">{emoji}</div>
+            <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary mb-2">{message}</h2>
+            <p className="text-zen-text-secondary mb-8">You scored {correct} out of {total} questions</p>
+            
+            <div className="bg-zen-card rounded-3xl p-8 mb-8 border border-zen-surface">
+              <div className="text-6xl font-light text-zen-primary mb-2">{percentage}%</div>
+              <p className="text-sm text-zen-text-disabled uppercase tracking-widest">Final Score</p>
+            </div>
 
-          <div className="flex flex-col md:flex-row gap-4">
-            <button
-              onClick={() => {
-                setShowResults(false);
-                setIsQuizActive(false);
-                setSelectedReviewerId(null);
-              }}
-              className="flex-1 py-4 bg-zen-surface text-zen-text-primary rounded-xl font-bold uppercase tracking-wider text-sm hover:bg-zen-surface/80 transition-all"
-            >
-              Back to Reviewers
-            </button>
-            <button
-              onClick={() => startQuiz(selectedReviewer)}
-              className="flex-1 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-            >
-              Retake Quiz
-            </button>
+            <div className="flex flex-col md:flex-row gap-4">
+              <button
+                onClick={() => {
+                  setShowResults(false);
+                  setIsQuizActive(false);
+                  setSelectedReviewerId(null);
+                }}
+                className="flex-1 py-4 bg-zen-surface text-zen-text-primary rounded-xl font-bold uppercase tracking-wider text-sm hover:bg-zen-surface/80 transition-all"
+              >
+                Back to Reviewers
+              </button>
+              <button
+                onClick={() => startQuiz(selectedReviewer)}
+                className="flex-1 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Retake Quiz
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+        
+        {/* Global Modals */}
+        <ConfirmModal
+          isOpen={confirmState.isOpen}
+          onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmState.action}
+          title={confirmState.title}
+          message={confirmState.message}
+          isDangerous
+          confirmText="Delete"
+        />
+        {toast && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+            <span className="text-2xl">{toast.emoji}</span>
+            <span className="text-zen-text-primary font-medium">{toast.message}</span>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -698,9 +755,10 @@ const Review: React.FC = () => {
     const currentAnswer = quizAnswers[question.id];
 
     return (
-      <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col animate-reveal">
-        {/* Progress Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-zen-surface">
+      <>
+        <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col animate-reveal">
+          {/* Progress Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-zen-surface">
           <div className="h-full bg-zen-primary transition-all duration-300" style={{ width: progress+'%' }} />
         </div>
 
@@ -899,6 +957,24 @@ const Review: React.FC = () => {
           </div>
         </div>
       </div>
+        
+      {/* Global Modals */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDangerous
+        confirmText="Delete"
+      />
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+          <span className="text-2xl">{toast.emoji}</span>
+          <span className="text-zen-text-primary font-medium">{toast.message}</span>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -908,16 +984,17 @@ const Review: React.FC = () => {
     const availablePdfs = selectedFolderId ? getPdfsForFolder(selectedFolderId) : [];
 
     return (
-      <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col animate-reveal overflow-y-auto">
-        <div className="p-4 md:p-6 border-b border-zen-surface/30">
-          <div className="max-w-2xl mx-auto flex items-center gap-4">
-            <button 
-              onClick={() => setIsCreating(false)}
-              className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors rounded-full hover:bg-zen-surface"
-            >
-              <IconChevronLeft className="w-6 h-6" />
-            </button>
-            <h2 className="text-xl md:text-2xl font-light text-zen-text-primary">Create AI Reviewer</h2>
+      <>
+        <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col animate-reveal overflow-y-auto">
+          <div className="p-4 md:p-6 border-b border-zen-surface/30">
+            <div className="max-w-2xl mx-auto flex items-center gap-4">
+              <button 
+                onClick={() => setIsCreating(false)}
+                className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors rounded-full hover:bg-zen-surface"
+              >
+                <IconChevronLeft className="w-6 h-6" />
+              </button>
+              <h2 className="text-xl md:text-2xl font-light text-zen-text-primary">Create AI Reviewer</h2>
           </div>
         </div>
 
@@ -1116,6 +1193,24 @@ const Review: React.FC = () => {
           </div>
         </div>
       </div>
+        
+      {/* Global Modals */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDangerous
+        confirmText="Delete"
+      />
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+          <span className="text-2xl">{toast.emoji}</span>
+          <span className="text-zen-text-primary font-medium">{toast.message}</span>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -1126,15 +1221,16 @@ const Review: React.FC = () => {
       : null;
 
     return (
-      <div className="h-full w-full flex flex-col bg-zen-bg animate-reveal overflow-y-auto no-scrollbar desktop-scroll-area p-4 md:p-8 pb-24">
-        <div className="max-w-4xl mx-auto w-full">
-          {/* Header */}
-          <div className="mb-8">
-            <button 
-              onClick={() => setSelectedReviewerId(null)}
-              className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary mb-6 transition-all group"
-            >
-              <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+      <>
+        <div className="h-full w-full flex flex-col bg-zen-bg animate-reveal overflow-y-auto no-scrollbar desktop-scroll-area p-4 md:p-8 pb-24">
+          <div className="max-w-4xl mx-auto w-full">
+            {/* Header */}
+            <div className="mb-8">
+              <button 
+                onClick={() => setSelectedReviewerId(null)}
+                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary mb-6 transition-all group"
+              >
+                <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
               <span className="text-sm font-medium">All Reviewers</span>
             </button>
 
@@ -1318,6 +1414,24 @@ const Review: React.FC = () => {
           )}
         </div>
       </div>
+        
+      {/* Global Modals */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDangerous
+        confirmText="Delete"
+      />
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+          <span className="text-2xl">{toast.emoji}</span>
+          <span className="text-zen-text-primary font-medium">{toast.message}</span>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -1514,26 +1628,26 @@ const Review: React.FC = () => {
             </div>
           </>
         )}
-
-        {/* Confirmation Modal */}
-        <ConfirmModal
-          isOpen={confirmState.isOpen}
-          onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
-          onConfirm={confirmState.action}
-          title={confirmState.title}
-          message={confirmState.message}
-          isDangerous
-          confirmText="Delete"
-        />
-
-        {/* Toast */}
-        {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-            <span className="text-2xl">{toast.emoji}</span>
-            <span className="text-zen-text-primary font-medium">{toast.message}</span>
-          </div>
-        )}
       </div>
+      
+      {/* Global Modals */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDangerous
+        confirmText="Delete"
+      />
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+          <span className="text-2xl">{toast.emoji}</span>
+          <span className="text-zen-text-primary font-medium">{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 };
