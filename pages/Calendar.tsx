@@ -165,51 +165,54 @@ const Calendar: React.FC = () => {
                                 selectedTasks.map((task, idx) => (
                                     <div 
                                         key={task.id} 
-                                        className="group flex items-center gap-3 p-3 bg-zen-card/50 rounded-xl border border-zen-surface/50 hover:border-zen-primary/30 transition-all animate-reveal"
+                                        className="group flex flex-col gap-2 p-4 bg-zen-card/50 rounded-xl border border-zen-surface/50 hover:border-zen-primary/30 transition-all animate-reveal relative"
                                         style={{ animationDelay: `${idx * 0.05}s` }}
                                     >
-                                        <button 
-                                            onClick={() => toggleTask(task.id)}
-                                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-zen-primary border-zen-primary' : 'border-zen-text-secondary hover:border-zen-primary'}`}
-                                        >
-                                            {task.completed && <IconCheck className="w-3.5 h-3.5 text-zen-bg" />}
-                                        </button>
+                                        {/* Subject at top */}
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
+                                            {(state.subjects.find(subject => subject.id === task.subjectId)?.name || 'Unassigned')}
+                                        </span>
                                         
-                                        <div className="flex-1 min-w-0">
-                                            <span className={`text-sm block truncate transition-colors ${task.completed ? 'text-zen-text-disabled line-through opacity-60' : 'text-zen-text-primary'}`}>
+                                        {/* Title and Checkbox Row */}
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => toggleTask(task.id)}
+                                                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-zen-primary border-zen-primary' : 'border-zen-text-secondary hover:border-zen-primary'}`}
+                                            >
+                                                {task.completed && <IconCheck className="w-3.5 h-3.5 text-zen-bg" />}
+                                            </button>
+                                            
+                                            <span className={`text-sm block truncate transition-colors flex-1 ${task.completed ? 'text-zen-text-disabled line-through opacity-60' : 'text-zen-text-primary'}`}>
                                                 {task.title}
                                             </span>
-                                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
-                                                    {(state.subjects.find(subject => subject.id === task.subjectId)?.name || 'Unassigned')}
-                                                </span>
-                                                <span className="text-[10px] text-zen-text-secondary">
-                                                    {new Date(task.dueDate).toLocaleDateString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric',
-                                                    })} at {new Date(task.dueDate).toLocaleTimeString('en-US', {
-                                                        hour: 'numeric',
-                                                        minute: '2-digit',
-                                                    })}
-                                                </span>
-                                            </div>
+
+                                            <button 
+                                                onClick={() => {
+                                                    if (confirmDelete === task.id) {
+                                                        deleteTask(task.id);
+                                                        setConfirmDelete(null);
+                                                    } else {
+                                                        setConfirmDelete(task.id);
+                                                        setTimeout(() => setConfirmDelete(null), 3000);
+                                                    }
+                                                }}
+                                                className={`p-1.5 rounded-lg transition-colors shrink-0 ${confirmDelete === task.id ? 'bg-red-500 text-white' : 'text-zen-text-secondary hover:text-red-400 hover:bg-zen-surface opacity-0 group-hover:opacity-100'}`}
+                                            >
+                                                <IconTrash className="w-4 h-4" />
+                                            </button>
                                         </div>
 
-                                        <button 
-                                            onClick={() => {
-                                                if (confirmDelete === task.id) {
-                                                    deleteTask(task.id);
-                                                    setConfirmDelete(null);
-                                                } else {
-                                                    setConfirmDelete(task.id);
-                                                    setTimeout(() => setConfirmDelete(null), 3000); // clear confirm after 3s
-                                                }
-                                            }}
-                                            className={`p-1.5 rounded-lg transition-colors ${confirmDelete === task.id ? 'bg-red-500 text-white' : 'text-zen-text-secondary hover:text-red-400 hover:bg-zen-surface opacity-0 group-hover:opacity-100'}`}
-                                        >
-                                            <IconTrash className="w-4 h-4" />
-                                        </button>
+                                        {/* Date at bottom */}
+                                        <span className="text-[10px] text-zen-text-secondary">
+                                            {new Date(task.dueDate).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                            })} at {new Date(task.dueDate).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                            })}
+                                        </span>
                                     </div>
                                 ))
                             ) : (
