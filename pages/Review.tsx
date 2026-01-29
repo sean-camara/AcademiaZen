@@ -147,12 +147,18 @@ const Review: React.FC = () => {
   useEffect(() => {
     if (quizProgress && !isQuizActive) {
       const reviewer = aiReviewers.find(r => r.id === quizProgress.reviewerId);
-      if (reviewer && reviewer.status === 'ready') {
+      // Validate the reviewer exists, is ready, has questions, and the saved index is valid
+      if (reviewer && reviewer.status === 'ready' && 
+          reviewer.questions && reviewer.questions.length > 0 &&
+          quizProgress.currentIndex < reviewer.questions.length) {
         setSelectedReviewerId(quizProgress.reviewerId);
         setQuizAnswers(quizProgress.answers as Record<string, string | string[]>);
         setCurrentQuestionIndex(quizProgress.currentIndex);
         setTimeRemaining(quizProgress.timeRemaining);
         setIsQuizActive(true);
+      } else {
+        // Clear invalid quiz progress
+        setQuizProgress(null);
       }
     }
   }, []);
