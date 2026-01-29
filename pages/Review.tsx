@@ -1245,7 +1245,7 @@ const Review: React.FC = () => {
                           type="text"
                           value={newReviewerName}
                           onChange={(e) => setNewReviewerName(e.target.value)}
-                          className="w-full bg-transparent border-b-2 border-zen-primary pb-2 text-3xl md:text-5xl font-light text-zen-text-primary focus:outline-none placeholder-zen-text-disabled/30"
+                          className="w-full bg-transparent border-b-2 border-zen-primary pb-2 text-3xl md:text-5xl font-light text-zen-text-primary focus:outline-none placeholder-zen-text-disabled/30 pr-28"
                           autoFocus
                           placeholder="Reviewer Name"
                         />
