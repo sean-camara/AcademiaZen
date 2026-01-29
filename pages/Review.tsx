@@ -520,18 +520,24 @@ const Review: React.FC = () => {
 
   // Cancel ongoing generation
   const cancelGeneration = () => {
+    // Abort the fetch request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     
-    // Remove the generating reviewer
-    if (generatingReviewerId) {
-      deleteAIReviewer(generatingReviewerId);
-    }
+    // Store the ID before clearing state
+    const reviewerToDelete = generatingReviewerId;
     
+    // Clear generation state first
     setIsGenerating(false);
     setGeneratingReviewerId(null);
+    
+    // Then remove the reviewer
+    if (reviewerToDelete) {
+      deleteAIReviewer(reviewerToDelete);
+    }
+    
     showToast('', 'Generation cancelled');
   };
 
