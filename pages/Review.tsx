@@ -1,6 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
-import { useAuth } from '../context/AuthContext';
 import { generateId } from '../utils/helpers';
 import { IconPlus, IconChevronLeft, IconChevronRight, IconTrash, IconEdit, IconSearch, IconX, IconRefresh, IconClock, IconCheck } from '../components/Icons';
 import { AIReviewer, ReviewerQuestion, QuizAttempt, QuizProgress, ReviewerDifficulty, ReviewerQuestionMode, FolderItem, Folder } from '../types';
@@ -39,8 +38,11 @@ const getScoreMessage = (percentage: number): { emoji: string; message: string }
 
 const Review: React.FC = () => {
   const { state, addAIReviewer, updateAIReviewer, deleteAIReviewer, setQuizProgress, setHideNavbar } = useZen();
-  const { billingStatus } = useAuth();
   const { folders, aiReviewers = [], quizProgress } = state;
+  
+  // Premium status
+  const [isPremium, setIsPremium] = useState(false);
+  const [billingChecked, setBillingChecked] = useState(false);
   
   // Navigation states
   const [selectedReviewerId, setSelectedReviewerId] = useState<string | null>(null);
@@ -84,6 +86,30 @@ const Review: React.FC = () => {
   
   const timerRef = useRef<number | null>(null);
   const loadingIntervalRef = useRef<number | null>(null);
+
+  // Check billing status on mount
+  useEffect(() => {
+    let active = true;
+    apiFetch('/api/billing/status')
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return await res.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const plan = data?.billing?.plan || 'free';
+        const status = data?.billing?.status || 'free';
+        const isActive = !!data?.billing?.isActive;
+        setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
+        setBillingChecked(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsPremium(false);
+        setBillingChecked(true);
+      });
+    return () => { active = false; };
+  }, []);
 
   // Get PDFs from all folders
   const getAllPdfs = useCallback((): { pdf: FolderItem; folder: Folder }[] => {
@@ -179,8 +205,7 @@ const Review: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Check premium status
-  const isPremium = billingStatus?.isActive || billingStatus?.effectivePlan === 'premium';
+  // Premium is now checked via useEffect above
 
   // Get selected reviewer
   const selectedReviewer = aiReviewers.find(r => r.id === selectedReviewerId);
@@ -479,6 +504,15 @@ const Review: React.FC = () => {
     const secs = seconds % 60;
     return mins+':'+secs.toString().padStart(2, '0');
   };
+
+  // --- RENDER: Loading billing status ---
+  if (!billingChecked) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-zen-bg">
+        <div className="w-8 h-8 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // --- RENDER: Premium Paywall ---
   if (!isPremium) {
