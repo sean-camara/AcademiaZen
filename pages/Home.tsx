@@ -883,7 +883,7 @@ const Home: React.FC = () => {
       )}
 
       <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar desktop-scroll-area p-6 lg:p-10 pb-24 lg:pb-10">
-          <div className="max-w-7xl mx-auto space-y-8">
+          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-8">
              
              <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div className="space-y-1">

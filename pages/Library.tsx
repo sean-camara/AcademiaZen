@@ -279,7 +279,7 @@ const Library: React.FC = () => {
       <div className="h-full w-full flex flex-col bg-zen-bg animate-reveal overflow-y-auto no-scrollbar desktop-scroll-area p-0 md:p-10 pb-24">
         {/* Header (Sticky Mobile) */}
         <div className="sticky top-0 z-20 bg-zen-bg/80 backdrop-blur-xl md:static md:bg-transparent p-4 md:p-0 border-b border-zen-surface/30 md:border-none mb-4 md:mb-8">
-            <div className="max-w-6xl mx-auto w-full">
+            <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
                 <button 
                     onClick={() => setActiveFolderId(null)}
                     className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary mb-4 md:mb-6 transition-all group w-fit hover:bg-zen-surface/50 px-3 py-1.5 rounded-lg -ml-3"
@@ -333,7 +333,7 @@ const Library: React.FC = () => {
         />
 
         {/* List of Files */}
-        <div className="px-4 md:px-0 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 pb-24 md:pb-0">
+        <div className="px-4 md:px-0 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-24 md:pb-0">
           {activeFolder.items.map((item, idx) => (
             <div 
               key={item.id} 
@@ -644,7 +644,7 @@ const Library: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col animate-reveal pb-24 overflow-y-auto no-scrollbar desktop-scroll-area p-4 md:p-6 lg:p-10">
-       <div className="max-w-6xl mx-auto w-full">
+       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
            
            {/* Mobile Header (Visible only on small screens) */}
            <div className="md:hidden py-4 mb-4 border-b border-zen-surface/30">
@@ -699,7 +699,7 @@ const Library: React.FC = () => {
                     </h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                      {folders.map((folder, idx) => (
                        <div 
                          key={folder.id} 
