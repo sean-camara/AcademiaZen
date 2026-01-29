@@ -963,16 +963,18 @@ const Home: React.FC = () => {
 
                             return (
                                 <div key={subject.id} className="relative group animate-reveal stagger-1">
+                                    {unchecked > 0 && (
+                                        <span className="absolute -top-2 -right-1 z-20 inline-flex items-center justify-center w-6 h-6 rounded-full bg-zen-primary text-zen-bg text-[10px] font-black shadow-lg ring-4 ring-[#0D1117]">
+                                            {unchecked}
+                                        </span>
+                                    )}
                                     <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative overflow-hidden">
                                         <div className="flex justify-between items-center mb-2 z-10 relative">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-8 rounded-full ${subject.color}`} />
-                                                <h4 className="font-medium text-zen-text-primary">{subject.name}</h4>
+                                                <h4 className="font-medium text-zen-text-primary pr-6">{subject.name}</h4>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {unchecked > 0 && (
-                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zen-primary text-zen-bg text-[10px] font-black">{unchecked}</span>
-                                                )}
                                                 <button onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
                                             </div>
                                         </div>
