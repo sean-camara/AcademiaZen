@@ -954,7 +954,7 @@ const Home: React.FC = () => {
                             </form>
                         )}
 
-                       <div className="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar pr-1">
+                       <div className="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar pr-1 pt-3 -mt-3">
                           {subjects.map((subject, idx) => {
                             const total = tasks.filter(t => t.subjectId === subject.id).length;
                             const completed = tasks.filter(t => t.subjectId === subject.id && t.completed).length;
