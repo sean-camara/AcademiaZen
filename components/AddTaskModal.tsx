@@ -20,7 +20,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
   const getInitialDate = () => {
     if (initialData?.date) {
       const d = new Date(initialData.date);
-      return d.toISOString().split('T')[0];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
     return new Date().toISOString().split('T')[0];
   };
@@ -28,7 +31,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
   const getInitialTime = () => {
     if (initialData?.date) {
       const d = new Date(initialData.date);
-      return d.toTimeString().slice(0, 5);
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
     }
     return '12:00';
   };
