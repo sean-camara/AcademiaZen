@@ -1,36 +1,37 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React from 'react';
 
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  declare state: ErrorBoundaryState;
+  declare props: ErrorBoundaryProps;
+
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
   }
 
-  handleReset = () => {
-    // Clear potentially corrupt state
+  handleReset = (): void => {
     try {
       const zenState = localStorage.getItem('zen-state');
       if (zenState) {
         const parsed = JSON.parse(zenState);
-        // Clear quiz progress which is the most common cause of crashes
         if (parsed.quizProgress) {
           parsed.quizProgress = null;
           localStorage.setItem('zen-state', JSON.stringify(parsed));
@@ -39,17 +40,15 @@ class ErrorBoundary extends Component<Props, State> {
     } catch (e) {
       console.error('Failed to clean state:', e);
     }
-    
-    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
-  handleClearAll = () => {
+  handleClearAll = (): void => {
     localStorage.removeItem('zen-state');
     window.location.reload();
   };
 
-  render() {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
@@ -99,5 +98,3 @@ class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;
