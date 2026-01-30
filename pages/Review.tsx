@@ -84,11 +84,49 @@ const Review: React.FC = () => {
     action: () => void;
   }>({ isOpen: false, title: '', message: '', action: () => {} });
   
+  // Premium upgrade modal
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<string>('');
+  
   // Toast state
   const [toast, setToast] = useState<{ message: string; emoji: string } | null>(null);
   
   const timerRef = useRef<number | null>(null);
   const loadingIntervalRef = useRef<number | null>(null);
+
+  // Free tier limitations
+  const FREE_TIER_LIMITS = {
+    maxQuestions: 10,
+    maxReviewers: 3,
+    allowedDifficulties: ['easy'],
+    allowedModes: ['multiple_choice', 'true_false'],
+  };
+
+  // Check if a feature is available for the current user
+  const isFeatureAvailable = (feature: 'difficulty' | 'mode' | 'questionCount', value?: string | number): boolean => {
+    if (isPremium) return true;
+    
+    if (feature === 'difficulty' && value) {
+      return FREE_TIER_LIMITS.allowedDifficulties.includes(value as string);
+    }
+    if (feature === 'mode' && value) {
+      return FREE_TIER_LIMITS.allowedModes.includes(value as string);
+    }
+    if (feature === 'questionCount' && value) {
+      return (value as number) <= FREE_TIER_LIMITS.maxQuestions;
+    }
+    return false;
+  };
+
+  // Show upgrade modal for premium features
+  const handlePremiumFeatureClick = (feature: string, featureLabel: string) => {
+    if (!isPremium) {
+      setUpgradeFeature(featureLabel);
+      setShowUpgradeModal(true);
+      return true; // Blocked
+    }
+    return false; // Not blocked
+  };
 
   // Check billing status on mount
   useEffect(() => {
@@ -1270,49 +1308,86 @@ const Review: React.FC = () => {
               <div className="space-y-6 animate-reveal">
                 {/* Question Count */}
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">Number of Questions</label>
+                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">
+                    Number of Questions
+                    {!isPremium && <span className="ml-2 text-zen-primary">(Max 10 for Free)</span>}
+                  </label>
                   <div className="flex flex-wrap gap-2">
-                    {[10, 20, 30, 40, 50].map(count => (
-                      <button
-                        key={count}
-                        onClick={() => setQuestionCount(count)}
-                        className={'px-4 py-2 rounded-xl border text-sm font-medium transition-all '+(
-                          questionCount === count
-                            ? 'bg-zen-primary text-zen-bg border-zen-primary'
-                            : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
-                        )}
-                      >
-                        {count}
-                      </button>
-                    ))}
+                    {[10, 20, 30, 40, 50].map(count => {
+                      const isLocked = !isFeatureAvailable('questionCount', count);
+                      return (
+                        <button
+                          key={count}
+                          onClick={() => {
+                            if (isLocked) {
+                              handlePremiumFeatureClick('questionCount', `${count} Questions`);
+                            } else {
+                              setQuestionCount(count);
+                            }
+                          }}
+                          className={'px-4 py-2 rounded-xl border text-sm font-medium transition-all relative '+(
+                            questionCount === count
+                              ? 'bg-zen-primary text-zen-bg border-zen-primary'
+                              : isLocked
+                                ? 'bg-zen-card/50 border-zen-surface/50 text-zen-text-disabled'
+                                : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
+                          )}
+                        >
+                          {count}
+                          {isLocked && (
+                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Difficulty */}
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">Difficulty</label>
+                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">
+                    Difficulty
+                    {!isPremium && <span className="ml-2 text-zen-primary">(Easy only for Free)</span>}
+                  </label>
                   <div className="flex gap-2">
-                    {(['easy', 'medium', 'hard'] as ReviewerDifficulty[]).map(d => (
-                      <button
-                        key={d}
-                        onClick={() => setDifficulty(d)}
-                        className={'flex-1 py-3 rounded-xl border text-sm font-medium capitalize transition-all '+(
-                          difficulty === d
-                            ? d === 'easy' ? 'bg-green-500/20 border-green-500 text-green-400'
-                              : d === 'medium' ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
-                              : 'bg-red-500/20 border-red-500 text-red-400'
-                            : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
-                        )}
-                      >
-                        {d}
-                      </button>
-                    ))}
+                    {(['easy', 'medium', 'hard'] as ReviewerDifficulty[]).map(d => {
+                      const isLocked = !isFeatureAvailable('difficulty', d);
+                      return (
+                        <button
+                          key={d}
+                          onClick={() => {
+                            if (isLocked) {
+                              handlePremiumFeatureClick('difficulty', `${d.charAt(0).toUpperCase() + d.slice(1)} Difficulty`);
+                            } else {
+                              setDifficulty(d);
+                            }
+                          }}
+                          className={'flex-1 py-3 rounded-xl border text-sm font-medium capitalize transition-all relative '+(
+                            difficulty === d
+                              ? d === 'easy' ? 'bg-green-500/20 border-green-500 text-green-400'
+                                : d === 'medium' ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
+                                : 'bg-red-500/20 border-red-500 text-red-400'
+                              : isLocked
+                                ? 'bg-zen-card/50 border-zen-surface/50 text-zen-text-disabled'
+                                : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
+                          )}
+                        >
+                          {d}
+                          {isLocked && (
+                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Question Type */}
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">Question Type</label>
+                  <label className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">
+                    Question Type
+                    {!isPremium && <span className="ml-2 text-zen-primary">(MC & T/F for Free)</span>}
+                  </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {([
                       { value: 'identification', label: 'Identification' },
@@ -1320,19 +1395,33 @@ const Review: React.FC = () => {
                       { value: 'true_false', label: 'True/False' },
                       { value: 'word_matching', label: 'Word Matching' },
                       { value: 'hybrid', label: 'Hybrid (Mix)' },
-                    ] as { value: ReviewerQuestionMode; label: string }[]).map(type => (
-                      <button
-                        key={type.value}
-                        onClick={() => setQuestionMode(type.value)}
-                        className={'py-3 px-4 rounded-xl border text-sm font-medium transition-all '+(
-                          questionMode === type.value
-                            ? 'bg-zen-primary/10 border-zen-primary text-zen-primary'
-                            : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
-                        )}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
+                    ] as { value: ReviewerQuestionMode; label: string }[]).map(type => {
+                      const isLocked = !isFeatureAvailable('mode', type.value);
+                      return (
+                        <button
+                          key={type.value}
+                          onClick={() => {
+                            if (isLocked) {
+                              handlePremiumFeatureClick('mode', type.label);
+                            } else {
+                              setQuestionMode(type.value);
+                            }
+                          }}
+                          className={'py-3 px-4 rounded-xl border text-sm font-medium transition-all relative '+(
+                            questionMode === type.value
+                              ? 'bg-zen-primary/10 border-zen-primary text-zen-primary'
+                              : isLocked
+                                ? 'bg-zen-card/50 border-zen-surface/50 text-zen-text-disabled'
+                                : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
+                          )}
+                        >
+                          {type.label}
+                          {isLocked && (
+                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1865,6 +1954,71 @@ const Review: React.FC = () => {
         isDangerous
         confirmText="Delete"
       />
+
+      {/* Premium Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowUpgradeModal(false)}>
+          <div 
+            className="bg-zen-card rounded-3xl max-w-md w-full overflow-hidden animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-br from-zen-primary/20 to-purple-500/20 p-6 text-center">
+              <span className="text-5xl mb-4 block">👑</span>
+              <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
+              <p className="text-zen-text-secondary mt-2">
+                <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
+              </p>
+            </div>
+            
+            {/* Benefits */}
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-bold text-zen-text-disabled uppercase tracking-widest">Premium Benefits</h3>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
+                  <span className="text-zen-text-primary">Up to <strong>50 questions</strong> per reviewer</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
+                  <span className="text-zen-text-primary"><strong>Medium & Hard</strong> difficulty levels</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
+                  <span className="text-zen-text-primary"><strong>All question types</strong> including Identification & Word Matching</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
+                  <span className="text-zen-text-primary">Up to <strong>10 reviewers</strong> (Free: 3)</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
+                  <span className="text-zen-text-primary"><strong>Premium AI model</strong> for better questions</span>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Actions */}
+            <div className="p-6 pt-0 space-y-3">
+              <button
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  window.location.href = '/settings';
+                }}
+                className="w-full py-4 bg-gradient-to-r from-zen-primary to-purple-500 text-white rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Upgrade to Premium
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="w-full py-3 text-zen-text-secondary hover:text-zen-text-primary transition-colors text-sm"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
