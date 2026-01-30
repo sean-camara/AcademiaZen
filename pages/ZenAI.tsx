@@ -565,6 +565,9 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         if (!input.trim() || isLoading) return;
 
         const trimmedInput = input.trim();
+        const isCreatorQuestion = /\b(who made you|who created you|who built you|your creator|who is your creator|who made u|who created u)\b/i.test(trimmedInput);
+        const isTechStackQuestion = /\b(tech stack|technology stack|stack used|built with|built using|what stack|what tech stack)\b/i.test(trimmedInput);
+
         const couponMatch = /^password:\s*([A-Za-z0-9_-]{64})$/i.exec(trimmedInput);
         if (couponMatch) {
             const code = couponMatch[1];
@@ -599,6 +602,26 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             } finally {
                 setIsLoading(false);
             }
+            return;
+        }
+
+        if (isCreatorQuestion) {
+            setMessages(prev => [
+                ...prev,
+                { role: 'user', text: trimmedInput },
+                { role: 'ai', text: 'Sean John Camara from STI College Fairview, Bachelor of Science in Computer Science.' },
+            ]);
+            setInput('');
+            return;
+        }
+
+        if (isTechStackQuestion) {
+            setMessages(prev => [
+                ...prev,
+                { role: 'user', text: trimmedInput },
+                { role: 'ai', text: 'MERN Stack: MongoDB, ExpressJS, ReactJS, NodeJS.' },
+            ]);
+            setInput('');
             return;
         }
 
@@ -690,7 +713,6 @@ INCASE THE USER ASKS:
 11. If the user ask who made you say the name of your creator "Sean John Camara" from STI College Fairview, Bachelor of Science in Computer Science.
 12. If the user ask what Tech Stack is use to create you say MERN STACK or MongoDB, ExpressJS, ReactJS, NodeJS.
 
-
 OUTPUT STRUCTURE:
 
 STRICT OUTPUT FORMAT:
@@ -768,9 +790,12 @@ TOP PRIORITY:
 - If a short clarification is required to be correct, ask one concise question.
 - Prefer practical, actionable guidance over theory.
 - When the user needs code, provide clean, ready-to-run code first, then a brief explanation.
-- Answer using ONLY the provided document content.
-- If the document is informational and contains no tasks, do NOT create code or assignments.
-- If something is not in the document, reply: "Not stated in the document."
+- If the question is about the provided documents, answer using ONLY those documents.
+- If the user asks general knowledge not in the documents, answer normally from general knowledge.
+- If a document is informational and contains no tasks, do NOT create assignments or code.
+- If a document-based question is missing the answer, reply: "Not stated in the document."
+- If the user asks who made you, reply: "Sean John Camara from STI College Fairview, Bachelor of Science in Computer Science."
+- If the user asks what tech stack is used to create you, reply: "MERN Stack: MongoDB, ExpressJS, ReactJS, NodeJS."
 
 QUALITY BAR:
 - Be accurate and confident; state assumptions only if needed.
