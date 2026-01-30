@@ -696,46 +696,6 @@ const Review: React.FC = () => {
     );
   }
 
-  // --- RENDER: Premium Paywall ---
-  if (!isPremium) {
-    return (
-      <>
-        <div className="h-full w-full flex flex-col items-center justify-center bg-zen-bg p-6 text-center animate-reveal">
-          <div className="w-20 h-20 rounded-full bg-zen-primary/10 flex items-center justify-center mb-6">
-            <span className="text-4xl"></span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-light text-zen-text-primary mb-3">Premium Feature</h2>
-          <p className="text-zen-text-secondary max-w-md mb-8">
-            AI-powered reviewers are available exclusively for premium members. Upgrade to unlock intelligent quiz generation from your PDFs.
-          </p>
-          <a 
-            href="/?page=settings" 
-            className="px-8 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-105 active:scale-95 transition-all"
-          >
-            Upgrade to Premium
-          </a>
-        </div>
-        
-        {/* Global Modals */}
-        <ConfirmModal
-          isOpen={confirmState.isOpen}
-          onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
-          onConfirm={confirmState.action}
-          title={confirmState.title}
-          message={confirmState.message}
-          isDangerous
-          confirmText="Delete"
-        />
-        {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-            <span className="text-2xl">{toast.emoji}</span>
-            <span className="text-zen-text-primary font-medium">{toast.message}</span>
-          </div>
-        )}
-      </>
-    );
-  }
-
   // --- RENDER: Quiz Results ---
   if (showResults && selectedReviewer) {
     const { correct, total, percentage } = calculateScore(selectedReviewer);
