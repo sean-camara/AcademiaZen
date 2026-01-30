@@ -698,7 +698,120 @@ const Review: React.FC = () => {
   // --- RENDER: Quiz Results ---
   if (showResults && selectedReviewer) {
     const { correct, total, percentage } = calculateScore(selectedReviewer);
-    const { emoji, message } = getScoreMessage(percentage);
+    const { emoji, message} = getScoreMessage(percentage);
+    const [showAnswerReview, setShowAnswerReview] = useState(false);
+
+    // Answer review screen
+    if (showAnswerReview) {
+      return (
+        <>
+          <div className="fixed inset-0 bg-zen-bg z-50 flex flex-col animate-reveal">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-zen-surface/30">
+              <button 
+                onClick={() => setShowAnswerReview(false)}
+                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors"
+              >
+                <IconChevronLeft className="w-5 h-5" />
+                <span className="text-sm font-medium">Back to Results</span>
+              </button>
+              <h2 className="text-lg font-light text-zen-text-primary">Answer Review</h2>
+              <div className="w-20" />
+            </div>
+
+            {/* Answers List */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {selectedReviewer.questions.map((question, idx) => {
+                  const userAnswer = quizAnswers[question.id];
+                  let isCorrect = false;
+
+                  // Check correctness
+                  if (question.type === 'identification') {
+                    isCorrect = String(userAnswer || '').toLowerCase().trim() === String(question.correctAnswer).toLowerCase().trim();
+                  } else if (question.type === 'multiple_choice') {
+                    isCorrect = String(userAnswer || '').toUpperCase() === String(question.correctAnswer).toUpperCase();
+                  } else if (question.type === 'true_false') {
+                    isCorrect = String(userAnswer || '').toLowerCase() === String(question.correctAnswer).toLowerCase();
+                  } else if (question.type === 'word_matching' && Array.isArray(userAnswer)) {
+                    const correctPairs = question.pairs?.reduce((acc, p) => ({ ...acc, [p.left]: p.right }), {}) || {};
+                    const userPairs = userAnswer.reduce((acc, pair) => {
+                      const [l, r] = pair.split('::');
+                      return { ...acc, [l]: r };
+                    }, {} as Record<string, string>);
+                    isCorrect = Object.entries(correctPairs).every(([left, right]) => userPairs[left] === right);
+                  }
+
+                  return (
+                    <div key={question.id} className={`bg-zen-card rounded-2xl p-6 border-2 transition-all ${isCorrect ? 'border-green-500/30' : 'border-red-500/30'}`}>
+                      {/* Question Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCorrect ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                            {isCorrect ? <IconCheck className="w-5 h-5" /> : <IconX className="w-5 h-5" />}
+                          </div>
+                          <span className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest">Question {idx + 1}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-zen-primary uppercase tracking-widest bg-zen-primary/10 px-3 py-1 rounded-full">
+                          {question.type.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      {/* Question */}
+                      <p className="text-lg text-zen-text-primary mb-4 leading-relaxed">{question.question}</p>
+
+                      {/* Answers */}
+                      <div className="space-y-3">
+                        {/* Your Answer */}
+                        <div className="bg-zen-surface/50 rounded-xl p-4">
+                          <p className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest mb-2">Your Answer</p>
+                          <p className={`text-base font-medium ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                            {question.type === 'word_matching' && Array.isArray(userAnswer)
+                              ? userAnswer.map(pair => pair.split('::').join(' → ')).join(', ') || 'No answer'
+                              : String(userAnswer || 'No answer')}
+                          </p>
+                        </div>
+
+                        {/* Correct Answer */}
+                        {!isCorrect && (
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                            <p className="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">Correct Answer</p>
+                            <p className="text-base font-medium text-green-400">
+                              {question.type === 'word_matching' && question.pairs
+                                ? question.pairs.map(p => `${p.left} → ${p.right}`).join(', ')
+                                : question.type === 'multiple_choice' && question.options
+                                ? question.options.find(opt => opt.startsWith(question.correctAnswer)) || question.correctAnswer
+                                : String(question.correctAnswer)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          
+          {/* Global Modals */}
+          <ConfirmModal
+            isOpen={confirmState.isOpen}
+            onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+            onConfirm={confirmState.action}
+            title={confirmState.title}
+            message={confirmState.message}
+            isDangerous
+            confirmText="Delete"
+          />
+          {toast && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
+              <span className="text-2xl">{toast.emoji}</span>
+              <span className="text-zen-text-primary font-medium">{toast.message}</span>
+            </div>
+          )}
+        </>
+      );
+    }
 
     return (
       <>
@@ -713,22 +826,28 @@ const Review: React.FC = () => {
               <p className="text-sm text-zen-text-disabled uppercase tracking-widest">Final Score</p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col gap-3 mb-4">
+              <button
+                onClick={() => setShowAnswerReview(true)}
+                className="w-full py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Review Answers
+              </button>
+              <button
+                onClick={() => startQuiz(selectedReviewer)}
+                className="w-full py-4 bg-zen-surface text-zen-text-primary rounded-xl font-bold uppercase tracking-wider text-sm hover:bg-zen-surface/80 transition-all"
+              >
+                Retake Quiz
+              </button>
               <button
                 onClick={() => {
                   setShowResults(false);
                   setIsQuizActive(false);
                   setSelectedReviewerId(null);
                 }}
-                className="flex-1 py-4 bg-zen-surface text-zen-text-primary rounded-xl font-bold uppercase tracking-wider text-sm hover:bg-zen-surface/80 transition-all"
+                className="w-full py-3 text-zen-text-secondary hover:text-zen-text-primary transition-colors text-sm font-medium"
               >
                 Back to Reviewers
-              </button>
-              <button
-                onClick={() => startQuiz(selectedReviewer)}
-                className="flex-1 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-              >
-                Retake Quiz
               </button>
             </div>
           </div>
