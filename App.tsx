@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ZenProvider } from './context/ZenContext';
+import { ToastProvider } from './context/ToastContext';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './pages/Auth';
@@ -126,7 +127,9 @@ const AppInner: React.FC = () => {
 const App: React.FC = () => (
   <ErrorBoundary>
     <AuthProvider>
-      <AppInner />
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
     </AuthProvider>
   </ErrorBoundary>
 );

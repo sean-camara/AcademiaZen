@@ -35,9 +35,22 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pdfDocRef = useRef<any>(null);
+  const renderTaskRef = useRef<any>(null);
+  const isRenderingRef = useRef(false);
 
   const renderPage = useCallback(async (pdfDoc: any, num: number) => {
     if (!canvasRef.current) return;
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+        await renderTaskRef.current.promise.catch(() => {});
+      } catch (_) {
+        // Ignore cancel errors
+      }
+      renderTaskRef.current = null;
+    }
+    if (isRenderingRef.current) return;
+    isRenderingRef.current = true;
     try {
       const page = await pdfDoc.getPage(num);
       const canvas = canvasRef.current;
@@ -55,12 +68,19 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
       canvas.width = scaledViewport.width;
 
       const renderContext = { canvasContext: context, viewport: scaledViewport };
-      await page.render(renderContext).promise;
+      const renderTask = page.render(renderContext);
+      renderTaskRef.current = renderTask;
+      await renderTask.promise;
+      renderTaskRef.current = null;
       setLoading(false);
     } catch (err) {
-      console.error('PDF Render Error:', err);
-      setError('Unable to display this page.');
-      setLoading(false);
+      if ((err as any)?.name !== 'RenderingCancelledException') {
+        console.error('PDF Render Error:', err);
+        setError('Unable to display this page.');
+        setLoading(false);
+      }
+    } finally {
+      isRenderingRef.current = false;
     }
   }, []);
 
@@ -82,6 +102,18 @@ const PdfPageRenderer: React.FC<{ source: string; pageNum: number; onDocumentLoa
     };
     loadPdf();
   }, [source, onDocumentLoad, renderPage]);
+
+  useEffect(() => {
+    return () => {
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (_) {
+          // Ignore cancel errors
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (pdfDocRef.current) renderPage(pdfDocRef.current, pageNum);

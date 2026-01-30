@@ -146,6 +146,7 @@ export interface ZenState {
   aiChat: AIChatMessage[];
   profile: UserProfile;
   settings: AppSettings;
+  updatedAt?: string;
 }
 
 // Enum for Navigation Tabs

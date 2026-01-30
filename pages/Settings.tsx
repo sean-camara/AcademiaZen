@@ -67,6 +67,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [showManageSubscription, setShowManageSubscription] = useState(false);
   const [showExtensionConfirm, setShowExtensionConfirm] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false);
   const [extensionLoading, setExtensionLoading] = useState(false);
 
   // ... (Hooks and effects remain largely same but simplified calls)
@@ -804,18 +805,18 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                     <h3 className="text-lg font-medium text-indigo-200">Export Data</h3>
                                     <p className="text-xs text-indigo-400/60 mt-2 leading-relaxed">Download a JSON backup of your current session.</p>
                                 </button>
-
-                                <button
-                                    onClick={() => clearData()}
-                                    className="p-8 rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-left group"
-                                >
-                                    <IconLibrary className="w-8 h-8 text-gray-300 mb-4 group-hover:scale-110 transition-transform" />
-                                    <h3 className="text-lg font-medium text-white">Clear Cache</h3>
-                                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">Resolve issues by resetting your local session.</p>
-                                </button>
                             </div>
 
                             <div className="pt-8 border-t border-white/5">
+                                <button 
+                                    onClick={() => setShowClearCacheConfirm(true)}
+                                    className="w-full py-4 rounded-xl border border-red-500/20 text-red-500/80 hover:text-red-400 hover:bg-red-500/5 text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Clear All Data
+                                </button>
+                                <p className="text-[10px] text-center text-gray-600 mt-4 max-w-xs mx-auto">
+                                    This will remove all your data locally and from the server. Make a backup first.
+                                </p>
                                 <button 
                                     onClick={() => setShowDeleteConfirm(true)}
                                     className="w-full py-4 rounded-xl border border-red-500/20 text-red-500/80 hover:text-red-400 hover:bg-red-500/5 text-xs font-bold uppercase tracking-widest transition-all"
@@ -859,6 +860,19 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             title="Delete Account"
             message="Are you sure you want to delete your account? This will permanently remove all your data and cannot be undone."
             confirmText="Delete Account"
+            isDangerous
+        />
+
+        <ConfirmModal
+            isOpen={showClearCacheConfirm}
+            onClose={() => setShowClearCacheConfirm(false)}
+            onConfirm={() => {
+                clearData();
+                setShowClearCacheConfirm(false);
+            }}
+            title="Clear all data?"
+            message="This will permanently delete your tasks, subjects, reviewers, and settings from this device and the server."
+            confirmText="Clear All Data"
             isDangerous
         />
 

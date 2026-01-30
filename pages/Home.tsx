@@ -712,7 +712,7 @@ const Home: React.FC = () => {
     setActiveActionTask(null);
   };
 
-  const handleSaveTaskEdit = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
+  const handleSaveTaskEdit = (title: string, date: string, notes: string, pdf?: PdfAttachment) => {
     if (!editingTask) return;
     updateTask({ ...editingTask, title, dueDate: date, notes: notes || undefined, pdfAttachment: pdf });
     setEditingTask(null);
@@ -746,7 +746,7 @@ const Home: React.FC = () => {
     return () => window.removeEventListener('open-subject', handler as EventListener);
   }, [handleSubjectClick, subjects, selectedSubjectId]);
 
-  const handleCreateTask = (title: string, date: string, notes: string, pdf?: { name: string; data: string }) => {
+  const handleCreateTask = (title: string, date: string, notes: string, pdf?: PdfAttachment) => {
     if (!selectedSubjectId) return;
     addTask({ id: generateId(), title, dueDate: date, completed: false, subjectId: selectedSubjectId, notes: notes || undefined, pdfAttachment: pdf });
   };

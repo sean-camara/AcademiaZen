@@ -1,6 +1,6 @@
 import { auth } from '../firebase';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const token = await auth.currentUser?.getIdToken();

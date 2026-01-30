@@ -35,6 +35,7 @@ export const INITIAL_STATE: ZenState = {
   aiChat: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
+  updatedAt: new Date().toISOString(),
 };
 
 export const AMBIENCE_OPTIONS = [

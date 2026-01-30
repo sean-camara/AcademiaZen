@@ -78,6 +78,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return {
         ...parsed,
         aiChat: Array.isArray((parsed as any).aiChat) ? (parsed as any).aiChat : [],
+        updatedAt: typeof (parsed as any).updatedAt === 'string' ? (parsed as any).updatedAt : '',
       };
     } catch {
       return INITIAL_STATE;
@@ -97,6 +98,12 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const bellAudioRef = useRef<HTMLAudioElement | null>(null);
   const syncTimeoutRef = useRef<number | null>(null);
   const legacyMigrationRef = useRef(false);
+  const setStateWithTimestamp = useCallback((updater: (prev: ZenState) => ZenState) => {
+    setState(prev => {
+      const next = updater(prev);
+      return { ...next, updatedAt: new Date().toISOString() };
+    });
+  }, []);
   
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
@@ -160,8 +167,15 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Save state to localStorage with user-specific key to prevent data leakage
   useEffect(() => {
-    if (user?.uid && isHydrated) {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
+    if (!isHydrated) return;
+    try {
+      if (user?.uid) {
+        localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
+      } else {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+      }
+    } catch (err) {
+      console.warn('[Zen] Failed to cache state locally:', err);
     }
   }, [state, user?.uid, isHydrated]);
 
@@ -169,12 +183,47 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     let cancelled = false;
 
-    const normalizeState = (incoming: ZenState | null): ZenState => {
-      if (!incoming) return INITIAL_STATE;
+    const normalizeState = (incoming: ZenState | null): ZenState | null => {
+      if (!incoming) return null;
       return {
         ...incoming,
         aiChat: Array.isArray((incoming as any).aiChat) ? (incoming as any).aiChat : [],
+        updatedAt: typeof (incoming as any).updatedAt === 'string' ? (incoming as any).updatedAt : '',
       };
+    };
+
+    const parseCachedState = (raw: string | null): ZenState | null => {
+      if (!raw) return null;
+      try {
+        return normalizeState(JSON.parse(raw) as ZenState);
+      } catch {
+        return null;
+      }
+    };
+
+    const getUpdatedAtMs = (candidate: ZenState | null) => {
+      if (!candidate?.updatedAt) return 0;
+      const ts = Date.parse(candidate.updatedAt);
+      return Number.isNaN(ts) ? 0 : ts;
+    };
+
+    const pickLatestState = (remote: ZenState | null, local: ZenState | null): ZenState => {
+      if (local && !remote) return local;
+      if (remote && !local) return remote;
+      if (!local && !remote) return INITIAL_STATE;
+
+      const remoteUpdated = getUpdatedAtMs(remote);
+      const localUpdated = getUpdatedAtMs(local);
+
+      if (local && (remoteUpdated === 0 || localUpdated >= remoteUpdated)) {
+        return local;
+      }
+      return remote || local || INITIAL_STATE;
+    };
+
+    const ensureUpdatedAt = (incoming: ZenState): ZenState => {
+      if (incoming.updatedAt) return incoming;
+      return { ...incoming, updatedAt: new Date().toISOString() };
     };
 
     const loadRemoteState = async () => {
@@ -186,41 +235,38 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // First, try to load from user-specific localStorage (for offline support)
       const userLocalKey = `${LOCAL_STORAGE_KEY}_${user.uid}`;
       const cachedData = localStorage.getItem(userLocalKey);
-      let localState: ZenState | null = null;
-      
-      if (cachedData) {
-        try {
-          localState = JSON.parse(cachedData) as ZenState;
-        } catch (e) {
-          console.warn('[Zen] Failed to parse local cache');
-        }
-      }
+      const userLocalState = parseCachedState(cachedData);
+      const legacyState = userLocalState ? null : parseCachedState(localStorage.getItem(LOCAL_STORAGE_KEY));
+      const localState = userLocalState || legacyState;
+      const shouldMigrateLegacy = Boolean(!userLocalState && legacyState);
       
       try {
         const response = await apiFetch('/api/state');
         if (!response.ok) throw new Error('Failed to load state');
         const data = await response.json();
         if (!cancelled) {
-          // If server returns state, use it
-          if (data?.state) {
-            setState(normalizeState(data.state as ZenState));
-          } else if (localState) {
-            // No server state but we have local cache for this user - use it
-            setState(normalizeState(localState));
-          } else {
-            // New user with no data anywhere - use initial state
-            setState(INITIAL_STATE);
+          const remoteState = normalizeState((data?.state || null) as ZenState | null);
+          const nextState = ensureUpdatedAt(pickLatestState(remoteState, localState));
+          setState(nextState);
+          if (shouldMigrateLegacy) {
+            try {
+              localStorage.setItem(userLocalKey, JSON.stringify(nextState));
+            } catch (err) {
+              console.warn('[Zen] Failed to migrate legacy cache:', err);
+            }
           }
         }
       } catch (err) {
         console.warn('[Zen] Failed to load remote state, using local cache if available', err);
         if (!cancelled) {
-          // Backend offline - use local cache for this specific user if available
-          if (localState) {
-            setState(normalizeState(localState));
-          } else {
-            // No local cache for this user - new account, use initial state
-            setState(INITIAL_STATE);
+          const fallbackState = ensureUpdatedAt(pickLatestState(null, localState));
+          setState(fallbackState);
+          if (shouldMigrateLegacy) {
+            try {
+              localStorage.setItem(userLocalKey, JSON.stringify(fallbackState));
+            } catch (err) {
+              console.warn('[Zen] Failed to migrate legacy cache:', err);
+            }
           }
         }
       } finally {
@@ -313,7 +359,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (didUpdate) {
-          setState(prev => ({ ...prev, tasks: updatedTasks, folders: updatedFolders }));
+          setStateWithTimestamp(prev => ({ ...prev, tasks: updatedTasks, folders: updatedFolders }));
         }
       } catch (err) {
         console.warn('[Zen] Legacy PDF migration failed:', err);
@@ -419,7 +465,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Actions
   const addTask = (task: Task) => {
-    setState(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
+    setStateWithTimestamp(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
     
     // Send immediate notification if task is due within 3 days and notifications are enabled
     if (
@@ -433,19 +479,19 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
   
-  const toggleTask = (id: string) => setState(prev => ({
+  const toggleTask = (id: string) => setStateWithTimestamp(prev => ({
     ...prev,
     tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
   }));
 
-  const deleteTask = (id: string) => setState(prev => ({
+  const deleteTask = (id: string) => setStateWithTimestamp(prev => ({
     ...prev,
     tasks: prev.tasks.filter(t => t.id !== id)
   }));
 
   const updateTask = (updatedTask: Task) => {
     const prevTask = state.tasks.find(t => t.id === updatedTask.id);
-    setState(prev => ({
+    setStateWithTimestamp(prev => ({
       ...prev,
       tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
     }));
@@ -465,14 +511,14 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addSubject = (subject: Subject) => setState(prev => ({ ...prev, subjects: [...prev.subjects, subject] }));
+  const addSubject = (subject: Subject) => setStateWithTimestamp(prev => ({ ...prev, subjects: [...prev.subjects, subject] }));
 
-  const updateSubject = (updatedSubject: Subject) => setState(prev => ({
+  const updateSubject = (updatedSubject: Subject) => setStateWithTimestamp(prev => ({
     ...prev,
     subjects: prev.subjects.map(s => s.id === updatedSubject.id ? updatedSubject : s)
   }));
 
-  const deleteSubject = (id: string) => setState(prev => ({
+  const deleteSubject = (id: string) => setStateWithTimestamp(prev => ({
     ...prev,
     subjects: prev.subjects.filter(s => s.id !== id),
     // Also delete all tasks associated with this subject
@@ -481,80 +527,80 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     flashcards: prev.flashcards.filter(f => f.subjectId !== id)
   }));
 
-  const addFlashcard = (card: Flashcard) => setState(prev => ({ ...prev, flashcards: [...prev.flashcards, card] }));
+  const addFlashcard = (card: Flashcard) => setStateWithTimestamp(prev => ({ ...prev, flashcards: [...prev.flashcards, card] }));
 
-  const updateFlashcard = (updatedCard: Flashcard) => setState(prev => ({
+  const updateFlashcard = (updatedCard: Flashcard) => setStateWithTimestamp(prev => ({
     ...prev,
     flashcards: prev.flashcards.map(c => c.id === updatedCard.id ? updatedCard : c)
   }));
 
   // Folder Actions
-  const addFolder = (folder: Folder) => setState(prev => ({ ...prev, folders: [...prev.folders, folder] }));
+  const addFolder = (folder: Folder) => setStateWithTimestamp(prev => ({ ...prev, folders: [...prev.folders, folder] }));
 
-  const updateFolder = (updatedFolder: Folder) => setState(prev => ({
+  const updateFolder = (updatedFolder: Folder) => setStateWithTimestamp(prev => ({
     ...prev,
     folders: prev.folders.map(f => f.id === updatedFolder.id ? updatedFolder : f)
   }));
   
-  const deleteFolder = (id: string) => setState(prev => ({
+  const deleteFolder = (id: string) => setStateWithTimestamp(prev => ({
     ...prev,
     folders: prev.folders.filter(f => f.id !== id)
   }));
 
-  const addItemToFolder = (folderId: string, item: FolderItem) => setState(prev => ({
+  const addItemToFolder = (folderId: string, item: FolderItem) => setStateWithTimestamp(prev => ({
     ...prev,
     folders: prev.folders.map(f => f.id === folderId ? { ...f, items: [...f.items, item] } : f)
   }));
 
-  const deleteItemFromFolder = (folderId: string, itemId: string) => setState(prev => ({
+  const deleteItemFromFolder = (folderId: string, itemId: string) => setStateWithTimestamp(prev => ({
     ...prev,
     folders: prev.folders.map(f => f.id === folderId ? { ...f, items: f.items.filter(i => i.id !== itemId) } : f)
   }));
 
-  const updateProfile = (updates: Partial<UserProfile>) => setState(prev => ({
+  const updateProfile = (updates: Partial<UserProfile>) => setStateWithTimestamp(prev => ({
     ...prev,
     profile: { ...prev.profile, ...updates }
   }));
 
-  const updateSettings = (updates: Partial<AppSettings>) => setState(prev => ({
+  const updateSettings = (updates: Partial<AppSettings>) => setStateWithTimestamp(prev => ({
     ...prev,
     settings: { ...prev.settings, ...updates },
   }));
 
   // AI Reviewer Actions
-  const addAIReviewer = (reviewer: AIReviewer) => setState(prev => ({ 
+  const addAIReviewer = (reviewer: AIReviewer) => setStateWithTimestamp(prev => ({ 
     ...prev, 
     aiReviewers: [...(prev.aiReviewers || []), reviewer] 
   }));
 
-  const updateAIReviewer = (updatedReviewer: AIReviewer) => setState(prev => ({
+  const updateAIReviewer = (updatedReviewer: AIReviewer) => setStateWithTimestamp(prev => ({
     ...prev,
     aiReviewers: (prev.aiReviewers || []).map(r => r.id === updatedReviewer.id ? updatedReviewer : r)
   }));
 
-  const deleteAIReviewer = (id: string) => setState(prev => ({
+  const deleteAIReviewer = (id: string) => setStateWithTimestamp(prev => ({
     ...prev,
     aiReviewers: (prev.aiReviewers || []).filter(r => r.id !== id),
     // Clear quiz progress if it was for this reviewer
     quizProgress: prev.quizProgress?.reviewerId === id ? null : prev.quizProgress
   }));
 
-  const setQuizProgress = (progress: QuizProgress | null) => setState(prev => ({
+  const setQuizProgress = (progress: QuizProgress | null) => setStateWithTimestamp(prev => ({
     ...prev,
     quizProgress: progress
   }));
 
   // AI Chat
   const setAIChat = useCallback((messages: AIChatMessage[]) => {
-    setState(prev => {
+    setStateWithTimestamp(prev => {
       if (prev.aiChat === messages) return prev;
       return { ...prev, aiChat: messages };
     });
-  }, []);
+  }, [setStateWithTimestamp]);
 
   const clearAIChat = useCallback(() => {
-    setState(prev => ({ ...prev, aiChat: [] }));
-  }, []);
+    setStateWithTimestamp(prev => ({ ...prev, aiChat: [] }));
+  }, [setStateWithTimestamp]);
 
   const startTimer = useCallback(() => {
     console.log('[ZenContext] startTimer called');
@@ -598,8 +644,15 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const exportData = () => JSON.stringify(state, null, 2);
   
   const clearData = () => {
-    setState(INITIAL_STATE);
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    setStateWithTimestamp(() => INITIAL_STATE);
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      if (user?.uid) {
+        localStorage.removeItem(`${LOCAL_STORAGE_KEY}_${user.uid}`);
+      }
+    } catch (err) {
+      console.warn('[Zen] Failed to clear local cache:', err);
+    }
   };
 
   return (

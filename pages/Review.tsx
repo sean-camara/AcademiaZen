@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { apiFetch } from '../utils/api';
 import { showLocalNotification } from '../utils/pushNotifications';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
+import { useToast } from '../context/ToastContext';
 
 // Loading messages for generation
 const LOADING_MESSAGES = [
@@ -97,11 +98,15 @@ const Review: React.FC = () => {
     isPremium: boolean;
   } | null>(null);
   
-  // Toast state
-  const [toast, setToast] = useState<{ message: string; emoji: string } | null>(null);
+  const toast = useToast();
   
   const timerRef = useRef<number | null>(null);
   const loadingIntervalRef = useRef<number | null>(null);
+  const quizAnswersRef = useRef<Record<string, string | string[]>>({});
+  const currentQuestionIndexRef = useRef(0);
+  const timeRemainingRef = useRef<number | null>(null);
+  const selectedReviewerIdRef = useRef<string | null>(null);
+  const showResultsRef = useRef(false);
 
   // Free tier limitations
   const FREE_TIER_LIMITS = {
@@ -218,25 +223,42 @@ const Review: React.FC = () => {
     setHideNavbar(isQuizActive || isCreating);
   }, [isQuizActive, isCreating, setHideNavbar]);
 
-  // Resume quiz progress on mount
   useEffect(() => {
-    if (quizProgress && !isQuizActive) {
-      const reviewer = aiReviewers.find(r => r.id === quizProgress.reviewerId);
-      // Validate the reviewer exists, is ready, has questions, and the saved index is valid
-      if (reviewer && reviewer.status === 'ready' && 
-          reviewer.questions && reviewer.questions.length > 0 &&
-          quizProgress.currentIndex < reviewer.questions.length) {
-        setSelectedReviewerId(quizProgress.reviewerId);
-        setQuizAnswers(quizProgress.answers as Record<string, string | string[]>);
-        setCurrentQuestionIndex(quizProgress.currentIndex);
-        setTimeRemaining(quizProgress.timeRemaining);
-        setIsQuizActive(true);
-      } else {
-        // Clear invalid quiz progress
-        setQuizProgress(null);
-      }
+    quizAnswersRef.current = quizAnswers;
+  }, [quizAnswers]);
+
+  useEffect(() => {
+    currentQuestionIndexRef.current = currentQuestionIndex;
+  }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    timeRemainingRef.current = timeRemaining;
+  }, [timeRemaining]);
+
+  useEffect(() => {
+    selectedReviewerIdRef.current = selectedReviewerId;
+  }, [selectedReviewerId]);
+
+  useEffect(() => {
+    showResultsRef.current = showResults;
+  }, [showResults]);
+
+  // Validate stored quiz progress on mount (do not auto-resume)
+  useEffect(() => {
+    if (!quizProgress) return;
+    const reviewer = aiReviewers.find(r => r.id === quizProgress.reviewerId);
+    const isValid = Boolean(
+      reviewer &&
+      reviewer.status === 'ready' &&
+      reviewer.questions &&
+      reviewer.questions.length > 0 &&
+      typeof quizProgress.currentIndex === 'number' &&
+      quizProgress.currentIndex < reviewer.questions.length
+    );
+    if (!isValid) {
+      setQuizProgress(null);
     }
-  }, []);
+  }, [aiReviewers, quizProgress, setQuizProgress]);
 
   // Timer for quiz
   useEffect(() => {
@@ -256,7 +278,7 @@ const Review: React.FC = () => {
     };
   }, [isQuizActive, timeRemaining]);
 
-  // Save quiz progress on change
+  // Save quiz progress on significant changes (answers/index)
   useEffect(() => {
     if (isQuizActive && selectedReviewerId && !showResults) {
       const progress: QuizProgress = {
@@ -264,11 +286,29 @@ const Review: React.FC = () => {
         currentIndex: currentQuestionIndex,
         answers: quizAnswers,
         startedAt: quizProgress?.startedAt || new Date().toISOString(),
-        timeRemaining
+        timeRemaining: timeRemainingRef.current
       };
       setQuizProgress(progress);
     }
-  }, [quizAnswers, currentQuestionIndex, timeRemaining, isQuizActive, selectedReviewerId]);
+  }, [quizAnswers, currentQuestionIndex, isQuizActive, selectedReviewerId, showResults]);
+
+  // Periodically save quiz progress to avoid syncing every second
+  useEffect(() => {
+    if (!isQuizActive || !selectedReviewerId || showResults) return;
+    const interval = window.setInterval(() => {
+      const reviewerId = selectedReviewerIdRef.current;
+      if (!reviewerId || showResultsRef.current) return;
+      const progress: QuizProgress = {
+        reviewerId,
+        currentIndex: currentQuestionIndexRef.current,
+        answers: quizAnswersRef.current,
+        startedAt: quizProgress?.startedAt || new Date().toISOString(),
+        timeRemaining: timeRemainingRef.current
+      };
+      setQuizProgress(progress);
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [isQuizActive, selectedReviewerId, showResults, quizProgress?.startedAt, setQuizProgress]);
 
   // Loading message rotation during generation
   useEffect(() => {
@@ -281,12 +321,6 @@ const Review: React.FC = () => {
       if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
     };
   }, [isGenerating]);
-
-  // Show toast
-  const showToast = (emoji: string, message: string) => {
-    setToast({ emoji, message });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // Premium is now checked via useEffect above
 
@@ -367,7 +401,7 @@ const Review: React.FC = () => {
     // Check generation limit first
     if (generationStatus && generationStatus.remainingGenerations <= 0) {
       const resetTime = formatResetTime(generationStatus.resetIn);
-      showToast('⏳', `Generation limit reached. Wait ${resetTime} or upgrade to Premium.`);
+      toast.warning(`Generation limit reached. Wait ${resetTime} or upgrade to Premium.`);
       if (!isPremium) {
         setUpgradeFeature('more reviewer generations');
         setShowUpgradeModal(true);
@@ -377,7 +411,7 @@ const Review: React.FC = () => {
     
     if (!selectedPdfId || !selectedFolderId) {
       console.log('Missing PDF or folder selection');
-      showToast('⚠️', 'Please select a PDF first');
+      toast.warning('Please select a PDF first');
       return;
     }
     
@@ -387,7 +421,7 @@ const Review: React.FC = () => {
     
     if (!pdfItem || !pdfItem.file) {
       console.log('PDF item or file not found');
-      showToast('❌', 'PDF file not found');
+      toast.error('PDF file not found');
       return;
     }
 
@@ -395,7 +429,7 @@ const Review: React.FC = () => {
     console.log('Extracted PDF text length:', pdfText?.length);
     
     if (!pdfText || pdfText.trim().length < 100) {
-      showToast('❌', "This PDF doesn't contain readable text. Try a different PDF.");
+      toast.error("This PDF doesn't contain readable text. Try a different PDF.");
       return;
     }
 
@@ -460,9 +494,9 @@ const Review: React.FC = () => {
         } : null);
       }
 
-      showToast('✨', 'Your AI Reviewer is ready!');
+      toast.success('Your AI Reviewer is ready!');
       
-      showLocalNotification('AI Reviewer Ready! 📚', {
+      showLocalNotification('AI Reviewer Ready! ??', {
         body: `"${data.suggestedName || pdfItem.title}" reviewer is ready to use.`,
       });
 
@@ -478,7 +512,7 @@ const Review: React.FC = () => {
         status: 'error',
         errorMessage: err.message || "We're sorry, something went wrong. Please try again."
       });
-      showToast('', err.message || 'Failed to generate reviewer');
+      toast.error(err.message || 'Failed to generate reviewer');
     } finally {
       setIsGenerating(false);
       setGeneratingReviewerId(null);
@@ -513,6 +547,31 @@ const Review: React.FC = () => {
     });
   };
 
+  const resumeQuiz = (reviewer: AIReviewer) => {
+    const progress = quizProgress;
+    if (!progress || progress.reviewerId !== reviewer.id) {
+      startQuiz(reviewer);
+      return;
+    }
+    const index = typeof progress.currentIndex === 'number' ? progress.currentIndex : 0;
+    if (!reviewer.questions || reviewer.questions.length === 0 || index >= reviewer.questions.length) {
+      setQuizProgress(null);
+      startQuiz(reviewer);
+      return;
+    }
+    const safeAnswers = (progress.answers && typeof progress.answers === 'object')
+      ? (progress.answers as Record<string, string | string[]>)
+      : {};
+    setSelectedReviewerId(reviewer.id);
+    setCurrentQuestionIndex(index);
+    setQuizAnswers(safeAnswers);
+    setMatchingSelections({ left: null, pairs: {} });
+    setTimeRemaining(progress.timeRemaining ?? (reviewer.timerMinutes ? reviewer.timerMinutes * 60 : null));
+    setShowResults(false);
+    setShowAnswerReview(false);
+    setIsQuizActive(true);
+  };
+
   // Handle quiz answer
   const handleAnswer = (questionId: string, answer: string | string[]) => {
     setQuizAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -537,6 +596,9 @@ const Review: React.FC = () => {
   const calculateScore = (reviewer: AIReviewer): { correct: number; total: number; percentage: number } => {
     let correct = 0;
     const total = reviewer.questions.length;
+    if (total === 0) {
+      return { correct: 0, total: 0, percentage: 0 };
+    }
 
     reviewer.questions.forEach(q => {
       const userAnswer = quizAnswers[q.id];
@@ -600,8 +662,14 @@ const Review: React.FC = () => {
     
     if (timerRef.current) clearInterval(timerRef.current);
 
-    const { emoji, message } = getScoreMessage(percentage);
-    showToast(emoji, message);
+    const { message } = getScoreMessage(percentage);
+    if (percentage >= 80) {
+      toast.success(message);
+    } else if (percentage >= 60) {
+      toast.info(message);
+    } else {
+      toast.warning(message);
+    }
   };
 
   // Delete reviewer
@@ -640,7 +708,7 @@ const Review: React.FC = () => {
       deleteAIReviewer(reviewerToDelete);
     }
     
-    showToast('', 'Generation cancelled');
+    toast.info('Generation cancelled');
   };
 
   // Regenerate reviewer
@@ -648,13 +716,13 @@ const Review: React.FC = () => {
     const folder = folders.find(f => f.id === reviewer.sourceFolderId);
     const pdfItem = folder?.items.find(i => i.id === reviewer.sourceId);
     if (!pdfItem || !pdfItem.file) {
-      showToast('', 'Original PDF not found');
+      toast.error('Original PDF not found');
       return;
     }
 
     const pdfText = await extractPdfText(pdfItem);
     if (!pdfText || pdfText.trim().length < 100) {
-      showToast('', "This PDF doesn't contain readable text");
+      toast.error("This PDF doesn't contain readable text");
       return;
     }
 
@@ -695,7 +763,7 @@ const Review: React.FC = () => {
         status: 'ready'
       });
 
-      showToast('', 'New questions generated!');
+      toast.success('New questions generated!');
 
     } catch (err: any) {
       // Don't show error if it was cancelled by user
@@ -708,7 +776,7 @@ const Review: React.FC = () => {
         status: 'error',
         errorMessage: err.message
       });
-      showToast('', err.message || 'Failed to regenerate');
+      toast.error(err.message || 'Failed to regenerate');
     } finally {
       setIsGenerating(false);
       setGeneratingReviewerId(null);
@@ -741,12 +809,6 @@ const Review: React.FC = () => {
           isDangerous
           confirmText="Delete"
         />
-        {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-            <span className="text-2xl">{toast.emoji}</span>
-            <span className="text-zen-text-primary font-medium">{toast.message}</span>
-          </div>
-        )}
       </>
     );
   }
@@ -822,7 +884,7 @@ const Review: React.FC = () => {
                           <p className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest mb-2">Your Answer</p>
                           <p className={`text-base font-medium ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
                             {question.type === 'word_matching' && Array.isArray(userAnswer)
-                              ? userAnswer.map(pair => pair.split('::').join(' → ')).join(', ') || 'No answer'
+                              ? userAnswer.map(pair => pair.split('::').join(' ? ')).join(', ') || 'No answer'
                               : String(userAnswer || 'No answer')}
                           </p>
                         </div>
@@ -833,7 +895,7 @@ const Review: React.FC = () => {
                             <p className="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">Correct Answer</p>
                             <p className="text-base font-medium text-green-400">
                               {question.type === 'word_matching' && question.pairs
-                                ? question.pairs.map(p => `${p.left} → ${p.right}`).join(', ')
+                                ? question.pairs.map(p => `${p.left} ? ${p.right}`).join(', ')
                                 : question.type === 'multiple_choice' && question.options
                                 ? question.options.find(opt => opt.startsWith(question.correctAnswer)) || question.correctAnswer
                                 : String(question.correctAnswer)}
@@ -858,12 +920,6 @@ const Review: React.FC = () => {
             isDangerous
             confirmText="Delete"
           />
-          {toast && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-              <span className="text-2xl">{toast.emoji}</span>
-              <span className="text-zen-text-primary font-medium">{toast.message}</span>
-            </div>
-          )}
         </>
       );
     }
@@ -919,12 +975,6 @@ const Review: React.FC = () => {
           isDangerous
           confirmText="Delete"
         />
-        {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-            <span className="text-2xl">{toast.emoji}</span>
-            <span className="text-zen-text-primary font-medium">{toast.message}</span>
-          </div>
-        )}
       </>
     );
   }
@@ -1052,7 +1102,7 @@ const Review: React.FC = () => {
                 {/* Instructions with visual indicator */}
                 <div className="flex items-center gap-3 p-4 bg-zen-primary/5 border border-zen-primary/20 rounded-xl">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zen-primary/20 flex items-center justify-center">
-                    <span className="text-lg">👆</span>
+                    <span className="text-lg">??</span>
                   </div>
                   <p className="text-sm text-zen-text-secondary">
                     <span className="text-zen-primary font-medium">Step 1:</span> Tap a term on the left
@@ -1099,7 +1149,7 @@ const Review: React.FC = () => {
                               {isMatched && (
                                 <div className="flex items-center gap-1 text-zen-primary animate-fade-in">
                                   <IconCheck className="w-5 h-5" />
-                                  <span className="text-xs">✓</span>
+                                  <span className="text-xs">?</span>
                                 </div>
                               )}
                               {isSelected && !isMatched && (
@@ -1108,7 +1158,7 @@ const Review: React.FC = () => {
                             </div>
                             {isMatched && matchedDef && (
                               <div className="mt-2 pt-2 border-t border-zen-primary/20 text-xs text-zen-text-disabled">
-                                → {matchedDef}
+                                ? {matchedDef}
                               </div>
                             )}
                           </button>
@@ -1149,7 +1199,7 @@ const Review: React.FC = () => {
                               {isMatched && (
                                 <div className="flex items-center gap-1 text-emerald-500 animate-fade-in">
                                   <IconCheck className="w-5 h-5" />
-                                  <span className="text-xs">✓</span>
+                                  <span className="text-xs">?</span>
                                 </div>
                               )}
                               {!isMatched && hasSelection && (
@@ -1219,12 +1269,6 @@ const Review: React.FC = () => {
         isDangerous
         confirmText="Delete"
       />
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-          <span className="text-2xl">{toast.emoji}</span>
-          <span className="text-zen-text-primary font-medium">{toast.message}</span>
-        </div>
-      )}
       </>
     );
   }
@@ -1350,7 +1394,7 @@ const Review: React.FC = () => {
                         >
                           {count}
                           {isLocked && (
-                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                            <span className="absolute -top-1 -right-1 text-xs">??</span>
                           )}
                         </button>
                       );
@@ -1389,7 +1433,7 @@ const Review: React.FC = () => {
                         >
                           {d}
                           {isLocked && (
-                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                            <span className="absolute -top-1 -right-1 text-xs">??</span>
                           )}
                         </button>
                       );
@@ -1432,7 +1476,7 @@ const Review: React.FC = () => {
                         >
                           {type.label}
                           {isLocked && (
-                            <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                            <span className="absolute -top-1 -right-1 text-xs">??</span>
                           )}
                         </button>
                       );
@@ -1506,12 +1550,6 @@ const Review: React.FC = () => {
         isDangerous
         confirmText="Delete"
       />
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-          <span className="text-2xl">{toast.emoji}</span>
-          <span className="text-zen-text-primary font-medium">{toast.message}</span>
-        </div>
-      )}
       </>
     );
   }
@@ -1664,10 +1702,23 @@ const Review: React.FC = () => {
           {/* Start Quiz Button */}
           {selectedReviewer.status === 'ready' && (
             <button
-              onClick={() => startQuiz(selectedReviewer)}
+              onClick={() => {
+                const hasUnfinished = Boolean(
+                  quizProgress &&
+                  quizProgress.reviewerId === selectedReviewer.id &&
+                  typeof quizProgress.currentIndex === 'number' &&
+                  selectedReviewer.questions &&
+                  quizProgress.currentIndex < selectedReviewer.questions.length
+                );
+                if (hasUnfinished) {
+                  resumeQuiz(selectedReviewer);
+                } else {
+                  startQuiz(selectedReviewer);
+                }
+              }}
               className="w-full py-5 bg-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.01] active:scale-95 transition-all mb-8"
             >
-              Start Quiz
+              {quizProgress?.reviewerId === selectedReviewer.id ? 'Resume Quiz' : 'Start Quiz'}
             </button>
           )}
 
@@ -1688,7 +1739,7 @@ const Review: React.FC = () => {
                   onClick={() => {
                     deleteAIReviewer(selectedReviewer.id);
                     setSelectedReviewerId(null);
-                    showToast('', 'Reviewer deleted');
+                    toast.success('Reviewer deleted');
                   }}
                   className="flex-1 py-3 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all border-l border-zen-bg/20"
                 >
@@ -1754,12 +1805,6 @@ const Review: React.FC = () => {
         isDangerous
         confirmText="Delete"
       />
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-          <span className="text-2xl">{toast.emoji}</span>
-          <span className="text-zen-text-primary font-medium">{toast.message}</span>
-        </div>
-      )}
       </>
     );
   }
@@ -1951,11 +1996,24 @@ const Review: React.FC = () => {
                     ? Math.max(...reviewer.attempts.map(a => a.score))
                     : null;
                   const isCurrentlyGenerating = generatingReviewerId === reviewer.id;
+                  const hasUnfinished = Boolean(
+                    quizProgress &&
+                    quizProgress.reviewerId === reviewer.id &&
+                    typeof quizProgress.currentIndex === 'number' &&
+                    reviewer.questions &&
+                    quizProgress.currentIndex < reviewer.questions.length
+                  );
 
                   return (
                     <div
                       key={reviewer.id}
-                      onClick={() => setSelectedReviewerId(reviewer.id)}
+                      onClick={() => {
+                        if (reviewer.status === 'ready' && hasUnfinished) {
+                          resumeQuiz(reviewer);
+                          return;
+                        }
+                        setSelectedReviewerId(reviewer.id);
+                      }}
                       className={'group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-xl animate-reveal min-h-[160px] flex flex-col'}
                       style={{ animationDelay: idx * 0.05+'s' }}
                     >
@@ -2006,7 +2064,9 @@ const Review: React.FC = () => {
                           ) : (
                             <div className="flex flex-col">
                               <span className="text-[10px] text-zen-text-disabled uppercase tracking-widest font-bold mb-0.5">Status</span>
-                              <span className="text-sm font-medium text-zen-text-secondary">Not Taken</span>
+                              <span className="text-sm font-medium text-zen-text-secondary">
+                                {quizProgress?.reviewerId === reviewer.id ? 'Unfinished' : 'Not Started'}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -2061,7 +2121,7 @@ const Review: React.FC = () => {
               <div className="absolute bottom-0 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-3xl" />
               
               <div className="relative">
-                <span className="text-6xl mb-3 block drop-shadow-lg">👑</span>
+                <span className="text-6xl mb-3 block drop-shadow-lg">??</span>
                 <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
                 <p className="text-zen-text-secondary mt-2 text-sm">
                   <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
@@ -2074,28 +2134,28 @@ const Review: React.FC = () => {
               <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">What you get with Premium</h3>
               <ul className="space-y-3">
                 <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">?</span>
                   <div>
                     <span className="text-zen-text-primary text-sm font-medium">AI Quiz Generator</span>
                     <p className="text-zen-text-disabled text-xs mt-0.5">Up to 50 questions, all difficulties & types</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">?</span>
                   <div>
                     <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
                     <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations with deep reasoning</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">?</span>
                   <div>
                     <span className="text-zen-text-primary text-sm font-medium">Unlimited Library</span>
                     <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited PDFs, folders & 15MB file size</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">?</span>
                   <div>
                     <span className="text-zen-text-primary text-sm font-medium">10 AI Reviewers</span>
                     <p className="text-zen-text-disabled text-xs mt-0.5">Create more quizzes from your PDFs</p>
@@ -2126,15 +2186,9 @@ const Review: React.FC = () => {
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zen-card border border-zen-surface px-6 py-4 rounded-2xl shadow-xl animate-slide-up flex items-center gap-3 z-50">
-          <span className="text-2xl">{toast.emoji}</span>
-          <span className="text-zen-text-primary font-medium">{toast.message}</span>
-        </div>
-      )}
     </div>
   );
 };
 
 export default Review;
+

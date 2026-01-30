@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tab, ZenState } from '../types';
 import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot, IconLogOut } from './Icons';
 import Home from '@/pages/Home';
@@ -16,13 +17,6 @@ import ConfirmModal from './ConfirmModal';
 interface LayoutProps {}
 
 const Layout: React.FC<LayoutProps> = () => {
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const stored = window.localStorage.getItem('zen_active_tab') as Tab | null;
-    if (stored && Object.values(Tab).includes(stored)) {
-      return stored;
-    }
-    return Tab.Home;
-  });
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
@@ -31,6 +25,26 @@ const Layout: React.FC<LayoutProps> = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const tabPaths: Record<Tab, string> = {
+    [Tab.Home]: '/',
+    [Tab.Calendar]: '/calendar',
+    [Tab.Review]: '/review',
+    [Tab.Focus]: '/focus',
+    [Tab.Library]: '/library',
+  };
+
+  const pathToTab: Record<string, Tab> = {
+    '/': Tab.Home,
+    '/calendar': Tab.Calendar,
+    '/review': Tab.Review,
+    '/focus': Tab.Focus,
+    '/library': Tab.Library,
+  };
+
+  const activeTab = pathToTab[location.pathname] || Tab.Home;
 
   useEffect(() => {
     let active = true;
@@ -110,35 +124,44 @@ const Layout: React.FC<LayoutProps> = () => {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    if (!location.search) return;
+    const params = new URLSearchParams(location.search);
     const page = params.get('page');
     const subjectId = params.get('subject');
+    let nextPath = location.pathname;
+
+    const pageRoutes: Record<string, string> = {
+      home: tabPaths[Tab.Home],
+      calendar: tabPaths[Tab.Calendar],
+      review: tabPaths[Tab.Review],
+      focus: tabPaths[Tab.Focus],
+      library: tabPaths[Tab.Library],
+    };
 
     if (page) {
-      const pageMap: Record<string, Tab> = {
-        home: Tab.Home,
-        calendar: Tab.Calendar,
-        review: Tab.Review,
-        focus: Tab.Focus,
-        library: Tab.Library,
-      };
-      const nextTab = pageMap[page];
-      if (nextTab) setActiveTab(nextTab);
+      if (page === 'settings') {
+        setSettingsTab(null);
+        setShowSettings(true);
+      }
+      if (pageRoutes[page]) {
+        nextPath = pageRoutes[page];
+      }
     }
 
     if (subjectId) {
-      setActiveTab(Tab.Home);
-      window.dispatchEvent(new CustomEvent('open-subject', { detail: { id: subjectId } }));
+      nextPath = tabPaths[Tab.Home];
     }
 
-    if (page || subjectId) {
-      window.history.replaceState({}, document.title, window.location.pathname);
+    if (nextPath !== location.pathname || location.search) {
+      navigate(nextPath, { replace: true });
     }
-  }, []);
 
-  useEffect(() => {
-    window.localStorage.setItem('zen_active_tab', activeTab);
-  }, [activeTab]);
+    if (subjectId) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-subject', { detail: { id: subjectId } }));
+      }, 0);
+    }
+  }, [location.pathname, location.search, navigate, tabPaths]);
 
   useEffect(() => {
     if (!(import.meta as any).env?.PROD) return;
@@ -170,11 +193,11 @@ const Layout: React.FC<LayoutProps> = () => {
   }, []);
 
   const navItems = [
-    { tab: Tab.Home, icon: IconHome, label: 'Home' },
-    { tab: Tab.Calendar, icon: IconCalendar, label: 'Calendar' },
-    { tab: Tab.Review, icon: IconReview, label: 'Review' },
-    { tab: Tab.Focus, icon: IconFocus, label: 'Focus' },
-    { tab: Tab.Library, icon: IconLibrary, label: 'Library' },
+    { tab: Tab.Home, icon: IconHome, label: 'Home', path: tabPaths[Tab.Home] },
+    { tab: Tab.Calendar, icon: IconCalendar, label: 'Calendar', path: tabPaths[Tab.Calendar] },
+    { tab: Tab.Review, icon: IconReview, label: 'Review', path: tabPaths[Tab.Review] },
+    { tab: Tab.Focus, icon: IconFocus, label: 'Focus', path: tabPaths[Tab.Focus] },
+    { tab: Tab.Library, icon: IconLibrary, label: 'Library', path: tabPaths[Tab.Library] },
   ];
 
   return (
@@ -200,7 +223,7 @@ const Layout: React.FC<LayoutProps> = () => {
             return (
               <button
                 key={item.tab}
-                onClick={() => setActiveTab(item.tab)}
+                onClick={() => navigate(item.path)}
                 className={`flex items-center gap-4 px-4 py-3.5 w-full rounded-xl transition-all duration-200 group relative overflow-hidden ${
                   isActive 
                     ? 'bg-zen-surface text-zen-primary shadow-lg shadow-black/20' 
@@ -281,11 +304,14 @@ const Layout: React.FC<LayoutProps> = () => {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative desktop-scroll-area pb-24 lg:pb-0 scroll-smooth">
-           <div className={`h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 transition-opacity duration-300 ${activeTab === Tab.Home ? 'block animate-reveal' : 'hidden'}`}><Home /></div>
-           <div className={`h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 transition-opacity duration-300 ${activeTab === Tab.Calendar ? 'block animate-reveal' : 'hidden'}`}><Calendar /></div>
-           <div className={`h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 transition-opacity duration-300 ${activeTab === Tab.Review ? 'block animate-reveal' : 'hidden'}`}><Review /></div>
-           <div className={`h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 transition-opacity duration-300 ${activeTab === Tab.Focus ? 'block animate-reveal' : 'hidden'}`}><Focus /></div>
-           <div className={`h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 transition-opacity duration-300 ${activeTab === Tab.Library ? 'block animate-reveal' : 'hidden'}`}><Library /></div>
+          <Routes>
+            <Route path="/" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Home /></div>} />
+            <Route path="/calendar" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Calendar /></div>} />
+            <Route path="/review" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Review /></div>} />
+            <Route path="/focus" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Focus /></div>} />
+            <Route path="/library" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Library /></div>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
 
         {/* Mobile Bottom Navigation (Hidden on Desktop) */}
@@ -297,7 +323,7 @@ const Layout: React.FC<LayoutProps> = () => {
             return (
               <button
                 key={item.tab}
-                onClick={() => setActiveTab(item.tab)}
+                onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 relative ${
                   isActive ? 'text-zen-primary transform -translate-y-1' : 'text-zen-text-disabled hover:text-zen-text-secondary'
                 }`}
