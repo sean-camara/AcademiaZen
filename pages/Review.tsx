@@ -996,55 +996,121 @@ const Review: React.FC = () => {
 
             {question.type === 'word_matching' && question.pairs && question.pairs.length > 0 && (
               <div className="space-y-6">
-                <p className="text-sm text-zen-text-secondary mb-4">Tap a term, then tap its matching definition</p>
-                <div className="grid grid-cols-2 gap-4">
+                {/* Instructions with visual indicator */}
+                <div className="flex items-center gap-3 p-4 bg-zen-primary/5 border border-zen-primary/20 rounded-xl">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zen-primary/20 flex items-center justify-center">
+                    <span className="text-lg">👆</span>
+                  </div>
+                  <p className="text-sm text-zen-text-secondary">
+                    <span className="text-zen-primary font-medium">Step 1:</span> Tap a term on the left
+                    <br />
+                    <span className="text-zen-primary font-medium">Step 2:</span> Tap its matching definition on the right
+                  </p>
+                </div>
+
+                {/* Matching Progress */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zen-text-disabled uppercase tracking-widest">Progress</span>
+                  <span className="font-bold text-zen-primary">
+                    {Object.keys(matchingSelections.pairs).length} / {question.pairs.length} matched
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left column - terms */}
                   <div className="space-y-3">
-                    <p className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest mb-2">Terms</p>
-                    {question.pairs.map(pair => {
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1 h-4 bg-zen-primary rounded-full"></div>
+                      <p className="text-xs font-bold text-zen-text-primary uppercase tracking-widest">Terms</p>
+                    </div>
+                    {question.pairs.map((pair, idx) => {
                       const isSelected = matchingSelections.left === pair.left;
                       const isMatched = pair.left in matchingSelections.pairs;
+                      const matchedDef = matchingSelections.pairs[pair.left];
+                      
                       return (
-                        <button
-                          key={pair.id}
-                          onClick={() => !isMatched && handleMatchingSelect(question.id, 'left', pair.left, question)}
-                          disabled={isMatched}
-                          className={'w-full text-left p-3 rounded-xl border text-sm transition-all '+(
-                            isMatched
-                              ? 'bg-zen-primary/10 border-zen-primary/30 text-zen-text-disabled'
-                              : isSelected
-                                ? 'bg-zen-primary/20 border-zen-primary text-zen-text-primary'
-                                : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
+                        <div key={pair.id} className="relative">
+                          <button
+                            onClick={() => !isMatched && handleMatchingSelect(question.id, 'left', pair.left, question)}
+                            disabled={isMatched}
+                            className={'group w-full text-left p-4 rounded-xl border-2 text-sm transition-all duration-200 '+(
+                              isMatched
+                                ? 'bg-gradient-to-r from-zen-primary/10 to-transparent border-zen-primary/50 text-zen-text-primary cursor-default shadow-lg shadow-zen-primary/10'
+                                : isSelected
+                                  ? 'bg-zen-primary/20 border-zen-primary text-zen-text-primary scale-[1.02] shadow-lg shadow-zen-primary/20 animate-pulse'
+                                  : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/50 hover:scale-[1.01] active:scale-95'
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{pair.left}</span>
+                              {isMatched && (
+                                <div className="flex items-center gap-1 text-zen-primary animate-fade-in">
+                                  <IconCheck className="w-5 h-5" />
+                                  <span className="text-xs">✓</span>
+                                </div>
+                              )}
+                              {isSelected && !isMatched && (
+                                <div className="w-2 h-2 rounded-full bg-zen-primary animate-ping"></div>
+                              )}
+                            </div>
+                            {isMatched && matchedDef && (
+                              <div className="mt-2 pt-2 border-t border-zen-primary/20 text-xs text-zen-text-disabled">
+                                → {matchedDef}
+                              </div>
+                            )}
+                          </button>
+                          {/* Visual connector line when matched */}
+                          {isMatched && (
+                            <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-0.5 bg-gradient-to-r from-zen-primary to-transparent animate-fade-in"></div>
                           )}
-                        >
-                          {pair.left}
-                          {isMatched && <IconCheck className="w-4 h-4 inline ml-2 text-zen-primary" />}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                   
                   {/* Right column - definitions */}
                   <div className="space-y-3">
-                    <p className="text-xs font-bold text-zen-text-disabled uppercase tracking-widest mb-2">Definitions</p>
-                    {question.pairs.map(pair => {
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
+                      <p className="text-xs font-bold text-zen-text-primary uppercase tracking-widest">Definitions</p>
+                    </div>
+                    {question.pairs.map((pair, idx) => {
                       const isMatched = matchingSelections?.pairs ? Object.values(matchingSelections.pairs).includes(pair.right) : false;
+                      const hasSelection = !!matchingSelections.left;
+                      
                       return (
-                        <button
-                          key={pair.id}
-                          onClick={() => !isMatched && matchingSelections.left && handleMatchingSelect(question.id, 'right', pair.right, question)}
-                          disabled={isMatched || !matchingSelections.left}
-                          className={'w-full text-left p-3 rounded-xl border text-sm transition-all '+(
-                            isMatched
-                              ? 'bg-zen-primary/10 border-zen-primary/30 text-zen-text-disabled'
-                              : !matchingSelections.left
-                                ? 'bg-zen-card border-zen-surface text-zen-text-disabled cursor-not-allowed'
-                                : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/30'
+                        <div key={pair.id} className="relative">
+                          <button
+                            onClick={() => !isMatched && matchingSelections.left && handleMatchingSelect(question.id, 'right', pair.right, question)}
+                            disabled={isMatched || !matchingSelections.left}
+                            className={'group w-full text-left p-4 rounded-xl border-2 text-sm transition-all duration-200 '+(
+                              isMatched
+                                ? 'bg-gradient-to-l from-emerald-500/10 to-transparent border-emerald-500/50 text-zen-text-primary cursor-default shadow-lg shadow-emerald-500/10'
+                                : !matchingSelections.left
+                                ? 'bg-zen-card border-zen-surface/50 text-zen-text-disabled cursor-not-allowed opacity-50'
+                                : 'bg-zen-card border-emerald-500/30 text-zen-text-secondary hover:bg-emerald-500/5 hover:border-emerald-500/50 hover:scale-[1.01] active:scale-95'
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{pair.right}</span>
+                              {isMatched && (
+                                <div className="flex items-center gap-1 text-emerald-500 animate-fade-in">
+                                  <IconCheck className="w-5 h-5" />
+                                  <span className="text-xs">✓</span>
+                                </div>
+                              )}
+                              {!isMatched && hasSelection && (
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <IconChevronLeft className="w-4 h-4 text-emerald-500" />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                          {/* Visual connector line when matched */}
+                          {isMatched && (
+                            <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-0.5 bg-gradient-to-l from-emerald-500 to-transparent animate-fade-in"></div>
                           )}
-                        >
-                          {pair.right}
-                          {isMatched && <IconCheck className="w-4 h-4 inline ml-2 text-zen-primary" />}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

@@ -101,3 +101,62 @@ input[type="range"].slider-thumb::-moz-range-thumb:hover {
     box-shadow: 0 0 0 6px rgba(100, 255, 218, 0.3);
     transform: scale(1.1);
 }
+
+/* Animations for Quiz Matching */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes match-success {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+    animation: slide-in-left 0.4s ease-out;
+}
+
+.animate-slide-in-right {
+    animation: slide-in-right 0.4s ease-out;
+}
+
+.animate-match-success {
+    animation: match-success 0.4s ease-out;
+}
