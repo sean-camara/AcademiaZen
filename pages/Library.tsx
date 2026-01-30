@@ -1,8 +1,8 @@
-
+﻿
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useZen } from '../context/ZenContext';
 // Added IconLibrary to the imports from components/Icons
-import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary, IconEdit } from '../components/Icons';
+import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, IconTrash, IconFileText, IconFolder, IconExternalLink, IconLibrary, IconEdit, IconCheck } from '../components/Icons';
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
 import AddKnowledgeModal from '../components/AddKnowledgeModal';
@@ -877,82 +877,73 @@ const Library: React.FC = () => {
        {/* Premium Upgrade Modal */}
        {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center z-50" onClick={() => setShowUpgradeModal(false)}>
-          <div 
-            className="bg-gradient-to-b from-zen-card to-zen-bg w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl overflow-hidden animate-slide-up max-h-[90vh] overflow-y-auto"
+          <div
+            className="bg-gradient-to-b from-zen-card to-zen-bg w-full sm:max-w-md md:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden animate-slide-up max-h-[92vh] flex flex-col border border-white/10 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with gradient */}
-            <div className="bg-gradient-to-br from-zen-primary/10 via-purple-500/10 to-amber-500/10 px-6 py-8 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-1/4 w-32 h-32 bg-zen-primary/20 rounded-full blur-3xl" />
-              <div className="absolute bottom-0 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-3xl" />
-              
-              <div className="relative">
-                <span className="text-6xl mb-3 block drop-shadow-lg">👑</span>
-                <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
+            <div className="bg-gradient-to-br from-zen-primary/10 via-purple-500/10 to-amber-500/10 px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-center relative overflow-hidden">
+              <div className="absolute top-0 left-1/4 w-28 sm:w-32 h-28 sm:h-32 bg-zen-primary/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 right-1/4 w-20 sm:w-24 h-20 sm:h-24 bg-purple-500/20 rounded-full blur-3xl" />
+
+              <div className="relative flex flex-col items-center">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-400/10 border border-amber-300/20 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.25)]">
+                  <svg className="w-8 h-8 sm:w-9 sm:h-9 text-amber-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M4 18h16l-1.5-8-4 3-2.5-6-2.5 6-4-3L4 18z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-zen-text-primary mt-4">Unlock Premium</h2>
                 <p className="text-zen-text-secondary mt-2 text-sm">
                   <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
                 </p>
               </div>
             </div>
-            
-            {/* Benefits */}
-            <div className="px-5 py-6 space-y-4">
-              <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">Library Premium Benefits</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
-                  <div>
-                    <span className="text-zen-text-primary text-sm font-medium">Unlimited PDF Storage</span>
-                    <p className="text-zen-text-disabled text-xs mt-0.5">Upload as many PDFs as you need</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
-                  <div>
-                    <span className="text-zen-text-primary text-sm font-medium">15MB File Size</span>
-                    <p className="text-zen-text-disabled text-xs mt-0.5">Upload larger documents (Free: 2MB)</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
-                  <div>
-                    <span className="text-zen-text-primary text-sm font-medium">Unlimited Folders</span>
-                    <p className="text-zen-text-disabled text-xs mt-0.5">Organize your library your way</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
-                  <div>
-                    <span className="text-zen-text-primary text-sm font-medium">AI-Powered Features</span>
-                    <p className="text-zen-text-disabled text-xs mt-0.5">Generate quizzes from your PDFs</p>
-                  </div>
-                </li>
-              </ul>
-            </div>
-            
-            {/* Free tier info */}
-            <div className="px-5 pb-4">
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 md:px-8 py-5 sm:py-6 space-y-5">
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">Library Premium Benefits</h3>
+                <ul className="space-y-3">
+                  {[
+                    { title: 'Unlimited PDF Storage', desc: 'Upload as many PDFs as you need' },
+                    { title: '15MB File Size', desc: 'Upload larger documents (Free: 2MB)' },
+                    { title: 'Unlimited Folders', desc: 'Organize your library your way' },
+                    { title: 'AI-Powered Features', desc: 'Generate quizzes from your PDFs' },
+                  ].map((item) => (
+                    <li key={item.title} className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                      <span className="w-6 h-6 rounded-full bg-green-500/15 flex items-center justify-center text-green-400 shrink-0 mt-0.5">
+                        <IconCheck className="w-3.5 h-3.5" />
+                      </span>
+                      <div>
+                        <span className="text-zen-text-primary text-sm font-medium">{item.title}</span>
+                        <p className="text-zen-text-disabled text-xs mt-0.5">{item.desc}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               <div className="bg-zen-surface/50 rounded-xl p-3">
                 <p className="text-zen-text-disabled text-xs text-center">
-                  Free: {getTotalPdfCount()}/{FREE_TIER_LIMITS.maxPdfUploads} PDFs used • {folders.length}/{FREE_TIER_LIMITS.maxFolders} folder
+                  Free: {getTotalPdfCount()}/{FREE_TIER_LIMITS.maxPdfUploads} PDFs used - {folders.length}/{FREE_TIER_LIMITS.maxFolders} folder
                 </p>
               </div>
             </div>
-            
+
             {/* Actions */}
-            <div className="px-5 pb-6 pt-2 space-y-3 safe-area-bottom">
+            <div className="px-4 sm:px-6 md:px-8 pb-5 sm:pb-6 pt-3 bg-zen-bg/80 border-t border-white/5 space-y-3 safe-area-bottom">
               <button
                 onClick={() => {
                   setShowUpgradeModal(false);
-                  window.location.href = '/?page=settings';
+                  window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'plans' } }));
                 }}
-                className="w-full py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
+                className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
               >
                 View Plans
               </button>
               <button
                 onClick={() => setShowUpgradeModal(false)}
-                className="w-full py-3 text-zen-text-disabled hover:text-zen-text-secondary transition-colors text-xs"
+                className="w-full py-2.5 text-zen-text-disabled hover:text-zen-text-secondary transition-colors text-xs"
               >
                 Maybe Later
               </button>

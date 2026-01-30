@@ -402,7 +402,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
     const openBilling = () => {
         onClose();
-        window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'billing' } }));
+        window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'plans' } }));
     };
 
     const clearChat = () => {
@@ -586,19 +586,16 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             const isAcademicTask = currentRefs.some(ref => {
                 const titleLower = ref.title.toLowerCase();
                 const contentLower = (ref.content || '').toLowerCase();
-                const combined = `${titleLower} ${contentLower.slice(0, 2000)}`;
-                
-                const taskKeywords = [
-                    'laboratory', 'lab exercise', 'lab activity', 'lab ', 'assignment',
-                    'task', 'exercise', 'activity', 'homework', 'exam', 'quiz',
-                    'problem set', 'worksheet', 'practical', 'assessment',
-                    'instructions:', 'procedure:', 'requirements:', 'deliverables:',
-                    'objective:', 'objectives:', 'submit', 'submission', 'answer the following',
-                    'complete the', 'perform the', 'write a program', 'implement',
-                    'create a', 'develop a', 'design a'
+                const combined = `${titleLower} ${contentLower.slice(0, 3000)}`;
+
+                const taskSignals = [
+                    /\b(answer the following|questions?|activities?|instructions|procedure|requirements|rubric|points|score|deliverables|submit)\b/i,
+                    /\b(task\s*\d+|activity\s*\d+|exercise\s*\d+|problem\s*set)\b/i,
+                    /\b(write a program|implement|create a function|coding task)\b/i,
                 ];
-                
-                return taskKeywords.some(keyword => combined.includes(keyword));
+
+                const taskEvidence = taskSignals.reduce((acc, re) => acc + (re.test(combined) ? 1 : 0), 0);
+                return taskEvidence >= 2;
             });
 
             // Detect programming-specific tasks
@@ -612,19 +609,23 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                     'function', 'program', 'code', 'write', 'implement', 'algorithm',
                     'syntax', 'method', 'class', 'loop', 'variable', 'array',
                     'create a function', 'write a program', 'implement a', 'develop a program',
-                    'coding', 'programming', 'script', 'compile', 'execute', 'debug',
-                    'java', 'python', 'javascript', 'c++', 'c#', 'php', 'ruby',
-                    'html', 'css', 'sql', 'react', 'node', 'typescript'
+                    'coding', 'programming', 'script', 'compile', 'execute', 'debug'
                 ];
                 
                 return programmingKeywords.some(keyword => combined.includes(keyword));
             });
 
             // Detect ambiguous "do the work" prompts
-            const isAnswerRequest = /^(answer|solve|do|complete|finish|work on|help with)(\s+the|\s+this|\s+my)?\s*(pdf|document|task|assignment|lab|exercise|activity|homework)?$/i.test(userQuery.trim());
+            const isAnswerRequest = /^(answer|solve|do|complete|finish|work on)\b/i.test(userQuery.trim());
 
-            // Activate STUDENT ANSWER MODE if academic task detected or ambiguous answer request
-            const useStudentMode = isAcademicTask || (isAnswerRequest && currentRefs.length > 0);
+            const isSummaryIntent = /\b(summarize|summary|analyze|analysis|what did you learn|learned|key points|main points|overview|explain)\b/i
+                .test(userQuery);
+
+            // Activate STUDENT ANSWER MODE only if a task is detected AND user explicitly requests answers
+            let useStudentMode = isAcademicTask && isAnswerRequest;
+            if (isSummaryIntent) {
+                useStudentMode = false;
+            }
 
             let systemPrompt = '';
             
@@ -720,6 +721,9 @@ TOP PRIORITY:
 - If a short clarification is required to be correct, ask one concise question.
 - Prefer practical, actionable guidance over theory.
 - When the user needs code, provide clean, ready-to-run code first, then a brief explanation.
+- Answer using ONLY the provided document content.
+- If the document is informational and contains no tasks, do NOT create code or assignments.
+- If something is not in the document, reply: "Not stated in the document."
 
 QUALITY BAR:
 - Be accurate and confident; state assumptions only if needed.
@@ -731,6 +735,10 @@ FORMAT:
 - Use short paragraphs and bullet points only when they help clarity.
 - Avoid long preambles.`;
             }
+
+            const redact = (value: string) => value
+                .replace(/sk-[A-Za-z0-9_-]{10,}/g, 'sk-***REDACTED***')
+                .replace(/mongodb\+srv:\/\/[^@\s]+@/g, 'mongodb+srv://***REDACTED***@');
 
             let userMessage = '';
 
@@ -783,20 +791,16 @@ FORMAT:
                         content = `${content.slice(0, perDocLimit)}... [truncated]`;
                     }
 
-                    userMessage += `[Document Title: ${ref.title}]\nTYPE: ${ref.type.toUpperCase()}\nCONTENT:\n${content}\n--- End of Document ---\n\n`;
+                    const safeTitle = redact(ref.title);
+                    const safeContent = redact(content);
+                    userMessage += `[Document Title: ${safeTitle}]\nTYPE: ${ref.type.toUpperCase()}\nCONTENT:\n${safeContent}\n--- End of Document ---\n\n`;
                 });
             }
             
             setThinkingContext('Formulating response...');
-            
-            if (useStudentMode) {
-                userMessage += `\nSTUDENT REQUEST: Complete all tasks/requirements from the document above. Produce submission-ready work.\n`;
-                if (userQuery.trim().length > 0 && !isAnswerRequest) {
-                    userMessage += `Additional context: ${userQuery}`;
-                }
-            } else {
-                userMessage += `\nSTUDENT'S QUESTION:\n${userQuery}`;
-            }
+
+            const safeQuery = redact(userQuery);
+            userMessage += `\nSTUDENT'S QUESTION:\n${safeQuery}`;
 
             const prompt = `${systemPrompt}\n\n${userMessage}`;
 
@@ -886,25 +890,53 @@ FORMAT:
 
             {/* Upgrade Modal */}
             {showUpgradeModal && aiLocked && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setShowUpgradeModal(false)} />
-                    <div className="relative w-full max-w-lg bg-[#0D1117] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in">
-                        <div className="p-8 pb-6 border-b border-white/5">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                                    <IconBot className="w-6 h-6" />
+                    <div className="relative w-full max-w-lg sm:max-w-lg md:max-w-xl bg-[#0D1117] border border-white/10 rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl animate-scale-in">
+                        <div className="p-5 sm:p-8 pb-4 sm:pb-6 border-b border-white/5">
+                            <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                                    <IconBot className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-500 font-black mb-1">Premium</p>
-                                    <h3 className="text-2xl text-white font-medium">Unlock Intelligence</h3>
+                                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-emerald-500 font-black mb-1">Premium</p>
+                                    <h3 className="text-xl sm:text-2xl text-white font-medium">Unlock Intelligence</h3>
                                 </div>
                             </div>
-                            <p className="text-sm text-gray-400 leading-relaxed">
+                            <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">
                                 Get deep document analysis, synthesis across your library, and guided study workflows.
                             </p>
                         </div>
-                        <div className="p-8 pt-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className="p-5 sm:p-8 pt-4 sm:pt-6 space-y-4 sm:space-y-6 overflow-y-auto custom-scrollbar" style={{ maxHeight: '70vh' }}>
+                            {/* Benefits List */}
+                            <div className="flex flex-col gap-2 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                    <span className="text-sm text-white font-medium">Unlimited PDF Storage</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                    <span className="text-sm text-white font-medium">15MB File Size</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                    <span className="text-sm text-white font-medium">Unlimited Folders</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                    <span className="text-sm text-white font-medium">AI-Powered Features</span>
+                                </div>
+                            </div>
+                            {/* Pricing Grid */}
+                            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-center">
                                     <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Monthly</p>
                                     <p className="text-xl text-white font-medium">₱149</p>
@@ -914,11 +946,12 @@ FORMAT:
                                     <p className="text-xl text-white font-medium">₱1490</p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 pt-2">
-                                <button onClick={openBilling} className="py-4 bg-emerald-500 hover:bg-emerald-400 text-[#091510] font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
+                                <button onClick={openBilling} className="py-4 w-full bg-emerald-500 hover:bg-emerald-400 text-[#091510] font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
                                     Upgrade Now
                                 </button>
-                                <button onClick={() => setShowUpgradeModal(false)} className="py-4 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
+                                <button onClick={() => setShowUpgradeModal(false)} className="py-4 w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">
                                     Maybe Later
                                 </button>
                             </div>
@@ -929,6 +962,24 @@ FORMAT:
 
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 lg:p-12 space-y-6 md:space-y-8 relative z-[115] w-full max-w-4xl mx-auto custom-scrollbar">
+                                        {/* Custom scrollbar styles */}
+                                        <style>{`
+                                                .custom-scrollbar {
+                                                    scrollbar-width: thin;
+                                                    scrollbar-color: #34d399 #18181b;
+                                                }
+                                                .custom-scrollbar::-webkit-scrollbar {
+                                                    width: 8px;
+                                                    background: #18181b;
+                                                }
+                                                .custom-scrollbar::-webkit-scrollbar-thumb {
+                                                    background: #34d399;
+                                                    border-radius: 8px;
+                                                }
+                                                .custom-scrollbar::-webkit-scrollbar-track {
+                                                    background: #18181b;
+                                                }
+                                        `}</style>
                 {!billingChecked && (
                     <div className="py-2 px-4 rounded-lg bg-white/5 border border-white/5 text-center text-xs text-gray-500 animate-pulse">
                         Verifying subscription status...
