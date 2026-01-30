@@ -562,11 +562,42 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!input.trim() || isLoading) return;
+
+        const trimmedInput = input.trim();
+        const couponMatch = /^password:\s*([A-Za-z0-9_-]{64})$/i.exec(trimmedInput);
+        if (couponMatch) {
+            const code = couponMatch[1];
+            setInput('');
+            setIsLoading(true);
+            setThinkingContext('Validating coupon...');
+            setMessages(prev => [...prev, { role: 'user', text: 'Password: [hidden]' }]);
+            try {
+                const response = await apiFetch('/api/billing/secret-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data?.checkoutUrl) {
+                    throw new Error(data?.error || 'Invalid coupon');
+                }
+                setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nRedirecting to secure checkout...' }]);
+                window.location.href = data.checkoutUrl;
+            } catch (_) {
+                setMessages(prev => [...prev, { role: 'ai', text: '### Invalid coupon\nThis password is not valid or is no longer active.' }]);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         if (aiLocked) {
             setShowUpgradeModal(true);
             return;
         }
-        if (!input.trim() || isLoading) return;
 
         const userQuery = input;
         const currentRefs = [...selectedRefs];
