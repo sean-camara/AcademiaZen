@@ -581,8 +581,16 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                     body: JSON.stringify({ code }),
                 });
                 const data = await response.json().catch(() => ({}));
-                if (!response.ok || !data?.checkoutUrl) {
+                if (!response.ok) {
                     throw new Error(data?.error || 'Invalid coupon');
+                }
+                if (data?.direct && data?.billing) {
+                    setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nPremium is now active on your account.' }]);
+                    window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan: 'premium', billing: data.billing } }));
+                    return;
+                }
+                if (!data?.checkoutUrl) {
+                    throw new Error('Invalid coupon');
                 }
                 setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nRedirecting to secure checkout...' }]);
                 window.location.href = data.checkoutUrl;
