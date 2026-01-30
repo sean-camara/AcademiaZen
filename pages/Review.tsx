@@ -69,6 +69,7 @@ const Review: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [showAnswerReview, setShowAnswerReview] = useState(false);
   const [matchingSelections, setMatchingSelections] = useState<{ left: string | null; pairs: Record<string, string> }>({ left: null, pairs: {} });
   
   // Editing state
@@ -408,6 +409,7 @@ const Review: React.FC = () => {
     setMatchingSelections({ left: null, pairs: {} });
     setTimeRemaining(reviewer.timerMinutes ? reviewer.timerMinutes * 60 : null);
     setShowResults(false);
+    setShowAnswerReview(false);
     setIsQuizActive(true);
     setQuizProgress({
       reviewerId: reviewer.id,
@@ -501,6 +503,7 @@ const Review: React.FC = () => {
 
     setQuizProgress(null);
     setShowResults(true);
+    setShowAnswerReview(false);
     
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -699,7 +702,6 @@ const Review: React.FC = () => {
   if (showResults && selectedReviewer) {
     const { correct, total, percentage } = calculateScore(selectedReviewer);
     const { emoji, message} = getScoreMessage(percentage);
-    const [showAnswerReview, setShowAnswerReview] = useState(false);
 
     // Answer review screen
     if (showAnswerReview) {
@@ -842,6 +844,7 @@ const Review: React.FC = () => {
               <button
                 onClick={() => {
                   setShowResults(false);
+                  setShowAnswerReview(false);
                   setIsQuizActive(false);
                   setSelectedReviewerId(null);
                 }}
