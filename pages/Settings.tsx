@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
 import { IconX, IconLogOut, IconCheck, IconSettings, IconBot, IconFocus, IconLibrary, IconCreditCard } from '../components/Icons';
 import { AMBIENCE_OPTIONS, FOCUS_DURATIONS } from '../constants';
@@ -24,8 +24,8 @@ interface BillingIntervalPlan {
 interface BillingPlans {
   free: { id: string; label: string; amount: number; currency: string; interval: string };
   premium: {
+    weekly: BillingIntervalPlan;
     monthly: BillingIntervalPlan;
-    yearly: BillingIntervalPlan;
   };
 }
 
@@ -57,8 +57,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState('');
   const [billingNotice, setBillingNotice] = useState('');
-  const [billingMethodLoading, setBillingMethodLoading] = useState<'gcash' | 'bank' | null>(null);
-  const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingMethodLoading, setBillingMethodLoading] = useState<'qrph' | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<'weekly' | 'monthly'>('monthly');
   const [billingCancelLoading, setBillingCancelLoading] = useState(false);
   
   // Confirmation state
@@ -126,7 +126,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         updateBillingState(statusData.billing);
-        if (statusData.billing?.interval === 'yearly') setSelectedInterval('yearly');
+        if (statusData.billing?.interval === 'weekly') setSelectedInterval('weekly');
         else if (statusData.billing?.interval === 'monthly') setSelectedInterval('monthly');
       }
 
@@ -157,7 +157,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     }
   };
 
-  const handleCheckout = async (method: 'gcash' | 'bank') => {
+  const handleCheckout = async (method: 'qrph') => {
     setBillingMethodLoading(method);
     setBillingError('');
     try {
@@ -273,7 +273,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
            interval: billing?.interval || 'monthly',
-           method: 'gcash',
+           method: 'qrph',
         }),
       });
 
@@ -577,9 +577,9 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </h3>
                                             <p className="text-xs text-gray-400 mt-1">Unlock Zen Intelligence</p>
                                         </div>
-                                        {/* Toggle Year/Month */}
+                                        {/* Toggle Weekly/Month */}
                                         <div className="flex bg-black/40 rounded-lg p-1">
-                                            {(['monthly', 'yearly'] as const).map(interval => (
+                                            {(['weekly', 'monthly'] as const).map(interval => (
                                                 <button
                                                     key={interval}
                                                     onClick={() => setSelectedInterval(interval)}
@@ -587,7 +587,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                         selectedInterval === interval ? 'bg-white/20 text-white' : 'text-gray-500 hover:text-white'
                                                     }`}
                                                 >
-                                                    {interval === 'yearly' ? 'Year' : 'Mo'}
+                                                    {interval === 'weekly' ? 'Wk' : 'Mo'}
                                                 </button>
                                             ))}
                                         </div>
@@ -597,16 +597,13 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                     <div className="relative z-10 py-6 md:py-8">
                                         <div className="flex items-baseline gap-1">
                                             <span className="text-4xl md:text-5xl font-light text-white tracking-tight">
-                                                ₱{selectedInterval === 'yearly' ? '1490' : '149'}
+                                                PHP {selectedInterval === 'weekly' ? '49' : '129'}
                                             </span>
                                             <span className="text-lg md:text-xl text-gray-500 font-light">
-                                                /{selectedInterval === 'yearly' ? 'yr' : 'mo'}
+                                                /{selectedInterval === 'weekly' ? 'wk' : 'mo'}
                                             </span>
                                         </div>
-                                        {selectedInterval === 'yearly' && (
-                                            <p className="text-xs text-emerald-400 mt-1">Save ₱298/year (2 months free!)</p>
-                                        )}
-                                    </div>
+</div>
 
                                     {/* Actions */}
                                     <div className="relative z-10">
@@ -618,18 +615,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                 Manage Subscription
                                             </button>
                                         ) : (
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 gap-3">
                                                  <button
-                                                    onClick={() => handleCheckout('gcash')}
+                                                    onClick={() => handleCheckout('qrph')}
                                                     className="py-4 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
                                                  >
-                                                     {billingMethodLoading === 'gcash' ? '...' : 'GCash'}
-                                                 </button>
-                                                 <button
-                                                    onClick={() => handleCheckout('bank')}
-                                                    className="py-4 rounded-xl bg-white/10 text-white hover:bg-white/20 text-xs font-bold uppercase tracking-widest transition-all"
-                                                 >
-                                                     {billingMethodLoading === 'bank' ? '...' : 'Bank'}
+                                                     {billingMethodLoading === 'qrph' ? '...' : 'QRPH'}
                                                  </button>
                                             </div>
                                         )}
@@ -637,12 +628,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                 </div>
                                 
                                 {/* Premium Benefits List */}
-                                <div className="bg-zen-card/50 rounded-[2rem] p-6 border border-zen-surface/50">
+                                <div className="bg-zen-card/50 rounded-[2rem] p-6 border border-zen-surface/50 lg:col-span-2">
                                     <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest mb-4">Premium Includes</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {/* Zen AI */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">🤖</span>
+                                            <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 text-[10px] font-bold">AI</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations, deep reasoning mode</p>
@@ -651,7 +642,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* AI Reviewer */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">📝</span>
+                                            <span className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 text-[10px] font-bold">QUIZ</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">AI Quiz Generator</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">50 questions, all types & difficulties</p>
@@ -660,7 +651,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* Library */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">📚</span>
+                                            <span className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 text-[10px] font-bold">LIB</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Unlimited Library</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited PDFs & folders, 15MB files</p>
@@ -669,7 +660,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* Reviewers */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">✨</span>
+                                            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 text-[10px] font-bold">10x</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">10 AI Reviewers</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">Create more quizzes from your PDFs</p>
@@ -678,7 +669,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* Focus */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">🎯</span>
+                                            <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 text-[10px] font-bold">FOCUS</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Focus Timer</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">All durations, ambient sounds, stats</p>
@@ -687,7 +678,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* Priority Support */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">💎</span>
+                                            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0 text-[10px] font-bold">PRO</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Priority Support</span>
                                                 <p className="text-zen-text-disabled text-xs mt-0.5">Fast responses, early access to features</p>
@@ -700,23 +691,23 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         <h4 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest mb-3">Free Plan Limits</h4>
                                         <div className="space-y-2 text-xs text-zen-text-disabled">
                                             <div className="flex justify-between">
-                                                <span>📚 PDF Storage</span>
+                                                <span>PDF Storage</span>
                                                 <span>3 PDFs (2MB max each)</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>📁 Folders</span>
+                                                <span>Folders</span>
                                                 <span>1 folder only</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>📝 AI Reviewers</span>
+                                                <span>AI Reviewers</span>
                                                 <span>3 reviewers, Easy only</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>❓ Quiz Questions</span>
+                                                <span>Quiz Questions</span>
                                                 <span>10 max, MC & T/F only</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>🤖 Zen AI</span>
+                                                <span>Zen AI</span>
                                                 <span>Limited access</span>
                                             </div>
                                         </div>
@@ -910,7 +901,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                         </div>
                         <div className="flex items-center gap-3">
                              <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">Premium Active</div>
-                             <div className="px-3 py-1 rounded-full bg-white/5 text-gray-400 text-xs font-medium border border-white/5">{billing?.interval === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}</div>
+                             <div className="px-3 py-1 rounded-full bg-white/5 text-gray-400 text-xs font-medium border border-white/5">{billing?.interval === 'weekly' ? 'Weekly Plan' : 'Monthly Plan'}</div>
                         </div>
                     </div>
 
@@ -976,7 +967,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                     </div>
                     <div>
                         <h3 className="text-lg font-medium text-white">Confirm Extension</h3>
-                        <p className="text-sm text-gray-400 mt-2">Charge <strong className="text-white">PHP {billing?.interval === 'yearly' ? '1490' : '149'}</strong> to extend by 1 month?</p>
+                        <p className="text-sm text-gray-400 mt-2">Charge <strong className="text-white">PHP {billing?.interval === 'weekly' ? '49' : '129'}</strong> to extend by {billing?.interval === 'weekly' ? '1 week' : '1 month'}?</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => setShowExtensionConfirm(false)} className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase">Cancel</button>
@@ -996,3 +987,4 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 };
 
 export default Settings;
+

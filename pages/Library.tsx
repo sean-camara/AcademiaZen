@@ -163,7 +163,7 @@ const Library: React.FC = () => {
     maxPdfUploads: 3,
     maxFolders: 1, // Only General folder
   };
-  
+
   // Confirmation State
   const [confirmState, setConfirmState] = useState<{
       isOpen: boolean;
@@ -171,7 +171,7 @@ const Library: React.FC = () => {
       message: string;
       action: () => void;
   }>({ isOpen: false, title: '', message: '', action: () => {} });
-
+  
   const [isAddingItem, setIsAddingItem] = useState(false);
 
   const [activeDoc, setActiveDoc] = useState<{ id: string; title: string; type: 'note' | 'pdf'; content?: string; file?: PdfAttachment } | null>(null);
@@ -386,7 +386,48 @@ const Library: React.FC = () => {
     }
   };
 
-  // --- 1. Folder View ---
+  // --- 1. Edit Folder Modal ---
+  if (isEditingFolder) {
+    return (
+        <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-xl z-[60] flex items-center justify-center p-4 md:p-6 animate-reveal">
+            <div className="w-full max-w-md bg-zen-card p-6 md:p-8 rounded-[2rem] border border-zen-primary/30 shadow-2xl shadow-zen-primary/10">
+                <div className="flex justify-between items-center mb-6 md:mb-8">
+                    <h2 className="text-xl md:text-2xl font-light text-zen-text-primary">Rename Collection</h2>
+                    <button onClick={() => setIsEditingFolder(false)} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">
+                        <IconChevronLeft className="w-5 h-5 rotate-90" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleUpdateFolder} className="space-y-6 md:space-y-8">
+                    <div className="space-y-2 md:space-y-3">
+                        <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Collection Name</label>
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder="e.g., Thesis References..."
+                            className="w-full bg-zen-surface rounded-xl md:rounded-2xl p-3 md:p-4 text-base md:text-lg text-zen-text-primary focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface transition-all placeholder:text-zen-text-disabled/30"
+                            value={editingFolderName}
+                            onChange={e => setEditingFolderName(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex gap-4">
+                        <button type="button" onClick={() => setIsEditingFolder(false)} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
+                        <button 
+                            type="submit" 
+                            disabled={!editingFolderName.trim()} 
+                            className="flex-[2] py-3 md:py-4 rounded-xl bg-zen-primary text-zen-bg font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+  }
+
+  // --- 2. Folder View ---
   if (activeFolder) {
     const textPages = activeDoc?.type === 'note' ? paginateText(activeDoc.content || "") : [];
 
@@ -420,6 +461,12 @@ const Library: React.FC = () => {
                         >
                             <IconPlus className="w-4 h-4" />
                             Add Knowledge
+                        </button>
+                        <button 
+                            onClick={() => handleOpenEditFolder(activeFolder.id, activeFolder.name)}
+                            className="px-4 py-3 bg-zen-card border border-zen-surface text-zen-text-disabled hover:text-zen-primary hover:border-zen-primary/30 rounded-xl transition-all active:scale-95"
+                        >
+                            <IconEdit className="w-5 h-5" />
                         </button>
                         <button 
                             onClick={() => setConfirmState({
@@ -673,47 +720,6 @@ const Library: React.FC = () => {
     );
   }
 
-  // --- 2. Edit Folder Modal ---
-  if (isEditingFolder) {
-    return (
-        <div className="fixed inset-0 bg-zen-bg/80 backdrop-blur-xl z-[60] flex items-center justify-center p-4 md:p-6 animate-reveal">
-            <div className="w-full max-w-md bg-zen-card p-6 md:p-8 rounded-[2rem] border border-zen-primary/30 shadow-2xl shadow-zen-primary/10">
-                <div className="flex justify-between items-center mb-6 md:mb-8">
-                    <h2 className="text-xl md:text-2xl font-light text-zen-text-primary">Edit Collection</h2>
-                    <button onClick={() => setIsEditingFolder(false)} className="p-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">
-                        <IconChevronLeft className="w-5 h-5 rotate-90" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleUpdateFolder} className="space-y-6 md:space-y-8">
-                    <div className="space-y-2 md:space-y-3">
-                        <label className="text-xs text-zen-text-disabled uppercase tracking-widest font-bold ml-1">Collection Name</label>
-                        <input 
-                            autoFocus
-                            type="text" 
-                            placeholder="e.g., Thesis References..."
-                            className="w-full bg-zen-surface rounded-xl md:rounded-2xl p-3 md:p-4 text-base md:text-lg text-zen-text-primary focus:outline-none focus:ring-2 focus:ring-zen-primary/30 border border-zen-surface transition-all placeholder:text-zen-text-disabled/30"
-                            value={editingFolderName}
-                            onChange={e => setEditingFolderName(e.target.value)}
-                        />
-                    </div>
-                    
-                    <div className="flex gap-4">
-                        <button type="button" onClick={() => setIsEditingFolder(false)} className="flex-1 py-3 md:py-4 text-zen-text-secondary font-medium text-sm md:text-base">Cancel</button>
-                        <button 
-                            type="submit" 
-                            disabled={!editingFolderName.trim()} 
-                            className="flex-[2] py-3 md:py-4 rounded-xl bg-zen-primary text-zen-bg font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg shadow-zen-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                        >
-                            Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-  }
-
   // --- 3. Create Folder Modal ---
   if (isAddingFolder) {
     return (
@@ -831,37 +837,6 @@ const Library: React.FC = () => {
                          className="group relative bg-zen-card hover:bg-zen-surface/40 p-5 sm:p-6 md:p-10 pt-12 md:pt-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[120px] md:min-h-[300px] cursor-pointer"
                          style={{ animationDelay: `${idx * 0.05}s` }}
                        >
-                         <div className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
-                             <button
-                                 type="button"
-                                 onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleOpenEditFolder(folder.id, folder.name);
-                                }}
-                                className="p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-zen-primary hover:bg-zen-primary/10 transition-all"
-                                aria-label={`Edit ${folder.name}`}
-                            >
-                                <IconEdit className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setConfirmState({
-                                    isOpen: true,
-                                    title: 'Delete Collection',
-                                    message: `Permanently delete "${folder.name}" and all ${folder.items.length} documents?`,
-                                    action: () => deleteFolder(folder.id)
-                                  });
-                                }}
-                                className="p-2 rounded-full bg-zen-surface/70 text-zen-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                 aria-label={`Delete ${folder.name}`}
-                             >
-                                 <IconTrash className="w-4 h-4" />
-                             </button>
-                         </div>
                         <div className="w-12 h-12 md:w-24 md:h-24 bg-zen-surface rounded-2xl md:rounded-[2rem] flex items-center justify-center text-zen-primary/40 group-hover:text-zen-primary group-hover:bg-zen-primary/10 transition-all duration-500 relative shrink-0">
                             <IconFolder className="w-6 h-6 md:w-10 md:h-10" />
                             <div className="absolute -top-2 -right-2 bg-zen-primary text-zen-bg text-[10px] font-bold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full shadow-lg opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -870,7 +845,7 @@ const Library: React.FC = () => {
                         </div>
                         
                         <div className="flex-1 text-left md:text-center">
-                            <h3 className="text-lg md:text-2xl font-medium text-zen-text-primary tracking-tight transition-colors group-hover:text-zen-primary line-clamp-1">{folder.name}</h3>
+                            <h3 className="text-lg md:text-2xl font-medium text-zen-text-primary tracking-tight transition-colors group-hover:text-zen-primary break-words leading-snug">{folder.name}</h3>
                             <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] mt-0.5 md:mt-2 font-bold">{folder.items.length} Items</p>
                         </div>
 

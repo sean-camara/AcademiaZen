@@ -578,7 +578,7 @@ const EditSubjectModal: React.FC<{
     subject: Subject;
     editName: string;
     setEditName: (name: string) => void;
-    onSave: (e: React.FormEvent) => void;
+    onSave: (e: React.FormEvent, color: string) => void;
     onCancel: () => void;
 }> = ({ subject, editName, setEditName, onSave, onCancel }) => {
     const colors = ['bg-zen-primary', 'bg-zen-secondary', 'bg-blue-400', 'bg-rose-400', 'bg-amber-400', 'bg-purple-400', 'bg-cyan-400', 'bg-orange-400'];
@@ -596,7 +596,7 @@ const EditSubjectModal: React.FC<{
 
                 <form onSubmit={(e) => {
                     e.preventDefault();
-                    onSave(e);
+                    onSave(e, selectedColor);
                 }} className="space-y-4">
                     <div>
                         <label className="text-xs text-zen-text-secondary uppercase tracking-wider font-bold mb-2 block">Subject Name</label>
@@ -1002,7 +1002,24 @@ const Home: React.FC = () => {
           </div>
       </div>
 
-      {editingSubject && <EditSubjectModal subject={editingSubject} editName={editSubjectName} setEditName={setEditSubjectName} onSave={(e) => { e.preventDefault(); if (!editSubjectName.trim()) return; updateSubject({ ...editingSubject, name: editSubjectName.trim() }); setEditingSubject(null); setEditSubjectName(''); }} onCancel={() => { setEditingSubject(null); setEditSubjectName(''); }} />}
+      {editingSubject && (
+        <EditSubjectModal
+          subject={editingSubject}
+          editName={editSubjectName}
+          setEditName={setEditSubjectName}
+          onSave={(e, color) => {
+            e.preventDefault();
+            if (!editSubjectName.trim()) return;
+            updateSubject({ ...editingSubject, name: editSubjectName.trim(), color });
+            setEditingSubject(null);
+            setEditSubjectName('');
+          }}
+          onCancel={() => {
+            setEditingSubject(null);
+            setEditSubjectName('');
+          }}
+        />
+      )}
       {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
     </div>
   );
