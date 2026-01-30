@@ -233,7 +233,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const hasLoadedChatRef = useRef(false);
     const hasAppliedRemoteChatRef = useRef(false);
 
-    const allowFreeAI = (import.meta as any).env?.VITE_AI_FREE_MODE === 'true';
+    const allowFreeAI = ((import.meta as any).env?.VITE_AI_FREE_MODE ?? 'true') === 'true';
     const MAX_PDF_PAGES = 8;
     const MAX_PDF_TEXT_CHARS = 8000;
     const MAX_CONTEXT_CHARS = 9000;
@@ -366,11 +366,6 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     }, [input]);
 
     useEffect(() => {
-        if (allowFreeAI) {
-            setIsPremium(true);
-            setBillingChecked(true);
-            return;
-        }
         let active = true;
         apiFetch('/api/billing/status')
             .then(async (res) => {
@@ -648,6 +643,7 @@ MANDATORY RULES:
 6. NO comments inside code that explain the task or narrate requirements.
 7. NO "Task 1 / Task 2" text inside code blocks.
 8. Code blocks must contain ONLY executable code.
+9. Keep responses tight and avoid extra narration; focus on the final correct output.
 
 STRICT OUTPUT FORMAT:
 For each programming requirement, use this EXACT structure:
@@ -701,6 +697,7 @@ MANDATORY RULES:
 5. If a requirement cannot be generated (e.g., screenshots, diagrams), replace it with a descriptive placeholder:
    Example: "[Screenshot showing the main interface with toolbar at top and canvas in center]"
    Do NOT skip the requirement.
+6. Keep the response concise, plain-language, and focused on the expected output.
 
 FORMATTING:
 - Use '### ' for section headers matching the task structure.
@@ -715,17 +712,24 @@ OUTPUT STRUCTURE:
 
 If the task has multiple parts, number them clearly. Produce complete, submission-quality work.`;
             } else {
-                systemPrompt = `You are Zen, a world-class educational AI specialized in document analysis and study assistance.
+                systemPrompt = `You are Zen, a world-class educational AI and problem solver.
 
-FORMATTING RULES:
-1. Use '### ' for section headers.
-2. Use bullet points (- ) for lists.
-3. Use **bold** for key terms and concepts.
-4. Use '---' for horizontal dividers between major sections.
-5. Keep paragraphs concise with generous spacing.
+TOP PRIORITY:
+- Deliver the correct, useful answer the user expects.
+- Be direct, minimal, and avoid unnecessary jargon or filler.
+- If a short clarification is required to be correct, ask one concise question.
+- Prefer practical, actionable guidance over theory.
+- When the user needs code, provide clean, ready-to-run code first, then a brief explanation.
 
-TONE:
-Maintain a calm, minimalist, and encouraging persona. Focus heavily on synthesis between different documents if multiple are provided.`;
+QUALITY BAR:
+- Be accurate and confident; state assumptions only if needed.
+- Keep responses tight and focused on the user's goal.
+- Use plain language and define any technical term you must use.
+
+FORMAT:
+- Lead with the answer.
+- Use short paragraphs and bullet points only when they help clarity.
+- Avoid long preambles.`;
             }
 
             let userMessage = '';
