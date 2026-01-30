@@ -120,6 +120,18 @@ const Library: React.FC = () => {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   
+  // Premium state
+  const [isPremium, setIsPremium] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState('');
+  
+  // Free tier limits
+  const FREE_TIER_LIMITS = {
+    maxPdfSizeMB: 2,
+    maxPdfUploads: 3,
+    maxFolders: 1, // Only General folder
+  };
+  
   // Confirmation State
   const [confirmState, setConfirmState] = useState<{
       isOpen: boolean;
@@ -138,6 +150,54 @@ const Library: React.FC = () => {
   const hidePdfControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeFolder = folders.find(f => f.id === activeFolderId);
+  
+  // Check billing status on mount
+  useEffect(() => {
+    let active = true;
+    import('../utils/api').then(({ apiFetch }) => {
+      apiFetch('/api/billing/status')
+        .then(async (res) => {
+          if (!res.ok) return null;
+          return await res.json();
+        })
+        .then((data) => {
+          if (!active) return;
+          const plan = data?.billing?.plan || 'free';
+          const status = data?.billing?.status || 'free';
+          const isActive = !!data?.billing?.isActive;
+          setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
+        })
+        .catch(() => {
+          if (!active) return;
+          setIsPremium(false);
+        });
+    });
+    return () => { active = false; };
+  }, []);
+  
+  // Count total PDFs across all folders
+  const getTotalPdfCount = () => {
+    return folders.reduce((count, folder) => {
+      return count + folder.items.filter(item => item.type === 'pdf').length;
+    }, 0);
+  };
+  
+  // Check if user can upload more PDFs
+  const canUploadPdf = () => {
+    if (isPremium) return true;
+    return getTotalPdfCount() < FREE_TIER_LIMITS.maxPdfUploads;
+  };
+  
+  // Get the General folder (first folder or create one)
+  const getGeneralFolder = () => {
+    return folders.find(f => f.name.toLowerCase() === 'general') || folders[0];
+  };
+  
+  // Show upgrade modal for premium features
+  const showUpgrade = (feature: string) => {
+    setUpgradeFeature(feature);
+    setShowUpgradeModal(true);
+  };
   
   // Hide navbar when viewing documents or adding items
   useEffect(() => {
@@ -216,6 +276,14 @@ const Library: React.FC = () => {
   const handleCreateFolder = (e: React.FormEvent) => {
       e.preventDefault();
       if (!newFolderName.trim()) return;
+      
+      // Free users can only have 1 folder (General)
+      if (!isPremium && folders.length >= FREE_TIER_LIMITS.maxFolders) {
+        showUpgrade('Unlimited Folders');
+        setIsAddingFolder(false);
+        return;
+      }
+      
       addFolder({
           id: generateId(),
           name: newFolderName.trim(),
@@ -244,6 +312,21 @@ const Library: React.FC = () => {
 
   const handleSaveItem = (title: string, type: 'note' | 'pdf', content: string, pdf?: PdfAttachment) => {
     if (!activeFolderId) return;
+    
+    // Check PDF upload limits for free users
+    if (type === 'pdf' && !isPremium) {
+      if (!canUploadPdf()) {
+        showUpgrade('Unlimited PDF Storage');
+        return;
+      }
+      
+      // Check file size (2MB limit for free users)
+      if (pdf && pdf.size && pdf.size > FREE_TIER_LIMITS.maxPdfSizeMB * 1024 * 1024) {
+        showUpgrade('Larger PDF Files (up to 15MB)');
+        return;
+      }
+    }
+    
     const item = {
       id: generateId(),
       title: title.trim() + (type === 'note' ? '.txt' : '.pdf'),
@@ -398,6 +481,7 @@ const Library: React.FC = () => {
             onClose={() => setIsAddingItem(false)}
             onSave={handleSaveItem}
             folderName={activeFolder?.name}
+            maxFileSizeMB={isPremium ? 15 : FREE_TIER_LIMITS.maxPdfSizeMB}
           />
         )}
 
@@ -782,6 +866,93 @@ const Library: React.FC = () => {
                 </div>
            </div>
        </div>
+       
+       {/* Premium Upgrade Modal */}
+       {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center z-50" onClick={() => setShowUpgradeModal(false)}>
+          <div 
+            className="bg-gradient-to-b from-zen-card to-zen-bg w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl overflow-hidden animate-slide-up max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-br from-zen-primary/10 via-purple-500/10 to-amber-500/10 px-6 py-8 text-center relative overflow-hidden">
+              <div className="absolute top-0 left-1/4 w-32 h-32 bg-zen-primary/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-3xl" />
+              
+              <div className="relative">
+                <span className="text-6xl mb-3 block drop-shadow-lg">👑</span>
+                <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
+                <p className="text-zen-text-secondary mt-2 text-sm">
+                  <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
+                </p>
+              </div>
+            </div>
+            
+            {/* Benefits */}
+            <div className="px-5 py-6 space-y-4">
+              <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">Library Premium Benefits</h3>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">Unlimited PDF Storage</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Upload as many PDFs as you need</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">15MB File Size</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Upload larger documents (Free: 2MB)</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">Unlimited Folders</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Organize your library your way</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">AI-Powered Features</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Generate quizzes from your PDFs</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Free tier info */}
+            <div className="px-5 pb-4">
+              <div className="bg-zen-surface/50 rounded-xl p-3">
+                <p className="text-zen-text-disabled text-xs text-center">
+                  Free: {getTotalPdfCount()}/{FREE_TIER_LIMITS.maxPdfUploads} PDFs used • {folders.length}/{FREE_TIER_LIMITS.maxFolders} folder
+                </p>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="px-5 pb-6 pt-2 space-y-3 safe-area-bottom">
+              <button
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  window.location.href = '/?page=settings';
+                }}
+                className="w-full py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
+              >
+                View Plans
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="w-full py-3 text-zen-text-disabled hover:text-zen-text-secondary transition-colors text-xs"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

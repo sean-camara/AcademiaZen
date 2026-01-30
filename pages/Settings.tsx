@@ -557,7 +557,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                 </div>
 
                                 {/* Premium Zen Card */}
-                                <div className={`p-10 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between transition-all duration-500 ${
+                                <div className={`p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between transition-all duration-500 ${
                                     billing?.effectivePlan === 'premium' 
                                         ? 'bg-gradient-to-br from-[#0D1117] to-emerald-900/20 border border-emerald-500/30 shadow-[0_0_50px_-10px_rgba(16,185,129,0.15)]' 
                                         : 'bg-gradient-to-br from-[#0D1117] to-black border border-white/10 hover:border-emerald-500/30'
@@ -593,15 +593,18 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                     </div>
 
                                     {/* Price */}
-                                    <div className="relative z-10 py-8">
+                                    <div className="relative z-10 py-6 md:py-8">
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-5xl font-light text-white tracking-tight">
+                                            <span className="text-4xl md:text-5xl font-light text-white tracking-tight">
                                                 ₱{selectedInterval === 'yearly' ? '1490' : '149'}
                                             </span>
-                                            <span className="text-xl text-gray-500 font-light">
+                                            <span className="text-lg md:text-xl text-gray-500 font-light">
                                                 /{selectedInterval === 'yearly' ? 'yr' : 'mo'}
                                             </span>
                                         </div>
+                                        {selectedInterval === 'yearly' && (
+                                            <p className="text-xs text-emerald-400 mt-1">Save ₱298/year (2 months free!)</p>
+                                        )}
                                     </div>
 
                                     {/* Actions */}
@@ -629,6 +632,93 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                  </button>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                                
+                                {/* Premium Benefits List */}
+                                <div className="bg-zen-card/50 rounded-[2rem] p-6 border border-zen-surface/50">
+                                    <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest mb-4">Premium Includes</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {/* Zen AI */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">🤖</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations, deep reasoning mode</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* AI Reviewer */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">📝</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">AI Quiz Generator</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">50 questions, all types & difficulties</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Library */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">📚</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">Unlimited Library</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited PDFs & folders, 15MB files</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Reviewers */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">✨</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">10 AI Reviewers</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">Create more quizzes from your PDFs</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Focus */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">🎯</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">Focus Timer</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">All durations, ambient sounds, stats</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Priority Support */}
+                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                                            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">💎</span>
+                                            <div>
+                                                <span className="text-zen-text-primary text-sm font-medium">Priority Support</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">Fast responses, early access to features</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Free vs Premium comparison */}
+                                    <div className="mt-6 pt-6 border-t border-zen-surface/50">
+                                        <h4 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest mb-3">Free Plan Limits</h4>
+                                        <div className="space-y-2 text-xs text-zen-text-disabled">
+                                            <div className="flex justify-between">
+                                                <span>📚 PDF Storage</span>
+                                                <span>3 PDFs (2MB max each)</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>📁 Folders</span>
+                                                <span>1 folder only</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>📝 AI Reviewers</span>
+                                                <span>3 reviewers, Easy only</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>❓ Quiz Questions</span>
+                                                <span>10 max, MC & T/F only</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>🤖 Zen AI</span>
+                                                <span>Limited access</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

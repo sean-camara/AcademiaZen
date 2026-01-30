@@ -1,15 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconPaperclip, IconFileText } from './Icons';
 import { PdfAttachment } from '../types';
 import { uploadPdfToR2 } from '../utils/pdfStorage';
+import { apiFetch } from '../utils/api';
 
 interface AddKnowledgeModalProps {
   onClose: () => void;
   onSave: (title: string, type: 'note' | 'pdf', content: string, pdf?: PdfAttachment) => void;
   folderName?: string;
+  maxFileSizeMB?: number; // Will be passed from Library based on premium status
 }
 
-const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, folderName }) => {
+const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, folderName, maxFileSizeMB = 15 }) => {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'note' | 'pdf'>('note');
   const [content, setContent] = useState('');
@@ -41,6 +43,13 @@ const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, 
     if (!file) return;
     if (file.type !== 'application/pdf') {
       setError('Please select a PDF file');
+      return;
+    }
+    
+    // Check file size
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > maxFileSizeMB) {
+      setError(`File too large. Maximum size is ${maxFileSizeMB}MB. Upgrade to Premium for 15MB.`);
       return;
     }
     

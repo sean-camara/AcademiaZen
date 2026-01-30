@@ -58,8 +58,8 @@ const Review: React.FC = () => {
   const [selectedPdfId, setSelectedPdfId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [questionCount, setQuestionCount] = useState<number>(10);
-  const [difficulty, setDifficulty] = useState<ReviewerDifficulty>('medium');
-  const [questionMode, setQuestionMode] = useState<ReviewerQuestionMode>('hybrid');
+  const [difficulty, setDifficulty] = useState<ReviewerDifficulty>('easy');
+  const [questionMode, setQuestionMode] = useState<ReviewerQuestionMode>('multiple_choice');
   const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
   const [customTimer, setCustomTimer] = useState<string>('');
   
@@ -88,6 +88,15 @@ const Review: React.FC = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string>('');
   
+  // Generation status (to prevent abuse)
+  const [generationStatus, setGenerationStatus] = useState<{
+    remainingGenerations: number;
+    maxGenerations: number;
+    windowHours: number;
+    resetIn: number;
+    isPremium: boolean;
+  } | null>(null);
+  
   // Toast state
   const [toast, setToast] = useState<{ message: string; emoji: string } | null>(null);
   
@@ -100,6 +109,8 @@ const Review: React.FC = () => {
     maxReviewers: 3,
     allowedDifficulties: ['easy'],
     allowedModes: ['multiple_choice', 'true_false'],
+    maxPdfSizeMB: 2,
+    maxPdfUploads: 3,
   };
 
   // Check if a feature is available for the current user
@@ -151,6 +162,31 @@ const Review: React.FC = () => {
       });
     return () => { active = false; };
   }, []);
+
+  // Fetch generation status (remaining generations)
+  const fetchGenerationStatus = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/ai/reviewer-status');
+      if (res.ok) {
+        const data = await res.json();
+        setGenerationStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch generation status:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGenerationStatus();
+  }, [fetchGenerationStatus]);
+
+  // Format reset time
+  const formatResetTime = (ms: number): string => {
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
 
   // Get PDFs from all folders
   const getAllPdfs = useCallback((): { pdf: FolderItem; folder: Folder }[] => {
@@ -328,6 +364,17 @@ const Review: React.FC = () => {
   const handleCreateReviewer = async () => {
     console.log('handleCreateReviewer called', { selectedPdfId, selectedFolderId });
     
+    // Check generation limit first
+    if (generationStatus && generationStatus.remainingGenerations <= 0) {
+      const resetTime = formatResetTime(generationStatus.resetIn);
+      showToast('⏳', `Generation limit reached. Wait ${resetTime} or upgrade to Premium.`);
+      if (!isPremium) {
+        setUpgradeFeature('more reviewer generations');
+        setShowUpgradeModal(true);
+      }
+      return;
+    }
+    
     if (!selectedPdfId || !selectedFolderId) {
       console.log('Missing PDF or folder selection');
       showToast('⚠️', 'Please select a PDF first');
@@ -404,6 +451,14 @@ const Review: React.FC = () => {
         questions: data.questions,
         status: 'ready'
       });
+
+      // Update generation status from response
+      if (data.remainingGenerations !== undefined) {
+        setGenerationStatus(prev => prev ? {
+          ...prev,
+          remainingGenerations: data.remainingGenerations
+        } : null);
+      }
 
       showToast('✨', 'Your AI Reviewer is ready!');
       
@@ -1741,14 +1796,43 @@ const Review: React.FC = () => {
             </p>
             
             {hasPdfs ? (
-              <button
-                onClick={() => setIsCreating(true)}
-                disabled={aiReviewers.length >= 10}
-                className="px-8 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-              >
-                <IconPlus className="w-5 h-5" />
-                Create AI Reviewer
-              </button>
+              <>
+                {generationStatus?.remainingGenerations === 0 ? (
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                      <IconClock className="w-8 h-8 text-amber-400" />
+                    </div>
+                    <p className="text-amber-400 font-medium mb-2">Cooldown Active</p>
+                    <p className="text-zen-text-disabled text-sm mb-4">
+                      Wait {formatResetTime(generationStatus.resetIn)} to generate more reviewers
+                    </p>
+                    {!isPremium && (
+                      <button
+                        onClick={() => {
+                          setUpgradeFeature('10 generations per 5 hours');
+                          setShowUpgradeModal(true);
+                        }}
+                        className="px-6 py-3 bg-zen-primary text-zen-bg rounded-xl font-medium"
+                      >
+                        Upgrade to Premium
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsCreating(true)}
+                    className="px-8 py-4 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <IconPlus className="w-5 h-5" />
+                    Create AI Reviewer
+                  </button>
+                )}
+                {generationStatus && generationStatus.remainingGenerations > 0 && (
+                  <p className="text-zen-text-disabled text-xs mt-4">
+                    {generationStatus.remainingGenerations} of {generationStatus.maxGenerations} generations remaining
+                  </p>
+                )}
+              </>
             ) : (
               <div className="text-center">
                 <p className="text-zen-text-disabled mb-4">You need to upload PDFs to your Library first.</p>
@@ -1767,12 +1851,12 @@ const Review: React.FC = () => {
         {hasReviewers && (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-16">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-4 md:mb-8">
               <div className="bg-zen-card hover:bg-zen-surface/30 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-surface/50 transition-all">
                 <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] font-bold mb-2 md:mb-4">Reviewers</p>
                 <div className="flex items-end gap-1 md:gap-2">
                   <p className="text-2xl md:text-4xl text-zen-text-primary font-light leading-none">{aiReviewers.length}</p>
-                  <p className="text-[10px] md:text-sm text-zen-text-disabled mb-1 font-medium">/ 10</p>
+                  <p className="text-[10px] md:text-sm text-zen-text-disabled mb-1 font-medium">/ {isPremium ? '10' : '3'}</p>
                 </div>
               </div>
               
@@ -1786,13 +1870,13 @@ const Review: React.FC = () => {
               </div>
 
               <div 
-                onClick={() => hasPdfs && aiReviewers.length < 10 && setIsCreating(true)}
-                className={'col-span-2 md:col-span-1 bg-gradient-to-br from-zen-primary/10 to-transparent p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-primary/20 backdrop-blur-sm relative overflow-hidden group '+(hasPdfs && aiReviewers.length < 10 ? 'cursor-pointer active:scale-[0.98]' : 'opacity-50')+' transition-all flex items-center justify-between md:flex-col md:items-start md:gap-8'}
+                onClick={() => hasPdfs && aiReviewers.length < (isPremium ? 10 : 3) && generationStatus?.remainingGenerations !== 0 && setIsCreating(true)}
+                className={'col-span-2 md:col-span-1 bg-gradient-to-br from-zen-primary/10 to-transparent p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-primary/20 backdrop-blur-sm relative overflow-hidden group '+(hasPdfs && aiReviewers.length < (isPremium ? 10 : 3) && generationStatus?.remainingGenerations !== 0 ? 'cursor-pointer active:scale-[0.98]' : 'opacity-50')+' transition-all flex items-center justify-between md:flex-col md:items-start md:gap-8'}
               >
                 <div className="relative z-10 flex flex-col justify-center">
                   <p className="text-[10px] md:text-xs text-zen-primary uppercase tracking-[0.2em] font-bold mb-1 md:mb-4">Quick Action</p>
                   <p className="text-base md:text-xl text-zen-text-primary font-medium tracking-tight">
-                    {aiReviewers.length >= 10 ? 'Limit Reached' : 'Create Reviewer'}
+                    {aiReviewers.length >= (isPremium ? 10 : 3) ? 'Limit Reached' : generationStatus?.remainingGenerations === 0 ? 'Cooldown Active' : 'Create Reviewer'}
                   </p>
                 </div>
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-zen-primary text-zen-bg flex items-center justify-center group-hover:rotate-90 transition-transform duration-500 shadow-lg relative z-10 md:mt-auto">
@@ -1801,6 +1885,54 @@ const Review: React.FC = () => {
                 <div className="absolute inset-0 bg-zen-primary/5 group-hover:bg-zen-primary/10 transition-colors" />
               </div>
             </div>
+
+            {/* Generation Status Banner */}
+            {generationStatus && (
+              <div className={`mb-8 md:mb-16 p-4 md:p-6 rounded-2xl border ${
+                generationStatus.remainingGenerations === 0 
+                  ? 'bg-amber-500/10 border-amber-500/30' 
+                  : 'bg-zen-surface/30 border-zen-surface/50'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      generationStatus.remainingGenerations === 0 ? 'bg-amber-500/20' : 'bg-zen-primary/20'
+                    }`}>
+                      {generationStatus.remainingGenerations === 0 ? (
+                        <IconClock className="w-5 h-5 text-amber-400" />
+                      ) : (
+                        <IconRefresh className="w-5 h-5 text-zen-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-zen-text-primary font-medium">
+                        {generationStatus.remainingGenerations === 0 
+                          ? `Cooldown Active · Resets in ${formatResetTime(generationStatus.resetIn)}`
+                          : `${generationStatus.remainingGenerations} of ${generationStatus.maxGenerations} generations left`
+                        }
+                      </p>
+                      <p className="text-xs text-zen-text-disabled">
+                        {isPremium 
+                          ? `Premium: ${generationStatus.maxGenerations} generations per ${generationStatus.windowHours} hours`
+                          : `Free tier: ${generationStatus.maxGenerations} generations per ${generationStatus.windowHours} hours`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  {!isPremium && generationStatus.remainingGenerations <= 1 && (
+                    <button
+                      onClick={() => {
+                        setUpgradeFeature('10 generations per 5 hours');
+                        setShowUpgradeModal(true);
+                      }}
+                      className="px-4 py-2 bg-zen-primary/20 text-zen-primary rounded-lg text-sm font-medium hover:bg-zen-primary/30 transition-colors"
+                    >
+                      Get More with Premium
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Reviewer Cards */}
             <div className="space-y-4 md:space-y-8">
@@ -1917,61 +2049,75 @@ const Review: React.FC = () => {
 
       {/* Premium Upgrade Modal */}
       {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowUpgradeModal(false)}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center z-50" onClick={() => setShowUpgradeModal(false)}>
           <div 
-            className="bg-zen-card rounded-3xl max-w-md w-full overflow-hidden animate-slide-up"
+            className="bg-gradient-to-b from-zen-card to-zen-bg w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl overflow-hidden animate-slide-up max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with gradient */}
-            <div className="bg-gradient-to-br from-zen-primary/20 to-purple-500/20 p-6 text-center">
-              <span className="text-5xl mb-4 block">👑</span>
-              <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
-              <p className="text-zen-text-secondary mt-2">
-                <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
-              </p>
+            <div className="bg-gradient-to-br from-zen-primary/10 via-purple-500/10 to-amber-500/10 px-6 py-8 text-center relative overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-0 left-1/4 w-32 h-32 bg-zen-primary/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-3xl" />
+              
+              <div className="relative">
+                <span className="text-6xl mb-3 block drop-shadow-lg">👑</span>
+                <h2 className="text-2xl font-bold text-zen-text-primary">Unlock Premium</h2>
+                <p className="text-zen-text-secondary mt-2 text-sm">
+                  <span className="text-zen-primary font-semibold">{upgradeFeature}</span> is a Premium feature
+                </p>
+              </div>
             </div>
             
             {/* Benefits */}
-            <div className="p-6 space-y-4">
-              <h3 className="text-sm font-bold text-zen-text-disabled uppercase tracking-widest">Premium Benefits</h3>
+            <div className="px-5 py-6 space-y-4">
+              <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">What you get with Premium</h3>
               <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
-                  <span className="text-zen-text-primary">Up to <strong>50 questions</strong> per reviewer</span>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">AI Quiz Generator</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Up to 50 questions, all difficulties & types</p>
+                  </div>
                 </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
-                  <span className="text-zen-text-primary"><strong>Medium & Hard</strong> difficulty levels</span>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations with deep reasoning</p>
+                  </div>
                 </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
-                  <span className="text-zen-text-primary"><strong>All question types</strong> including Identification & Word Matching</span>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">Unlimited Library</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited PDFs, folders & 15MB file size</p>
+                  </div>
                 </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
-                  <span className="text-zen-text-primary">Up to <strong>10 reviewers</strong> (Free: 3)</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</span>
-                  <span className="text-zen-text-primary"><strong>Premium AI model</strong> for better questions</span>
+                <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
+                  <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <span className="text-zen-text-primary text-sm font-medium">10 AI Reviewers</span>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">Create more quizzes from your PDFs</p>
+                  </div>
                 </li>
               </ul>
             </div>
             
             {/* Actions */}
-            <div className="p-6 pt-0 space-y-3">
+            <div className="px-5 pb-6 pt-2 space-y-3 safe-area-bottom">
               <button
                 onClick={() => {
                   setShowUpgradeModal(false);
-                  window.location.href = '/settings';
+                  window.location.href = '/?page=settings';
                 }}
-                className="w-full py-4 bg-gradient-to-r from-zen-primary to-purple-500 text-white rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+                className="w-full py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
               >
-                Upgrade to Premium
+                View Plans
               </button>
               <button
                 onClick={() => setShowUpgradeModal(false)}
-                className="w-full py-3 text-zen-text-secondary hover:text-zen-text-primary transition-colors text-sm"
+                className="w-full py-3 text-zen-text-disabled hover:text-zen-text-secondary transition-colors text-xs"
               >
                 Maybe Later
               </button>
