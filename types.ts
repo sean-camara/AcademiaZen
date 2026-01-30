@@ -9,6 +9,13 @@ export interface PdfAttachment {
   textUpdatedAt?: string;
 }
 
+export interface AIChatMessage {
+  role: 'user' | 'ai';
+  text: string;
+  refs?: string[];
+  createdAt?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -136,6 +143,7 @@ export interface ZenState {
   folders: Folder[];
   aiReviewers: AIReviewer[];
   quizProgress: QuizProgress | null;
+  aiChat: AIChatMessage[];
   profile: UserProfile;
   settings: AppSettings;
 }

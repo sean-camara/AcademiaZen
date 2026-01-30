@@ -32,6 +32,7 @@ export const INITIAL_STATE: ZenState = {
   folders: INITIAL_FOLDERS,
   aiReviewers: [],
   quizProgress: null,
+  aiChat: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
 };

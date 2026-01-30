@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
-import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType, AIReviewer, QuizProgress } from '../types';
+import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType, AIReviewer, QuizProgress, AIChatMessage } from '../types';
 import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
 import { uploadPdfDataUrlToR2 } from '../utils/pdfStorage';
@@ -38,6 +38,10 @@ interface ZenContextType {
   updateAIReviewer: (reviewer: AIReviewer) => void;
   deleteAIReviewer: (id: string) => void;
   setQuizProgress: (progress: QuizProgress | null) => void;
+
+  // AI Chat
+  setAIChat: (messages: AIChatMessage[]) => void;
+  clearAIChat: () => void;
   
   // Data Management
   exportData: () => string;
@@ -46,6 +50,9 @@ interface ZenContextType {
   // Navbar visibility
   hideNavbar: boolean;
   setHideNavbar: (hide: boolean) => void;
+
+  // Hydration status
+  isHydrated: boolean;
 }
 
 const ZenContext = createContext<ZenContextType | undefined>(undefined);
@@ -65,7 +72,16 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load initial state
   const [state, setState] = useState<ZenState>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_STATE;
+    if (!saved) return INITIAL_STATE;
+    try {
+      const parsed = JSON.parse(saved) as ZenState;
+      return {
+        ...parsed,
+        aiChat: Array.isArray((parsed as any).aiChat) ? (parsed as any).aiChat : [],
+      };
+    } catch {
+      return INITIAL_STATE;
+    }
   });
 
   // Focus Session State
@@ -153,6 +169,14 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     let cancelled = false;
 
+    const normalizeState = (incoming: ZenState | null): ZenState => {
+      if (!incoming) return INITIAL_STATE;
+      return {
+        ...incoming,
+        aiChat: Array.isArray((incoming as any).aiChat) ? (incoming as any).aiChat : [],
+      };
+    };
+
     const loadRemoteState = async () => {
       if (!user || !user.emailVerified) {
         setIsHydrated(true);
@@ -179,10 +203,10 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!cancelled) {
           // If server returns state, use it
           if (data?.state) {
-            setState(data.state as ZenState);
+            setState(normalizeState(data.state as ZenState));
           } else if (localState) {
             // No server state but we have local cache for this user - use it
-            setState(localState);
+            setState(normalizeState(localState));
           } else {
             // New user with no data anywhere - use initial state
             setState(INITIAL_STATE);
@@ -193,7 +217,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!cancelled) {
           // Backend offline - use local cache for this specific user if available
           if (localState) {
-            setState(localState);
+            setState(normalizeState(localState));
           } else {
             // No local cache for this user - new account, use initial state
             setState(INITIAL_STATE);
@@ -520,6 +544,18 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     quizProgress: progress
   }));
 
+  // AI Chat
+  const setAIChat = useCallback((messages: AIChatMessage[]) => {
+    setState(prev => {
+      if (prev.aiChat === messages) return prev;
+      return { ...prev, aiChat: messages };
+    });
+  }, []);
+
+  const clearAIChat = useCallback(() => {
+    setState(prev => ({ ...prev, aiChat: [] }));
+  }, []);
+
   const startTimer = useCallback(() => {
     console.log('[ZenContext] startTimer called');
     setFocusSession(prev => {
@@ -595,10 +631,13 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateAIReviewer,
       deleteAIReviewer,
       setQuizProgress,
+      setAIChat,
+      clearAIChat,
       exportData,
       clearData,
       hideNavbar,
-      setHideNavbar
+      setHideNavbar,
+      isHydrated
     }}>
       {children}
     </ZenContext.Provider>

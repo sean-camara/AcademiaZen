@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
+import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
-import { PdfAttachment } from '../types';
+import { PdfAttachment, AIChatMessage } from '../types';
 
 // AI model handled by backend
 
@@ -209,8 +210,9 @@ const processInlines = (text: string) => {
 };
 
 const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
-    const { state, updateTask, updateFolder } = useZen();
-    const [messages, setMessages] = useState<{role: 'user' | 'ai', text: string, refs?: string[]}[]>([]);
+    const { state, updateTask, updateFolder, setAIChat, clearAIChat, isHydrated } = useZen();
+    const { user } = useAuth();
+    const [messages, setMessages] = useState<AIChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [selectedRefs, setSelectedRefs] = useState<SelectedRef[]>([]);
@@ -229,6 +231,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const hasShownUpgradeOnceRef = useRef(false);
     const pdfTextCacheRef = useRef<Map<string, string>>(new Map());
     const hasLoadedChatRef = useRef(false);
+    const hasAppliedRemoteChatRef = useRef(false);
 
     const allowFreeAI = (import.meta as any).env?.VITE_AI_FREE_MODE === 'true';
     const MAX_PDF_PAGES = 8;
@@ -242,6 +245,22 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
     const MAX_SAVED_MESSAGES = 60;
     const ANALYSIS_MODE_KEY = 'zen_ai_analysis_mode_v1';
+
+    const isSameChat = (a: AIChatMessage[], b: AIChatMessage[]) => {
+        if (a === b) return true;
+        if (a.length !== b.length) return false;
+        if (a.length === 0) return true;
+        const lastA = a[a.length - 1];
+        const lastB = b[b.length - 1];
+        if (!lastA || !lastB) return false;
+        const refsA = lastA.refs || [];
+        const refsB = lastB.refs || [];
+        if (refsA.length !== refsB.length) return false;
+        for (let i = 0; i < refsA.length; i += 1) {
+            if (refsA[i] !== refsB[i]) return false;
+        }
+        return lastA.role === lastB.role && lastA.text === lastB.text && lastA.createdAt === lastB.createdAt;
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -266,6 +285,25 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             hasLoadedChatRef.current = true;
         }
     }, []);
+
+    useEffect(() => {
+        if (!hasLoadedChatRef.current) return;
+        if (!isHydrated) return;
+        if (!user?.emailVerified) return;
+        if (hasAppliedRemoteChatRef.current) return;
+
+        if (Array.isArray(state.aiChat) && state.aiChat.length > 0) {
+            setMessages(state.aiChat);
+            hasAppliedRemoteChatRef.current = true;
+            return;
+        }
+
+        if (messages.length > 0) {
+            setAIChat(messages);
+        }
+
+        hasAppliedRemoteChatRef.current = true;
+    }, [isHydrated, user?.emailVerified, state.aiChat, messages, setAIChat]);
 
     useEffect(() => {
         try {
@@ -294,7 +332,11 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         } catch (_) {
             // Storage may be full; skip caching in that case.
         }
-    }, [messages]);
+
+        if (!isHydrated || !user?.emailVerified || !hasAppliedRemoteChatRef.current) return;
+        if (isSameChat(trimmed, state.aiChat || [])) return;
+        setAIChat(trimmed);
+    }, [messages, isHydrated, user?.emailVerified, state.aiChat, setAIChat]);
 
     useEffect(() => {
         const onStorage = (event: StorageEvent) => {
@@ -377,6 +419,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         } catch (_) {
             // Ignore storage errors
         }
+        clearAIChat();
     };
 
     const extractPdfText = async (source: string, cacheKey: string) => {
