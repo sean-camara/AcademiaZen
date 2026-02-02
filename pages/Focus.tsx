@@ -437,26 +437,26 @@ const Focus: React.FC = () => {
       {/* Main Layout Container */}
       <div className="w-full h-full max-w-lg md:max-w-4xl mx-auto flex flex-col items-center justify-evenly py-4 md:py-0 z-20">
 
-        {/* TOP SECTION: Stats Bar (New) */}
+        {/* TOP SECTION: Stats Bar (Improved Typography) */}
         {!isActive && analytics && (
           <div className="w-full flex items-center justify-center gap-4 mb-4">
             <button
               onClick={() => setShowStatsPanel(!showStatsPanel)}
-              className="flex items-center gap-3 px-4 py-2 bg-zen-surface/20 rounded-xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all"
+              className="flex items-center gap-3 px-5 py-2.5 bg-zen-surface/20 rounded-xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all active:scale-95"
             >
-              <div className="text-center">
-                <p className="text-lg font-semibold text-zen-primary">{Math.round(analytics.weekMinutes / 60)}h</p>
-                <p className="text-[9px] uppercase tracking-widest text-zen-text-secondary">This Week</p>
+              <div className="text-center min-w-[60px]">
+                <p className="text-xl font-bold text-zen-primary tabular-nums">{Math.round(analytics.weekMinutes / 60)}h</p>
+                <p className="text-[11px] md:text-xs font-medium uppercase tracking-widest text-zen-text-secondary">This Week</p>
               </div>
               <div className="w-px h-8 bg-zen-surface/50" />
-              <div className="text-center">
-                <p className="text-lg font-semibold text-zen-text-primary">{focusStreak}</p>
-                <p className="text-[9px] uppercase tracking-widest text-zen-text-secondary">Streak</p>
+              <div className="text-center min-w-[60px]">
+                <p className="text-xl font-bold text-zen-text-primary tabular-nums">{focusStreak}</p>
+                <p className="text-[11px] md:text-xs font-medium uppercase tracking-widest text-zen-text-secondary">Streak</p>
               </div>
               <div className="w-px h-8 bg-zen-surface/50" />
-              <div className="text-center">
-                <p className="text-lg font-semibold text-zen-text-primary">{analytics.totalSessions}</p>
-                <p className="text-[9px] uppercase tracking-widest text-zen-text-secondary">Sessions</p>
+              <div className="text-center min-w-[60px]">
+                <p className="text-xl font-bold text-zen-text-primary tabular-nums">{analytics.totalSessions}</p>
+                <p className="text-[11px] md:text-xs font-medium uppercase tracking-widest text-zen-text-secondary">Sessions</p>
               </div>
             </button>
           </div>
@@ -465,40 +465,41 @@ const Focus: React.FC = () => {
         {/* HERO SECTION: Target & Timer */}
         <div className="flex flex-col items-center justify-center flex-grow-[2] w-full">
           
-          {/* Focus Target */}
-          <div className="mb-6 flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zen-text-secondary uppercase tracking-widest hidden md:block">
+          {/* Focus Target - Better Touch Targets & Visibility */}
+          <div className="mb-6 flex flex-col items-center gap-4">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <span className="text-xs font-semibold text-zen-text-secondary uppercase tracking-widest hidden md:block">
                 {isBreakTime ? 'Break Time' : 'Focusing on:'}
               </span>
               <button
                 onClick={() => !isActive && setShowTargetModal(true)}
                 disabled={isActive}
-                className={`px-5 py-2 rounded-full border text-xs md:text-sm font-medium tracking-wide shadow-lg transition-all max-w-[80vw] truncate ${
+                className={`px-6 py-3 md:py-2.5 rounded-full border text-sm font-semibold tracking-wide shadow-lg transition-all max-w-[85vw] truncate flex items-center gap-2 ${
                   isBreakTime
                     ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
                     : focusTarget
-                    ? 'bg-zen-surface/30 border-zen-surface/50 text-zen-primary hover:bg-zen-surface/50'
-                    : 'bg-transparent border-zen-surface text-zen-text-disabled hover:text-zen-primary'
-                } ${isActive ? 'cursor-default' : ''}`}
+                    ? 'bg-zen-surface/40 border-zen-surface/60 text-zen-primary hover:bg-zen-surface/60 hover:border-zen-primary/50'
+                    : 'bg-transparent border-zen-surface text-zen-text-disabled hover:text-zen-primary hover:border-zen-primary/30'
+                } ${isActive ? 'cursor-default' : 'active:scale-95'}`}
               >
-                {isBreakTime ? `☕ Break (Cycle ${cycleNumber})` : focusTarget ? focusTarget.label : '+ Select focus target'}
+                 {focusTarget ? <span className="truncate">{focusTarget.label}</span> : <span>+ Select focus target</span>}
+                 {!isActive && !isBreakTime && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 opacity-50"><path d="M19 9l-7 7-7-7"/></svg>}
               </button>
             </div>
             
-            {/* Pomodoro Mode Selector */}
+            {/* Pomodoro Mode Selector - Increased Touch Area */}
             {!isActive && !isBreakTime && (
               <button
                 onClick={() => setShowModeSelector(true)}
-                className="text-[10px] uppercase tracking-[0.2em] text-zen-text-secondary hover:text-zen-primary transition-colors"
+                className="px-4 py-2 -mt-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.2em] text-zen-text-secondary hover:text-zen-primary hover:bg-zen-surface/10 transition-all"
               >
                 {POMODORO_MODES[pomodoroMode]?.label || 'Classic (25/5)'} ▾
               </button>
             )}
             
-            {/* Streak Badge */}
+            {/* Streak Badge - Larger Font */}
             {focusStreak > 0 && !isBreakTime && (
-              <div className="text-[10px] uppercase tracking-[0.3em] text-zen-primary font-bold">
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-zen-primary drop-shadow-sm">
                 🔥 Streak {focusStreak}
               </div>
             )}
@@ -508,11 +509,11 @@ const Focus: React.FC = () => {
           <div className="relative group">
             <div className={`relative w-[65vw] h-[65vw] max-w-[280px] max-h-[280px] md:w-96 md:h-96 rounded-full flex items-center justify-center transition-all duration-[1500ms] ease-out ${isActive && !isPaused ? 'scale-105' : 'scale-100'}`}>
               
-              {/* Decorative Rings */}
-              <div className={`absolute inset-0 border-[0.5px] rounded-full ${isBreakTime ? 'border-purple-500/30' : 'border-zen-surface/30'}`} />
-              <div className={`absolute inset-4 border-[0.5px] rounded-full ${isBreakTime ? 'border-purple-500/20' : 'border-zen-surface/20'}`} />
+              {/* Decorative Rings - Thicker border for visibility */}
+              <div className={`absolute inset-0 border-[1.5px] rounded-full ${isBreakTime ? 'border-purple-500/30' : 'border-zen-surface/30'}`} />
+              <div className={`absolute inset-4 border-[1px] rounded-full ${isBreakTime ? 'border-purple-500/20' : 'border-zen-surface/20'}`} />
               
-              {/* Progress Ring */}
+              {/* Progress Ring - Thicker stroke */}
               <svg className="absolute inset-0 w-full h-full -rotate-90 scale-[1.01]">
                 <circle
                   cx="50%"
@@ -520,7 +521,7 @@ const Focus: React.FC = () => {
                   r="48%"
                   fill="none"
                   stroke={isBreakTime ? 'url(#breakGradient)' : 'url(#timerGradient)'}
-                  strokeWidth="2"
+                  strokeWidth="3.5"
                   strokeDasharray="100 100"
                   strokeDashoffset={100 - progress}
                   pathLength="100"
@@ -567,25 +568,25 @@ const Focus: React.FC = () => {
         <div className="w-full mt-auto pb-4 md:pb-0 z-30">
           
           {!isActive ? (
-            /* INACTIVE STATE: Duration | Play | Ambience */
-            <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-1 md:gap-8">
+            /* INACTIVE STATE: Duration | Play | Ambience - Increased Spacing & Touch Targets */
+            <div className="grid grid-cols-3 items-center w-full max-w-full px-2 md:max-w-2xl mx-auto gap-3 md:gap-8">
               
               {/* Left: Duration Controls */}
               <div className="flex justify-start justify-self-start min-w-0">
-                <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
+                <div className="flex items-center gap-1 bg-zen-surface/20 rounded-xl p-1 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                   <button 
                     onClick={() => {
                       const newDur = Math.max(5, durationMinutes - 5);
                       setDurationMinutes(newDur);
                       resetTimer(newDur);
                     }}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95 touch-manipulation"
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M20 12H4"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><path d="M20 12H4"/></svg>
                   </button>
-                  <div className="flex flex-col items-center min-w-[2.2rem] md:min-w-[2.5rem] px-1">
-                    <span className="text-sm md:text-lg font-medium text-zen-text-primary leading-none tabular-nums">{durationMinutes}</span>
-                    <span className="text-[7px] md:text-[9px] uppercase tracking-widest text-zen-text-disabled mt-0.5">min</span>
+                  <div className="flex flex-col items-center min-w-[2.5rem] md:min-w-[3rem] px-1">
+                    <span className="text-lg md:text-xl font-bold text-zen-text-primary leading-none tabular-nums">{durationMinutes}</span>
+                    <span className="text-[10px] md:text-xs uppercase tracking-widest text-zen-text-disabled mt-0.5">min</span>
                   </div>
                   <button 
                     onClick={() => {
@@ -593,19 +594,19 @@ const Focus: React.FC = () => {
                       setDurationMinutes(newDur);
                       resetTimer(newDur);
                     }}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95"
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95 touch-manipulation"
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 4v16m8-8H4"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><path d="M12 4v16m8-8H4"/></svg>
                   </button>
                 </div>
               </div>
 
-              {/* Center: Play Button */}
+              {/* Center: Play Button - Larger Glow */}
               <div className="flex justify-center justify-self-center">
                 <button 
                   onClick={handleStartFocus}
                   disabled={durationMinutes < 5}
-                  className={`w-14 h-14 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl group relative ${
+                  className={`w-16 h-16 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-2xl group relative touch-manipulation ${
                     isBreakTime
                       ? 'bg-purple-500 text-white hover:scale-105 active:scale-95'
                       : durationMinutes >= 5
@@ -613,22 +614,22 @@ const Focus: React.FC = () => {
                       : 'bg-zen-surface text-zen-text-disabled cursor-not-allowed opacity-50'
                   }`}
                 >
-                  <div className={`absolute inset-0 rounded-full blur-md opacity-40 group-hover:opacity-60 transition-opacity ${isBreakTime ? 'bg-purple-500' : 'bg-zen-primary'}`} />
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 md:w-10 md:h-10 ml-0.5 relative z-10"><path d="M8 5v14l11-7z"/></svg>
+                  <div className={`absolute inset-0 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity ${isBreakTime ? 'bg-purple-500' : 'bg-zen-primary'}`} />
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 ml-0.5 relative z-10"><path d="M8 5v14l11-7z"/></svg>
                 </button>
               </div>
 
-              {/* Right: Ambience Toggles */}                     
+              {/* Right: Ambience Toggles - Better Size */}                     
               <div className="flex justify-end justify-self-end min-w-0">
-                <div className="flex items-center gap-0 bg-zen-surface/20 rounded-xl p-0.5 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
+                <div className="flex items-center gap-1 bg-zen-surface/20 rounded-xl p-1 backdrop-blur-sm border border-zen-surface/20 shadow-lg">
                   {AMBIENCE_OPTIONS.map(opt => (
                     <button 
                       key={opt.id}
                       onClick={() => setAmbience(opt.id as any)}
-                      className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-all ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
+                      className={`w-10 h-10 md:w-11 md:h-11 rounded-lg flex items-center justify-center transition-all touch-manipulation ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
                       title={opt.label}
                     >
-                      <span className="text-lg md:text-lg">{opt.icon}</span>
+                      <span className="text-lg md:text-xl">{opt.icon}</span>
                     </button>
                   ))}
                 </div>
