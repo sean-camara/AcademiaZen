@@ -45,8 +45,11 @@ interface AIUsageInfo {
   dailyCap: number;
   dailyRemaining: number;
   monthlyCount: number;
-  monthlyCap: number;
+  monthlyCap: number | null;
   monthlyRemaining: number | 'unlimited';
+  monthlyUsagePercent: number;
+  monthlyWarning: boolean;
+  monthlyNearLimit: boolean;
   perMinuteLimit: number;
   totalRequests: number;
   totalChatRequests: number;
@@ -808,8 +811,59 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                         </div>
                                         
+                                        {/* Monthly Usage (Free users only) */}
+                                        {billing?.effectivePlan !== 'premium' && aiUsage.monthlyCap && (
+                                            <div className="mt-4 bg-zen-surface/30 rounded-xl p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-zen-text-disabled">Monthly Usage</span>
+                                                    <span className={`text-xs font-bold ${
+                                                        aiUsage.monthlyNearLimit 
+                                                            ? 'text-red-400' 
+                                                            : aiUsage.monthlyWarning 
+                                                                ? 'text-amber-400' 
+                                                                : 'text-emerald-400'
+                                                    }`}>
+                                                        {typeof aiUsage.monthlyRemaining === 'number' ? aiUsage.monthlyRemaining : '∞'} left
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full transition-all duration-300 ${
+                                                            aiUsage.monthlyNearLimit 
+                                                                ? 'bg-red-500' 
+                                                                : aiUsage.monthlyWarning 
+                                                                    ? 'bg-amber-500' 
+                                                                    : 'bg-emerald-500'
+                                                        }`}
+                                                        style={{ width: `${Math.min(100, aiUsage.monthlyUsagePercent)}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                    <span>{aiUsage.monthlyCount} used</span>
+                                                    <span>{aiUsage.monthlyCap} monthly cap</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Monthly warning alert */}
+                                        {aiUsage.monthlyWarning && (
+                                            <div className={`mt-4 p-3 rounded-xl ${
+                                                aiUsage.monthlyNearLimit 
+                                                    ? 'bg-red-500/10 border border-red-500/20' 
+                                                    : 'bg-amber-500/10 border border-amber-500/20'
+                                            }`}>
+                                                <p className={`text-xs ${aiUsage.monthlyNearLimit ? 'text-red-400' : 'text-amber-400'}`}>
+                                                    <span className="font-bold">
+                                                        {aiUsage.monthlyNearLimit ? '⚠️ Monthly limit almost reached!' : '📊 High usage this month'}
+                                                    </span>
+                                                    {' '}You've used {aiUsage.monthlyUsagePercent}% of your monthly allowance. 
+                                                    Upgrade to Premium for unlimited monthly requests.
+                                                </p>
+                                            </div>
+                                        )}
+                                        
                                         {/* Upgrade prompt for free users */}
-                                        {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && (
+                                        {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
                                             <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
                                                     <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 200 daily requests and 15 requests/minute.
