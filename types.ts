@@ -126,15 +126,64 @@ export interface AppSettings {
   deadlineAlerts: boolean;
   dailyBriefing: boolean;
   studyReminders: boolean;
+  weeklyFocusGoal?: number; // minutes per week
 }
 
 export type AmbienceType = 'silent' | 'rain' | 'lofi' | 'forest';
+
+export type FocusCompletionStatus = 'completed' | 'partial' | 'not_finished';
+
+export type PomodoroMode = 'classic' | 'long' | 'custom';
 
 export interface FocusSessionState {
   isActive: boolean;
   isPaused: boolean;
   timeLeft: number; // seconds
   mode: 'focus' | 'break';
+  pomodoroMode?: PomodoroMode;
+  cycleNumber?: number;
+}
+
+export interface FocusAnalytics {
+  weekMinutes: number;
+  monthMinutes: number;
+  totalMinutes: number;
+  totalSessions: number;
+  weekSessionsCount: number;
+  completionRate: number;
+  topBlockers: Array<{ blocker: string; count: number }>;
+  dailyBreakdown: Array<{
+    date: string;
+    dayName: string;
+    minutes: number;
+    sessions: number;
+  }>;
+  streak: number;
+}
+
+export interface FocusHistorySession {
+  id: string;
+  targetType: 'task' | 'subject' | 'folderItem';
+  targetId: string;
+  targetLabel: string;
+  status: string;
+  completionStatus: FocusCompletionStatus;
+  plannedMinutes: number;
+  actualMinutes: number;
+  blockerChips: string[];
+  reflectionText: string;
+  startedAt: string;
+  endedAt: string;
+}
+
+export interface FocusSuggestion {
+  type: 'task' | 'subject' | 'folderItem';
+  id: string;
+  label: string;
+  reason: 'overdue' | 'due_soon' | 'unfinished';
+  priority: number;
+  dueDate?: string;
+  lastAttempt?: string;
 }
 
 export interface ZenState {
