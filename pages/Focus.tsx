@@ -1135,20 +1135,32 @@ const Focus: React.FC = () => {
               </div>
             )}
 
-            {/* Daily Breakdown */}
+            {/* Daily Breakdown - Fixed Chart */}
             {analytics.dailyBreakdown && analytics.dailyBreakdown.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-zen-text-secondary uppercase tracking-wider mb-3">Last 7 Days</p>
-                <div className="flex items-end justify-between gap-1 h-20">
-                  {analytics.dailyBreakdown.map((day, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div 
-                        className="w-full bg-zen-primary/60 rounded-t transition-all"
-                        style={{ height: `${Math.max(4, (day.minutes / 120) * 100)}%` }}
-                      />
-                      <span className="text-[10px] text-zen-text-disabled">{day.dayName}</span>
-                    </div>
-                  ))}
+                <div className="flex items-end justify-between gap-2">
+                  {analytics.dailyBreakdown.map((day, i) => {
+                    // Calculate bar height: max 60px, min 6px for visibility
+                    const maxMinutes = Math.max(...analytics.dailyBreakdown.map(d => d.minutes), 60); // At least 60 min scale
+                    const barHeight = day.minutes > 0 
+                      ? Math.max(12, (day.minutes / maxMinutes) * 60) 
+                      : 6; // Minimum visible bar
+                    
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="w-full flex flex-col items-center justify-end h-16">
+                          <div 
+                            className={`w-full max-w-[28px] rounded-t-sm transition-all ${
+                              day.minutes > 0 ? 'bg-zen-primary/70' : 'bg-zen-surface/30'
+                            }`}
+                            style={{ height: `${barHeight}px` }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-zen-text-disabled font-medium">{day.dayName}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
