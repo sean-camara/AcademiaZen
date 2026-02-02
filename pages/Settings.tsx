@@ -40,6 +40,19 @@ interface BillingInfo {
   pendingCheckoutId: string;
 }
 
+interface AIUsageInfo {
+  dailyCount: number;
+  dailyCap: number;
+  dailyRemaining: number;
+  monthlyCount: number;
+  monthlyCap: number;
+  monthlyRemaining: number | 'unlimited';
+  perMinuteLimit: number;
+  totalRequests: number;
+  totalChatRequests: number;
+  totalReviewerRequests: number;
+}
+
 const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const { state, updateSettings, updateProfile, clearData } = useZen();
   const { signOut } = useAuth();
@@ -61,6 +74,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [billingMethodLoading, setBillingMethodLoading] = useState<'qrph' | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<'weekly' | 'monthly'>('monthly');
   const [billingCancelLoading, setBillingCancelLoading] = useState(false);
+  const [aiUsage, setAIUsage] = useState<AIUsageInfo | null>(null);
   
   // Confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -128,6 +142,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         updateBillingState(statusData.billing);
+        if (statusData.aiUsage) setAIUsage(statusData.aiUsage);
         if (statusData.billing?.interval === 'weekly') setSelectedInterval('weekly');
         else if (statusData.billing?.interval === 'monthly') setSelectedInterval('monthly');
       }
@@ -715,6 +730,94 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         </div>
                                     </div>
                                 </div>
+                                
+                                {/* AI Usage Section */}
+                                {aiUsage && (
+                                    <div className="bg-zen-card/50 rounded-[2rem] p-6 border border-zen-surface/50 lg:col-span-2">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">AI Usage Today</h3>
+                                            <span className="text-[10px] text-zen-text-disabled">
+                                                Resets daily at midnight
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {/* Daily Usage */}
+                                            <div className="bg-zen-surface/30 rounded-xl p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-zen-text-disabled">Daily Requests</span>
+                                                    <span className={`text-xs font-bold ${
+                                                        aiUsage.dailyRemaining <= 5 
+                                                            ? 'text-amber-400' 
+                                                            : aiUsage.dailyRemaining === 0 
+                                                                ? 'text-red-400' 
+                                                                : 'text-emerald-400'
+                                                    }`}>
+                                                        {aiUsage.dailyRemaining} left
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full transition-all duration-300 ${
+                                                            aiUsage.dailyRemaining <= 5 
+                                                                ? 'bg-amber-500' 
+                                                                : aiUsage.dailyRemaining === 0 
+                                                                    ? 'bg-red-500' 
+                                                                    : 'bg-emerald-500'
+                                                        }`}
+                                                        style={{ width: `${Math.min(100, (aiUsage.dailyCount / aiUsage.dailyCap) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                    <span>{aiUsage.dailyCount} used</span>
+                                                    <span>{aiUsage.dailyCap} max</span>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Rate Limit */}
+                                            <div className="bg-zen-surface/30 rounded-xl p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-zen-text-disabled">Rate Limit</span>
+                                                    <span className="text-xs font-bold text-purple-400">
+                                                        {aiUsage.perMinuteLimit}/min
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-zen-text-disabled mt-2">
+                                                    Maximum requests per minute to ensure fair usage.
+                                                </p>
+                                            </div>
+                                            
+                                            {/* Total Stats */}
+                                            <div className="bg-zen-surface/30 rounded-xl p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-zen-text-disabled">All Time</span>
+                                                    <span className="text-xs font-bold text-blue-400">
+                                                        {aiUsage.totalRequests} total
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1 mt-2">
+                                                    <div className="flex justify-between text-[10px] text-zen-text-disabled">
+                                                        <span>Chat requests</span>
+                                                        <span>{aiUsage.totalChatRequests}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-[10px] text-zen-text-disabled">
+                                                        <span>Reviewer requests</span>
+                                                        <span>{aiUsage.totalReviewerRequests}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Upgrade prompt for free users */}
+                                        {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && (
+                                            <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                                <p className="text-xs text-emerald-400">
+                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 200 daily requests and 15 requests/minute.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
