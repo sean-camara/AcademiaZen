@@ -6,7 +6,7 @@ import { apiFetch } from '../utils/api';
 import type { FocusCompletionStatus, PomodoroMode, FocusAnalytics, FocusSuggestion } from '../types';
 
 const Focus: React.FC = () => {
-  const { focusSession, startTimer, pauseTimer, resetTimer, setFocusSessionState, setAmbience, state, updateTask, setHideNavbar } = useZen();
+  const { focusSession, startTimer, pauseTimer, resetTimer, setFocusSessionState, setAmbience, setAmbienceVolume, setIsOnFocusPage, state, updateTask, setHideNavbar } = useZen();
   const { isActive, isPaused, timeLeft } = focusSession;
   
   // Core session states
@@ -111,6 +111,15 @@ const Focus: React.FC = () => {
     const shouldHide = (isActive && !isPaused) || showCompletionModal || showReflectionModal || showSummaryModal;
     setHideNavbar(shouldHide);
   }, [isActive, isPaused, showCompletionModal, showReflectionModal, showSummaryModal, setHideNavbar]);
+
+  // ========== AUDIO FOCUS PAGE TRACKING ==========
+  // Tell the context we're on the Focus page for audio control
+  useEffect(() => {
+    setIsOnFocusPage(true);
+    return () => {
+      setIsOnFocusPage(false);
+    };
+  }, [setIsOnFocusPage]);
 
   // ========== LOAD ANALYTICS & SUGGESTIONS ==========
   
@@ -674,6 +683,24 @@ const Focus: React.FC = () => {
                         <span className="text-xl">{opt.icon}</span>
                       </button>
                     ))}
+                    {/* Volume Slider (shows when ambience is not silent) */}
+                    {state.settings.ambience !== 'silent' && (
+                      <div className="flex items-center gap-2 px-2 ml-1 border-l border-zen-surface/30">
+                        <svg className="w-4 h-4 text-zen-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                          <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+                        </svg>
+                        <input 
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={(state.settings.ambienceVolume ?? 0.25) * 100}
+                          onChange={(e) => setAmbienceVolume(parseInt(e.target.value) / 100)}
+                          className="w-16 h-1.5 bg-zen-surface rounded-full appearance-none cursor-pointer accent-zen-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-zen-primary"
+                          title={`Volume: ${Math.round((state.settings.ambienceVolume ?? 0.25) * 100)}%`}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -718,6 +745,24 @@ const Focus: React.FC = () => {
                     <span className="text-lg">{opt.icon}</span>
                   </button>
                 ))}
+                {/* Volume Slider (shows when ambience is not silent) */}
+                {state.settings.ambience !== 'silent' && (
+                  <div className="flex items-center gap-2 px-2 ml-1 border-l border-zen-surface/30">
+                    <svg className="w-4 h-4 text-zen-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path d="M15.54 8.46a5 5 0 010 7.07" />
+                    </svg>
+                    <input 
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={(state.settings.ambienceVolume ?? 0.25) * 100}
+                      onChange={(e) => setAmbienceVolume(parseInt(e.target.value) / 100)}
+                      className="w-14 md:w-16 h-1.5 bg-zen-surface rounded-full appearance-none cursor-pointer accent-zen-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-zen-primary"
+                      title={`Volume: ${Math.round((state.settings.ambienceVolume ?? 0.25) * 100)}%`}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -985,6 +1030,26 @@ const Focus: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                {/* Volume Slider for Mobile */}
+                {state.settings.ambience !== 'silent' && (
+                  <div className="flex items-center gap-3 mt-4 px-2">
+                    <svg className="w-5 h-5 text-zen-text-secondary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                    </svg>
+                    <input 
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={(state.settings.ambienceVolume ?? 0.25) * 100}
+                      onChange={(e) => setAmbienceVolume(parseInt(e.target.value) / 100)}
+                      className="flex-1 h-2 bg-zen-surface rounded-full appearance-none cursor-pointer accent-zen-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-zen-primary"
+                    />
+                    <svg className="w-5 h-5 text-zen-text-secondary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+                    </svg>
+                  </div>
+                )}
               </div>
 
               {/* Done Button */}

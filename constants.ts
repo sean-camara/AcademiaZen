@@ -4,6 +4,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   focusDuration: 25,
   autoBreak: false,
   ambience: 'silent',
+  ambienceVolume: 0.25,
   notifications: true,
   deadlineAlerts: true,
   dailyBriefing: true,

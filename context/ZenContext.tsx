@@ -32,6 +32,11 @@ interface ZenContextType {
   resetTimer: (duration?: number) => void;
   setFocusSessionState: (updates: Partial<FocusSessionState>) => void;
   setAmbience: (ambience: AmbienceType) => void;
+  setAmbienceVolume: (volume: number) => void;
+  
+  // Audio control for Focus page
+  isOnFocusPage: boolean;
+  setIsOnFocusPage: (isOn: boolean) => void;
   
   // AI Reviewer Actions
   addAIReviewer: (reviewer: AIReviewer) => void;
@@ -98,6 +103,8 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const bellAudioRef = useRef<HTMLAudioElement | null>(null);
   const syncTimeoutRef = useRef<number | null>(null);
   const legacyMigrationRef = useRef(false);
+  const audioInitializedRef = useRef(false); // Track if audio was initialized
+  
   const setStateWithTimestamp = useCallback((updater: (prev: ZenState) => ZenState) => {
     setState(prev => {
       const next = updater(prev);
@@ -107,6 +114,9 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // Navbar visibility state
   const [hideNavbar, setHideNavbar] = useState(false);
+  
+  // Track if user is on Focus page (for audio control)
+  const [isOnFocusPage, setIsOnFocusPage] = useState(false);
 
   const isWithinThreeDays = (dueDate?: string) => {
     if (!dueDate) return false;
@@ -403,43 +413,88 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts, user?.emailVerified]);
 
-  useEffect(() => {
+  // ========== AMBIENCE AUDIO MANAGEMENT ==========
+  // Audio should ONLY play when:
+  // 1. User is on Focus page
+  // 2. Timer is active AND not paused
+  // 3. Ambience is not 'silent'
+  
+  // Stop audio helper
+  const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.src = ''; // Release the audio resource
       audioRef.current = null;
+      audioInitializedRef.current = false;
     }
+  }, []);
 
-    if (state.settings.ambience === 'silent') {
+  // Main audio control effect
+  useEffect(() => {
+    const shouldPlayAudio = 
+      isOnFocusPage && 
+      focusSession.isActive && 
+      !focusSession.isPaused && 
+      state.settings.ambience !== 'silent';
+
+    if (!shouldPlayAudio) {
+      // Stop audio when conditions aren't met
+      stopAudio();
       return;
     }
 
     const url = AMBIENCE_URLS[state.settings.ambience];
-    if (url) {
-      const audio = new Audio(url);
-      audio.loop = true;
-      audio.volume = 0.25; 
-      audioRef.current = audio;
-      
-      // Handle audio load error (offline or blocked)
-      audio.onerror = () => {
-        console.warn('Ambience audio failed to load (might be offline)');
-      };
-      
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((e) => {
-          console.debug('Ambience autoplay blocked or unavailable:', e);
-        });
-      }
+    if (!url) {
+      stopAudio();
+      return;
     }
 
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+    // If audio already exists with same source, just ensure it's playing
+    if (audioRef.current && audioInitializedRef.current) {
+      audioRef.current.volume = state.settings.ambienceVolume ?? 0.25;
+      if (audioRef.current.paused) {
+        audioRef.current.play().catch(e => {
+          console.debug('Ambience resume blocked:', e);
+        });
       }
+      return;
+    }
+
+    // Create new audio instance
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = state.settings.ambienceVolume ?? 0.25;
+    audio.preload = 'auto';
+    
+    // Handle audio load error (offline or blocked)
+    audio.onerror = () => {
+      console.warn('Ambience audio failed to load (might be offline)');
+      audioInitializedRef.current = false;
     };
-  }, [state.settings.ambience]);
+
+    audioRef.current = audio;
+    audioInitializedRef.current = true;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        console.debug('Ambience autoplay blocked or unavailable:', e);
+        audioInitializedRef.current = false;
+      });
+    }
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      stopAudio();
+    };
+  }, [isOnFocusPage, focusSession.isActive, focusSession.isPaused, state.settings.ambience, stopAudio]);
+
+  // Volume change effect (separate to avoid recreating audio)
+  useEffect(() => {
+    if (audioRef.current && audioInitializedRef.current) {
+      audioRef.current.volume = state.settings.ambienceVolume ?? 0.25;
+    }
+  }, [state.settings.ambienceVolume]);
 
   useEffect(() => {
     console.log('[ZenContext] Timer effect running - isActive:', focusSession.isActive, 'isPaused:', focusSession.isPaused);
@@ -667,6 +722,12 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateSettings({ ambience });
   };
 
+  const setAmbienceVolume = useCallback((volume: number) => {
+    // Clamp volume between 0 and 1
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    updateSettings({ ambienceVolume: clampedVolume });
+  }, []);
+
 
   const exportData = () => JSON.stringify(state, null, 2);
   
@@ -707,6 +768,9 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       resetTimer,
       setFocusSessionState,
       setAmbience,
+      setAmbienceVolume,
+      isOnFocusPage,
+      setIsOnFocusPage,
       addAIReviewer,
       updateAIReviewer,
       deleteAIReviewer,

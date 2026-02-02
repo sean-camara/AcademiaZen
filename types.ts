@@ -122,6 +122,7 @@ export interface AppSettings {
   focusDuration: number; // minutes
   autoBreak: boolean;
   ambience: 'silent' | 'rain' | 'lofi' | 'forest';
+  ambienceVolume: number; // 0-1 range
   notifications: boolean;
   deadlineAlerts: boolean;
   dailyBriefing: boolean;
