@@ -876,12 +876,22 @@ FORMAT:
 
             const prompt = `${systemPrompt}\n\n${userMessage}`;
 
+            // Get recent chat history for memory (exclude the message we just added)
+            const recentHistory = messages.slice(-12).map(msg => ({
+                role: msg.role,
+                text: msg.text,
+            }));
+
             const response = await apiFetch('/api/ai/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt, mode: analysisMode }),
+                body: JSON.stringify({ 
+                    prompt, 
+                    mode: analysisMode,
+                    history: recentHistory,
+                }),
             });
 
             if (!response.ok) {
