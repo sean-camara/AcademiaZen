@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './pages/Auth';
 import ErrorBoundary from './components/ErrorBoundary';
+import NotificationPrompt from './components/NotificationPrompt';
 
 const VerifyEmail: React.FC = () => {
   const { user, resendVerification, signOut } = useAuth();
@@ -120,6 +121,7 @@ const AppInner: React.FC = () => {
         </div>
       )}
       <Layout />
+      <NotificationPrompt />
     </ZenProvider>
   );
 };
