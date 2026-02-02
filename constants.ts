@@ -11,7 +11,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const DEFAULT_PROFILE: UserProfile = {
-  name: 'Student',
+  firstName: 'Student',
+  lastName: '',
   university: '',
   semester: '',
   quoteEnabled: true,

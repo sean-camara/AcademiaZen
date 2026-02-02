@@ -14,6 +14,8 @@ const Auth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   
@@ -73,6 +75,10 @@ const Auth: React.FC = () => {
     }
 
     if (mode === 'signup') {
+        if (!firstName.trim()) {
+            setMessage('Please enter your first name.');
+            return;
+        }
         if (!isStrong) {
             setMessage('Password does not meet security requirements.');
             return;
@@ -86,6 +92,11 @@ const Auth: React.FC = () => {
     try {
       setLoading(true);
       if (mode === 'signup') {
+        // Store name data for ZenContext to pick up after signup
+        localStorage.setItem('zen_pending_profile', JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim()
+        }));
         await signUpWithEmail(email, password);
         setMessage('Registration successful. Verifying identity via email.');
       } else {
@@ -188,6 +199,32 @@ const Auth: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name Fields (Sign Up Only) */}
+            {mode === 'signup' && (
+              <div className="grid grid-cols-2 gap-3 animate-reveal">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">First Name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
+                    placeholder="Last name"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">Email Address</label>
               <input

@@ -887,7 +887,7 @@ const Home: React.FC = () => {
              
              <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div className="space-y-1">
-                   <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary tracking-tight">{getGreeting(profile.name)}</h2>
+                   <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary tracking-tight">{getGreeting(profile.firstName || 'Student')}</h2>
                    <p className="text-zen-text-secondary md:text-lg font-light">{formatDateFull(new Date())}</p>
                 </div>
              </header>

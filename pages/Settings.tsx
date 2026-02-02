@@ -46,7 +46,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [activeTab, setActiveTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data'>(initialTab || 'focus');
   
   // Local state for profile form
-  const [localName, setLocalName] = useState(state.profile.name || '');
+  const [localFirstName, setLocalFirstName] = useState(state.profile.firstName || '');
+  const [localLastName, setLocalLastName] = useState(state.profile.lastName || '');
   const [localUni, setLocalUni] = useState(state.profile.university || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -73,7 +74,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   // ... (Hooks and effects remain largely same but simplified calls)
   useEffect(() => {
     if (state.profile) {
-        setLocalName(state.profile.name || '');
+        setLocalFirstName(state.profile.firstName || '');
+        setLocalLastName(state.profile.lastName || '');
         setLocalUni(state.profile.university || '');
     }
   }, [state.profile]);
@@ -87,7 +89,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     setProfileSaved(false);
-    updateProfile({ name: localName, university: localUni });
+    updateProfile({ firstName: localFirstName, lastName: localLastName, university: localUni });
     try {
         await new Promise(resolve => setTimeout(resolve, 800)); 
         setProfileSaved(true);
@@ -728,15 +730,27 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                             </div>
 
                             <div className="space-y-5">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">Full Name</label>
-                                    <input 
-                                        type="text" 
-                                        value={localName}
-                                        onChange={e => setLocalName(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all font-light"
-                                        placeholder="Enter your name"
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">First Name</label>
+                                        <input 
+                                            type="text" 
+                                            value={localFirstName}
+                                            onChange={e => setLocalFirstName(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all font-light"
+                                            placeholder="Enter your first name"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">Last Name</label>
+                                        <input 
+                                            type="text" 
+                                            value={localLastName}
+                                            onChange={e => setLocalLastName(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all font-light"
+                                            placeholder="Enter your last name"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-4">University</label>

@@ -5,12 +5,13 @@ export const generateId = (): string => {
   return Math.random().toString(36).substring(2, 10);
 };
 
-export const getGreeting = (name: string): string => {
+export const getGreeting = (firstName: string): string => {
   const hour = new Date().getHours();
   let greeting = 'Good Morning';
   if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
   if (hour >= 17) greeting = 'Good Evening';
-  return `${greeting}, ${name}`;
+  const displayName = firstName?.trim() || 'Student';
+  return `${greeting}, ${displayName}`;
 };
 
 export const formatDateFull = (date: Date): string => {

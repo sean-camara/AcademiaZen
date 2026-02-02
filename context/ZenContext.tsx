@@ -285,6 +285,33 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [user?.uid, user?.emailVerified]);
 
+  // Check for pending profile data from signup and apply it
+  useEffect(() => {
+    if (!user || !user.emailVerified) return;
+    if (!isHydrated) return;
+    
+    try {
+      const pendingProfile = localStorage.getItem('zen_pending_profile');
+      if (pendingProfile) {
+        const { firstName, lastName } = JSON.parse(pendingProfile);
+        if (firstName || lastName) {
+          setStateWithTimestamp(prev => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              firstName: firstName || prev.profile.firstName,
+              lastName: lastName || prev.profile.lastName,
+            }
+          }));
+        }
+        localStorage.removeItem('zen_pending_profile');
+      }
+    } catch (err) {
+      console.warn('[Zen] Failed to apply pending profile:', err);
+      localStorage.removeItem('zen_pending_profile');
+    }
+  }, [user?.uid, user?.emailVerified, isHydrated, setStateWithTimestamp]);
+
   // Debounced sync to backend when state changes
   useEffect(() => {
     if (!user || !user.emailVerified) return;

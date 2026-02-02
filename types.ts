@@ -111,7 +111,8 @@ export interface Folder {
 }
 
 export interface UserProfile {
-  name: string;
+  firstName: string;
+  lastName: string;
   university: string;
   semester: string;
   quoteEnabled: boolean;
