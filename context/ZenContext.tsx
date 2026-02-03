@@ -1,6 +1,6 @@
 ﻿import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { ZenState, Task, Subject, Flashcard, Folder, FolderItem, UserProfile, AppSettings, FocusSessionState, AmbienceType, AIReviewer, QuizProgress, AIChatMessage } from '../types';
-import { INITIAL_STATE, DEFAULT_SETTINGS } from '../constants';
+import { INITIAL_STATE, DEFAULT_SETTINGS, DEFAULT_PROFILE } from '../constants';
 import { showLocalNotification, sendZenNotification, getPermissionStatus, syncTasksWithBackend, notifyNewTask } from '../utils/pushNotifications';
 import { uploadPdfDataUrlToR2 } from '../utils/pdfStorage';
 import { useAuth } from './AuthContext';
@@ -263,31 +263,30 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return (s.tasks?.length > 0) || 
                (s.subjects?.length > 0) || 
                (s.folders?.some(f => f.items?.length > 0)) ||
-               (s.aiReviewers?.length > 0);
+               (s.aiReviewers?.length > 0) ||
+               (s.profile?.firstName && s.profile.firstName !== 'Student');
       };
 
       const remoteHasData = hasRealData(remote);
       const localHasData = hasRealData(local);
 
-      // CRITICAL: Never let empty state overwrite state that has real data
-      if (remoteHasData && !localHasData) return remote!;
-      if (localHasData && !remoteHasData) return local!;
-      
-      // Both empty - return remote if exists, otherwise initial
-      if (!remoteHasData && !localHasData) {
-        return remote || local || INITIAL_STATE;
+      console.log('[Zen] pickLatestState:', { remoteHasData, localHasData, remoteSubjects: remote?.subjects?.length, localSubjects: local?.subjects?.length });
+
+      // CRITICAL: Server is source of truth - ALWAYS prefer remote if it has data
+      // This prevents local cache from overwriting server data
+      if (remoteHasData) {
+        console.log('[Zen] Using remote state (has data)');
+        return remote!;
       }
-
-      // Both have data - compare timestamps
-      const remoteUpdated = getUpdatedAtMs(remote);
-      const localUpdated = getUpdatedAtMs(local);
-
-      // If remote has no timestamp but has data, prefer remote (server is source of truth)
-      if (remoteUpdated === 0 && remoteHasData) return remote!;
       
-      if (localUpdated >= remoteUpdated) {
+      // Remote has no data - use local if it has data
+      if (localHasData) {
+        console.log('[Zen] Using local state (remote empty, local has data)');
         return local!;
       }
+      
+      // Both empty - return remote if exists, otherwise initial
+      console.log('[Zen] Both empty, using remote or initial');
       return remote || local || INITIAL_STATE;
     };
 
