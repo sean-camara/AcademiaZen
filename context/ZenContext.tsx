@@ -242,15 +242,36 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const pickLatestState = (remote: ZenState | null, local: ZenState | null): ZenState => {
-      if (local && !remote) return local;
-      if (remote && !local) return remote;
-      if (!local && !remote) return INITIAL_STATE;
+      // Helper to check if state has real data (not just defaults)
+      const hasRealData = (s: ZenState | null): boolean => {
+        if (!s) return false;
+        return (s.tasks?.length > 0) || 
+               (s.subjects?.length > 0) || 
+               (s.folders?.some(f => f.items?.length > 0)) ||
+               (s.aiReviewers?.length > 0);
+      };
 
+      const remoteHasData = hasRealData(remote);
+      const localHasData = hasRealData(local);
+
+      // CRITICAL: Never let empty state overwrite state that has real data
+      if (remoteHasData && !localHasData) return remote!;
+      if (localHasData && !remoteHasData) return local!;
+      
+      // Both empty - return remote if exists, otherwise initial
+      if (!remoteHasData && !localHasData) {
+        return remote || local || INITIAL_STATE;
+      }
+
+      // Both have data - compare timestamps
       const remoteUpdated = getUpdatedAtMs(remote);
       const localUpdated = getUpdatedAtMs(local);
 
-      if (local && (remoteUpdated === 0 || localUpdated >= remoteUpdated)) {
-        return local;
+      // If remote has no timestamp but has data, prefer remote (server is source of truth)
+      if (remoteUpdated === 0 && remoteHasData) return remote!;
+      
+      if (localUpdated >= remoteUpdated) {
+        return local!;
       }
       return remote || local || INITIAL_STATE;
     };
