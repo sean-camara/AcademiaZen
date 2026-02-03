@@ -80,8 +80,19 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!saved) return INITIAL_STATE;
     try {
       const parsed = JSON.parse(saved) as ZenState;
+      
+      // Migrate old 'name' field to 'firstName' if needed
+      const profile = parsed.profile || DEFAULT_PROFILE;
+      const legacyName = (profile as any).name;
+      
+      if (legacyName && (!profile.firstName || profile.firstName === 'Student')) {
+        profile.firstName = legacyName;
+        delete (profile as any).name;
+      }
+      
       return {
         ...parsed,
+        profile: { ...DEFAULT_PROFILE, ...profile },
         aiChat: Array.isArray((parsed as any).aiChat) ? (parsed as any).aiChat : [],
         updatedAt: typeof (parsed as any).updatedAt === 'string' ? (parsed as any).updatedAt : '',
       };
@@ -195,8 +206,21 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const normalizeState = (incoming: ZenState | null): ZenState | null => {
       if (!incoming) return null;
+      
+      // Migrate old 'name' field to 'firstName' if needed
+      const profile = incoming.profile || DEFAULT_PROFILE;
+      const legacyName = (profile as any).name;
+      
+      // If old 'name' field exists and firstName is not set or is default 'Student', migrate it
+      if (legacyName && (!profile.firstName || profile.firstName === 'Student')) {
+        profile.firstName = legacyName;
+        // Remove the old 'name' field
+        delete (profile as any).name;
+      }
+      
       return {
         ...incoming,
+        profile: { ...DEFAULT_PROFILE, ...profile },
         aiChat: Array.isArray((incoming as any).aiChat) ? (incoming as any).aiChat : [],
         updatedAt: typeof (incoming as any).updatedAt === 'string' ? (incoming as any).updatedAt : '',
       };
