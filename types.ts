@@ -9,11 +9,24 @@ export interface PdfAttachment {
   textUpdatedAt?: string;
 }
 
+export interface AIAnalysisSummary {
+  mode: 'fast' | 'deep';
+  documents: { name: string; pages: number; chars: number; usedOCR: boolean }[];
+  totalChars: number;
+  pagesReadTotal: number;
+  ocrUsed: boolean;
+  planSummary: string;
+  confidence: 'low' | 'medium' | 'high' | 'unknown';
+  responseTimeMs?: number;
+}
+
 export interface AIChatMessage {
   role: 'user' | 'ai';
   text: string;
   refs?: string[];
   createdAt?: string;
+  id?: string;
+  analysis?: AIAnalysisSummary;
 }
 
 export interface Task {

@@ -6,14 +6,17 @@ import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase';
 import { apiFetch } from '../utils/api';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
-import { PdfAttachment, AIChatMessage } from '../types';
+import { PdfAttachment, AIChatMessage, AIAnalysisSummary } from '../types';
 
 // Streaming analysis info type
 interface AnalysisInfo {
-    mode: string;
-    model: string;
-    documents: { name: string; pages?: number; chars: number; usedOCR?: boolean }[];
+    mode: 'fast' | 'deep';
+    documents: { name: string; pages: number; chars: number; usedOCR: boolean }[];
     totalChars: number;
+    pagesReadTotal: number;
+    ocrUsed: boolean;
+    planSummary?: string;
+    confidence?: AIAnalysisSummary['confidence'];
     responseTimeMs?: number;
 }
 
@@ -39,12 +42,75 @@ interface SelectedRef {
     legacyData?: string;
 }
 
+interface ResolvedRef extends SelectedRef {
+    markedContent: string;
+    meta: { pagesRead: number; totalPages: number; usedOCR: boolean; extractedChars: number };
+}
+
 interface ZenAIProps {
     onClose: () => void;
 }
 
+interface PdfExtractResult {
+    plainText: string;
+    markedText: string;
+    pagesRead: number;
+    totalPages: number;
+    usedOCR: boolean;
+    extractedChars: number;
+}
+
+interface CitationPayload {
+    raw: string;
+    doc: string;
+    page?: number;
+}
+
+const ANALYSIS_SUMMARY_OPEN = '<analysis_summary>';
+const ANALYSIS_SUMMARY_CLOSE = '</analysis_summary>';
+
+const stripAnalysisSummaryBlock = (text: string) => {
+    if (!text) return '';
+    let cleaned = text.replace(/<analysis_summary>[\s\S]*?<\/analysis_summary>/g, '');
+    const openIndex = cleaned.indexOf(ANALYSIS_SUMMARY_OPEN);
+    if (openIndex !== -1) {
+        cleaned = cleaned.slice(0, openIndex);
+    }
+    return cleaned.trim();
+};
+
+const parseAnalysisSummaryBlock = (text: string): { plan_summary?: string; confidence?: AIAnalysisSummary['confidence'] } | null => {
+    if (!text) return null;
+    const match = text.match(/<analysis_summary>([\s\S]*?)<\/analysis_summary>/);
+    if (!match) return null;
+    try {
+        const parsed = JSON.parse(match[1]);
+        const confidenceRaw = typeof parsed?.confidence === 'string' ? parsed.confidence.toLowerCase() : '';
+        const confidence: AIAnalysisSummary['confidence'] =
+            confidenceRaw === 'low' || confidenceRaw === 'medium' || confidenceRaw === 'high'
+                ? confidenceRaw
+                : 'unknown';
+        return {
+            plan_summary: typeof parsed?.plan_summary === 'string' ? parsed.plan_summary.trim() : undefined,
+            confidence,
+        };
+    } catch (_) {
+        return null;
+    }
+};
+
+const getCitationKeys = (title: string) => {
+    const trimmed = title.trim();
+    const lower = trimmed.toLowerCase();
+    const withoutExt = lower.replace(/\.pdf$/i, '').trim();
+    return Array.from(new Set([lower, withoutExt].filter(Boolean)));
+};
+
 // Helper Component: Renders structured AI text with academic formatting
-const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
+const FormattedAIResponse: React.FC<{ 
+    text: string; 
+    onCitationClick?: (citation: CitationPayload) => void;
+}> = ({ text, onCitationClick }) => {
     const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
 
     // Parse the text to extract code blocks and structure
@@ -153,7 +219,7 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
             if (trimmed && !trimmed.startsWith('-') && !trimmed.startsWith('*') && !/^\d+\./.test(trimmed) && trimmed.length < 100 && i === 0) {
                 elements.push(
                     <div key={key} className="text-sm text-white/70 mb-2 font-normal">
-                        {processInlines(trimmed)}
+                        {processInlines(trimmed, onCitationClick)}
                     </div>
                 );
                 return;
@@ -165,7 +231,7 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
                 elements.push(
                     <div key={key} className="flex gap-3 ml-2 md:ml-4 py-0.5">
                         <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500/80 shrink-0" />
-                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(content)}</span>
+                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(content, onCitationClick)}</span>
                     </div>
                 );
                 return;
@@ -177,7 +243,7 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
                 elements.push(
                     <div key={key} className="flex gap-3 ml-4 py-0.5">
                         <span className="text-emerald-400 font-mono text-xs mt-1">{match?.[1]}</span>
-                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(match?.[2] || "")}</span>
+                        <span className="leading-relaxed opacity-90 text-white/80">{processInlines(match?.[2] || "", onCitationClick)}</span>
                     </div>
                 );
                 return;
@@ -196,12 +262,12 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
             }
 
             // Regular paragraphs
-            elements.push(
-                <p key={key} className="leading-relaxed opacity-90 font-light text-white/80">
-                    {processInlines(trimmed)}
-                </p>
-            );
-        });
+                elements.push(
+                    <p key={key} className="leading-relaxed opacity-90 font-light text-white/80">
+                        {processInlines(trimmed, onCitationClick)}
+                    </p>
+                );
+            });
 
         return elements;
     };
@@ -214,7 +280,7 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
 };
 
 // Helper: Handles inline markdown (bold, code, links, citations)
-const processInlines = (text: string): React.ReactNode => {
+const processInlines = (text: string, onCitationClick?: (citation: CitationPayload) => void): React.ReactNode => {
     const parts: React.ReactNode[] = [];
     let remaining = text;
     let key = 0;
@@ -260,13 +326,34 @@ const processInlines = (text: string): React.ReactNode => {
         // Citation pattern 【Document p.X】
         const citationMatch = remaining.match(/^【([^】]+)】/);
         if (citationMatch) {
-            parts.push(
-                <span key={key++} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30">
+            const rawLabel = citationMatch[1].trim();
+            const pageMatch = rawLabel.match(/p\.?\s*(\d+)/i);
+            const page = pageMatch ? Number(pageMatch[1]) : undefined;
+            const doc = rawLabel.replace(/\s*p\.?\s*\d+.*$/i, '').trim() || rawLabel;
+            const citationPayload = { raw: rawLabel, doc, page };
+            const chip = (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {citationMatch[1]}
+                    {rawLabel}
                 </span>
+            );
+
+            parts.push(
+                onCitationClick ? (
+                    <button
+                        key={key++}
+                        type="button"
+                        onClick={() => onCitationClick(citationPayload)}
+                        title={`Open ${rawLabel}`}
+                        className="inline-flex"
+                    >
+                        {chip}
+                    </button>
+                ) : (
+                    <span key={key++}>{chip}</span>
+                )
             );
             remaining = remaining.slice(citationMatch[0].length);
             continue;
@@ -442,10 +529,12 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamingText, setStreamingText] = useState('');
     const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisInfo | null>(null);
+    const [lastContextSummary, setLastContextSummary] = useState<AnalysisInfo | null>(null);
     const [showJumpToLatest, setShowJumpToLatest] = useState(false);
     const [threads, setThreads] = useState<ConversationThread[]>([]);
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
     const [showThreadsSidebar, setShowThreadsSidebar] = useState(false);
+    const [openAnalysisPanels, setOpenAnalysisPanels] = useState<Record<string, boolean>>({});
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -453,7 +542,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const upgradeCtaRef = useRef<HTMLButtonElement>(null);
     const hasShownUpgradeOnceRef = useRef(false);
-    const pdfTextCacheRef = useRef<Map<string, string>>(new Map());
+    const pdfTextCacheRef = useRef<Map<string, { plainText: string; markedText: string; pagesRead: number; totalPages: number; usedOCR: boolean; extractedChars: number }>>(new Map());
     const hasLoadedChatRef = useRef(false);
     const hasAppliedRemoteChatRef = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -472,6 +561,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const MAX_SAVED_MESSAGES = 60;
     const ANALYSIS_MODE_KEY = 'zen_ai_analysis_mode_v1';
     const THREADS_STORAGE_KEY = 'zen_ai_threads_v1';
+    const AUTO_SCROLL_THRESHOLD = 20;
 
     const isSameChat = (a: AIChatMessage[], b: AIChatMessage[]) => {
         if (a === b) return true;
@@ -486,23 +576,31 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         for (let i = 0; i < refsA.length; i += 1) {
             if (refsA[i] !== refsB[i]) return false;
         }
-        return lastA.role === lastB.role && lastA.text === lastB.text && lastA.createdAt === lastB.createdAt;
+        const analysisA = lastA.analysis ? JSON.stringify(lastA.analysis) : '';
+        const analysisB = lastB.analysis ? JSON.stringify(lastB.analysis) : '';
+        return lastA.role === lastB.role && lastA.text === lastB.text && lastA.createdAt === lastB.createdAt && analysisA === analysisB;
     };
 
-    const scrollToBottom = (force = false) => {
-        if (force || isAtBottomRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }
-    };
-
-    const handleScroll = useCallback(() => {
+    const updateScrollState = useCallback(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
         const { scrollTop, scrollHeight, clientHeight } = container;
-        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight <= AUTO_SCROLL_THRESHOLD;
         isAtBottomRef.current = isAtBottom;
-        setShowJumpToLatest(!isAtBottom && isStreaming);
-    }, [isStreaming]);
+        setShowJumpToLatest(!isAtBottom && (isStreaming || isLoading));
+    }, [AUTO_SCROLL_THRESHOLD, isStreaming, isLoading]);
+
+    const scrollToBottom = useCallback((force = false) => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        if (force || isAtBottomRef.current) {
+            container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+        }
+    }, []);
+
+    const handleScroll = useCallback(() => {
+        updateScrollState();
+    }, [updateScrollState]);
 
     useEffect(() => {
         scrollToBottom();
@@ -513,6 +611,10 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             scrollToBottom();
         }
     }, [streamingText, isStreaming]);
+
+    useEffect(() => {
+        updateScrollState();
+    }, [messages.length, isStreaming, isLoading, updateScrollState]);
 
     useEffect(() => {
         try {
@@ -677,6 +779,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setMessages([]);
         setInput('');
         setSelectedRefs([]);
+        setLastContextSummary(null);
         try {
             localStorage.removeItem(CHAT_STORAGE_KEY);
         } catch (_) {
@@ -685,17 +788,26 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         clearAIChat();
     };
 
-    const extractPdfText = async (source: string, cacheKey: string) => {
-        if (pdfTextCacheRef.current.has(cacheKey)) {
-            return pdfTextCacheRef.current.get(cacheKey) || '';
-        }
+    const extractPdfText = async (source: string, cacheKey: string): Promise<PdfExtractResult> => {
+        const cached = pdfTextCacheRef.current.get(cacheKey);
+        if (cached) return cached;
+
+        const emptyResult: PdfExtractResult = {
+            plainText: '',
+            markedText: '',
+            pagesRead: 0,
+            totalPages: 0,
+            usedOCR: false,
+            extractedChars: 0,
+        };
+
         try {
             const pdfjsLib = (window as any).pdfjsLib;
-            if (!pdfjsLib) return '';
+            if (!pdfjsLib) return emptyResult;
             let loadingTask;
             if (String(source).startsWith('data:')) {
                 const base64 = source.split(',')[1] || '';
-                if (!base64) return '';
+                if (!base64) return emptyResult;
                 const binary = atob(base64);
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i += 1) {
@@ -706,37 +818,61 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                 loadingTask = pdfjsLib.getDocument(source);
             }
             const pdf = await loadingTask.promise;
-            const totalPages = Math.min(pdf.numPages || 0, MAX_PDF_PAGES);
-            let fullText = '';
-            for (let pageNum = 1; pageNum <= totalPages; pageNum += 1) {
+            const totalPages = pdf.numPages || 0;
+            const maxPages = Math.min(totalPages, MAX_PDF_PAGES);
+            let plainText = '';
+            let markedText = '';
+            let pagesRead = 0;
+
+            for (let pageNum = 1; pageNum <= maxPages; pageNum += 1) {
+                pagesRead += 1;
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 const pageText = (textContent.items || [])
                     .map((item: any) => item?.str || '')
                     .join(' ');
-                fullText += `${pageText}\n`;
-                if (fullText.length >= MAX_PDF_TEXT_CHARS) {
-                    fullText = fullText.slice(0, MAX_PDF_TEXT_CHARS);
-                    break;
+                const normalized = pageText.replace(/\s+/g, ' ').trim();
+                if (normalized) {
+                    const remaining = MAX_PDF_TEXT_CHARS - plainText.length;
+                    if (remaining <= 0) break;
+                    const slice = normalized.slice(0, remaining);
+                    plainText += plainText ? `\n${slice}` : slice;
+                    markedText += `${markedText ? '\n' : ''}[Page ${pageNum}]\n${slice}`;
+                    if (slice.length < normalized.length) break;
                 }
+                if (plainText.length >= MAX_PDF_TEXT_CHARS) break;
             }
-            let cleaned = fullText.replace(/\s+/g, ' ').trim();
-            if (cleaned) {
-                pdfTextCacheRef.current.set(cacheKey, cleaned);
-                return cleaned;
+
+            if (plainText) {
+                const cleaned = plainText.replace(/\s+/g, ' ').trim();
+                const markedCleaned = markedText.replace(/\s+\n/g, '\n').trim();
+                const result = {
+                    plainText: cleaned,
+                    markedText: markedCleaned,
+                    pagesRead,
+                    totalPages,
+                    usedOCR: false,
+                    extractedChars: cleaned.length,
+                };
+                pdfTextCacheRef.current.set(cacheKey, result);
+                return result;
             }
 
             const Tesseract = (window as any).Tesseract;
-            if (!Tesseract) return '';
+            if (!Tesseract) return emptyResult;
 
             const ocrPreset = analysisMode === 'deep'
                 ? { pages: MAX_OCR_PAGES, scale: OCR_SCALE, maxChars: MAX_OCR_TEXT_CHARS }
                 : { pages: 2, scale: 1.5, maxChars: 4000 };
 
             setThinkingContext('No text found, running OCR on scanned pages...');
-            const ocrPages = Math.min(pdf.numPages || 0, ocrPreset.pages);
-            let ocrText = '';
+            const ocrPages = Math.min(totalPages, ocrPreset.pages);
+            plainText = '';
+            markedText = '';
+            pagesRead = 0;
+
             for (let pageNum = 1; pageNum <= ocrPages; pageNum += 1) {
+                pagesRead += 1;
                 setThinkingContext(`Running OCR on page ${pageNum}/${ocrPages}...`);
                 const page = await pdf.getPage(pageNum);
                 const viewport = page.getViewport({ scale: ocrPreset.scale });
@@ -749,20 +885,32 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
                 const dataUrl = canvas.toDataURL('image/png');
                 const result = await Tesseract.recognize(dataUrl, OCR_LANGUAGE);
-                ocrText += `${result?.data?.text || ''}\n`;
-                if (ocrText.length >= ocrPreset.maxChars) {
-                    ocrText = ocrText.slice(0, ocrPreset.maxChars);
-                    break;
+                const normalized = String(result?.data?.text || '').replace(/\s+/g, ' ').trim();
+                if (normalized) {
+                    const remaining = ocrPreset.maxChars - plainText.length;
+                    if (remaining <= 0) break;
+                    const slice = normalized.slice(0, remaining);
+                    plainText += plainText ? `\n${slice}` : slice;
+                    markedText += `${markedText ? '\n' : ''}[Page ${pageNum}]\n${slice}`;
+                    if (slice.length < normalized.length) break;
                 }
+                if (plainText.length >= ocrPreset.maxChars) break;
             }
 
-            cleaned = ocrText.replace(/\s+/g, ' ').trim();
-            if (cleaned) {
-                pdfTextCacheRef.current.set(cacheKey, cleaned);
-            }
-            return cleaned;
+            const cleaned = plainText.replace(/\s+/g, ' ').trim();
+            const markedCleaned = markedText.replace(/\s+\n/g, '\n').trim();
+            const result = {
+                plainText: cleaned,
+                markedText: markedCleaned,
+                pagesRead,
+                totalPages,
+                usedOCR: true,
+                extractedChars: cleaned.length,
+            };
+            pdfTextCacheRef.current.set(cacheKey, result);
+            return result;
         } catch (err) {
-            return '';
+            return emptyResult;
         }
     };
 
@@ -842,7 +990,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             setInput('');
             setIsLoading(true);
             setThinkingContext('Validating coupon...');
-            setMessages(prev => [...prev, { role: 'user', text: 'Password: [hidden]' }]);
+            setMessages(prev => [...prev, { role: 'user', text: 'Password: [hidden]', createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
             try {
                 const response = await apiFetch('/api/billing/secret-checkout', {
                     method: 'POST',
@@ -856,17 +1004,17 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                     throw new Error(data?.error || 'Invalid coupon');
                 }
                 if (data?.direct && data?.billing) {
-                    setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nPremium is now active on your account.' }]);
+                    setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nPremium is now active on your account.', createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
                     window.dispatchEvent(new CustomEvent('billing-updated', { detail: { plan: 'premium', billing: data.billing } }));
                     return;
                 }
                 if (!data?.checkoutUrl) {
                     throw new Error('Invalid coupon');
                 }
-                setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nRedirecting to secure checkout...' }]);
+                setMessages(prev => [...prev, { role: 'ai', text: '### Coupon accepted\nRedirecting to secure checkout...', createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
                 window.location.href = data.checkoutUrl;
             } catch (_) {
-                setMessages(prev => [...prev, { role: 'ai', text: '### Invalid coupon\nThis password is not valid or is no longer active.' }]);
+                setMessages(prev => [...prev, { role: 'ai', text: '### Invalid coupon\nThis password is not valid or is no longer active.', createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
             } finally {
                 setIsLoading(false);
             }
@@ -876,8 +1024,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         if (isCreatorQuestion) {
             setMessages(prev => [
                 ...prev,
-                { role: 'user', text: trimmedInput },
-                { role: 'ai', text: 'Sean John Camara from STI College Fairview, Bachelor of Science in Computer Science.' },
+                { role: 'user', text: trimmedInput, createdAt: new Date().toISOString(), id: crypto.randomUUID() },
+                { role: 'ai', text: 'Sean John Camara from STI College Fairview, Bachelor of Science in Computer Science.', createdAt: new Date().toISOString(), id: crypto.randomUUID() },
             ]);
             setInput('');
             return;
@@ -886,8 +1034,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         if (isTechStackQuestion) {
             setMessages(prev => [
                 ...prev,
-                { role: 'user', text: trimmedInput },
-                { role: 'ai', text: 'MERN Stack: MongoDB, ExpressJS, ReactJS, NodeJS.' },
+                { role: 'user', text: trimmedInput, createdAt: new Date().toISOString(), id: crypto.randomUUID() },
+                { role: 'ai', text: 'MERN Stack: MongoDB, ExpressJS, ReactJS, NodeJS.', createdAt: new Date().toISOString(), id: crypto.randomUUID() },
             ]);
             setInput('');
             return;
@@ -904,7 +1052,9 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setMessages(prev => [...prev, { 
             role: 'user', 
             text: userQuery, 
-            refs: currentRefs.map(r => r.title) 
+            refs: currentRefs.map(r => r.title),
+            createdAt: new Date().toISOString(),
+            id: crypto.randomUUID(),
         }]);
         
         setInput('');
@@ -1081,33 +1231,71 @@ FORMAT:
                 .replace(/mongodb\+srv:\/\/[^@\s]+@/g, 'mongodb+srv://***REDACTED***@');
 
             let userMessage = '';
+            let resolvedRefs: ResolvedRef[] = [];
 
             if (currentRefs.length > 0) {
-                const resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
-                    if (ref.type !== 'pdf') return ref;
-                    if (ref.content && ref.content.trim().length > 0) return ref;
+                userMessage += `CITATION RULES:\n`;
+                userMessage += `- If you use the provided documents, cite every document-based claim with the format 【Document Name p.X】.\n`;
+                userMessage += `- Use the page markers like [Page 1] inside the provided content to determine page numbers.\n\n`;
+            }
 
-                    let extracted = '';
-                    if (ref.file?.text) {
-                        extracted = ref.file.text;
-                    } else if (ref.file?.key) {
+            userMessage += `TRANSPARENCY SUMMARY (MANDATORY):\n`;
+            userMessage += `- Append a hidden analysis block at the very end of your response in this exact format:\n`;
+            userMessage += `${ANALYSIS_SUMMARY_OPEN}{"plan_summary":"...","confidence":"low|medium|high"}${ANALYSIS_SUMMARY_CLOSE}\n`;
+            userMessage += `- The plan_summary must be brief, high-level, and contain no chain-of-thought and no citations.\n\n`;
+
+            if (currentRefs.length > 0) {
+                resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
+                    if (ref.type !== 'pdf') {
+                        const content = (ref.content || '').trim();
+                        return {
+                            ...ref,
+                            content,
+                            markedContent: content,
+                            meta: { pagesRead: 0, totalPages: 0, usedOCR: false, extractedChars: content.length },
+                        };
+                    }
+
+                    let extraction: PdfExtractResult | null = null;
+                    if (ref.file?.key) {
                         try {
                             const url = ref.file.url || await getPdfSignedUrl(ref.file.key);
-                            extracted = await extractPdfText(url, ref.file.key || ref.id);
+                            extraction = await extractPdfText(url, ref.file.key || ref.id);
                         } catch (_) {
-                            extracted = '';
+                            extraction = null;
                         }
                     } else if (ref.legacyData && ref.legacyData.startsWith('data:')) {
-                        extracted = await extractPdfText(ref.legacyData, ref.id);
+                        extraction = await extractPdfText(ref.legacyData, ref.id);
                     } else if (ref.content && ref.content.startsWith('data:')) {
-                        extracted = await extractPdfText(ref.content, ref.id);
+                        extraction = await extractPdfText(ref.content, ref.id);
                     }
 
-                    if (extracted) {
-                        persistPdfText(ref, extracted);
+                    if (!extraction && ref.file?.text) {
+                        const plain = ref.file.text.trim();
+                        extraction = {
+                            plainText: plain,
+                            markedText: plain,
+                            pagesRead: 0,
+                            totalPages: 0,
+                            usedOCR: false,
+                            extractedChars: plain.length,
+                        };
                     }
 
-                    return { ...ref, content: extracted };
+                    const content = extraction?.plainText || '';
+                    const markedContent = extraction?.markedText || content;
+                    const meta = {
+                        pagesRead: extraction?.pagesRead || 0,
+                        totalPages: extraction?.totalPages || 0,
+                        usedOCR: extraction?.usedOCR || false,
+                        extractedChars: extraction?.extractedChars || content.length,
+                    };
+
+                    if (content) {
+                        persistPdfText(ref, content);
+                    }
+
+                    return { ...ref, content, markedContent, meta };
                 }));
 
                 const perDocLimit = Math.max(
@@ -1119,12 +1307,10 @@ FORMAT:
                 userMessage += `${contextLabel}\n\n`;
                 
                 resolvedRefs.forEach(ref => {
-                    let content = (ref.content || '').trim();
+                    let content = (ref.markedContent || ref.content || '').trim();
 
-                    if (ref.type === 'pdf') {
-                        if (!content) {
-                            content = "No readable text could be extracted from this PDF (including OCR). If this is a scanned document, try an OCR-exported PDF or paste key sections so I can help.";
-                        }
+                    if (ref.type === 'pdf' && !content) {
+                        content = "No readable text could be extracted from this PDF (including OCR). If this is a scanned document, try an OCR-exported PDF or paste key sections so I can help.";
                     }
 
                     if (content.length > perDocLimit) {
@@ -1135,6 +1321,36 @@ FORMAT:
                     const safeContent = redact(content);
                     userMessage += `[Document Title: ${safeTitle}]\nTYPE: ${ref.type.toUpperCase()}\nCONTENT:\n${safeContent}\n--- End of Document ---\n\n`;
                 });
+            }
+
+            const baseSummary: AnalysisInfo = {
+                mode: analysisMode,
+                documents: [],
+                totalChars: 0,
+                pagesReadTotal: 0,
+                ocrUsed: false,
+            };
+            let contextSummary: AnalysisInfo = baseSummary;
+            if (resolvedRefs.length > 0) {
+                const documents = resolvedRefs.map(ref => ({
+                    name: ref.title,
+                    pages: ref.meta.pagesRead,
+                    chars: ref.meta.extractedChars,
+                    usedOCR: ref.meta.usedOCR,
+                }));
+                const totalChars = documents.reduce((sum, doc) => sum + doc.chars, 0);
+                const pagesReadTotal = documents.reduce((sum, doc) => sum + doc.pages, 0);
+                const ocrUsed = documents.some(doc => doc.usedOCR);
+                contextSummary = {
+                    mode: analysisMode,
+                    documents,
+                    totalChars,
+                    pagesReadTotal,
+                    ocrUsed,
+                };
+                setLastContextSummary(contextSummary);
+            } else {
+                setLastContextSummary(null);
             }
             
             setThinkingContext('Formulating response...');
@@ -1151,18 +1367,17 @@ FORMAT:
             }));
 
             // Build context info for streaming metadata
-            const contextInfo = currentRefs.length > 0 ? {
-                documents: currentRefs.map(r => ({
-                    name: r.title,
-                    chars: (r.content || '').length,
-                })),
-                totalChars: currentRefs.reduce((s, r) => s + (r.content || '').length, 0),
+            const contextInfo = resolvedRefs.length > 0 ? {
+                documents: contextSummary.documents,
+                totalChars: contextSummary.totalChars,
+                pagesReadTotal: contextSummary.pagesReadTotal,
+                ocrUsed: contextSummary.ocrUsed,
             } : null;
 
             setThinkingContext('Connecting to AI...');
             setIsStreaming(true);
             setStreamingText('');
-            setCurrentAnalysis(null);
+            setCurrentAnalysis(contextSummary);
             abortControllerRef.current = new AbortController();
 
             // Try streaming endpoint first, fall back to regular if it fails
@@ -1198,7 +1413,6 @@ FORMAT:
                 let buffer = '';
                 let fullText = '';
                 let responseTimeMs = 0;
-                let currentEventType = '';
 
                 setThinkingContext('');
 
@@ -1234,11 +1448,18 @@ FORMAT:
                             
                             switch (eventType) {
                                 case 'meta':
-                                    setCurrentAnalysis({
-                                        mode: data.mode,
-                                        model: data.model,
-                                        documents: contextInfo?.documents || [],
-                                        totalChars: contextInfo?.totalChars || 0,
+                                    setCurrentAnalysis(prev => {
+                                        const metaContext = data.contextInfo || contextInfo || null;
+                                        return {
+                                            mode: data.mode || prev?.mode || analysisMode,
+                                            documents: metaContext?.documents || prev?.documents || [],
+                                            totalChars: metaContext?.totalChars || prev?.totalChars || 0,
+                                            pagesReadTotal: metaContext?.pagesReadTotal || prev?.pagesReadTotal || 0,
+                                            ocrUsed: typeof metaContext?.ocrUsed === 'boolean' ? metaContext.ocrUsed : (prev?.ocrUsed || false),
+                                            planSummary: prev?.planSummary,
+                                            confidence: prev?.confidence,
+                                            responseTimeMs: prev?.responseTimeMs,
+                                        };
                                     });
                                     setThinkingContext('');
                                     break;
@@ -1264,7 +1485,30 @@ FORMAT:
 
                 // Finalize - add complete message
                 if (fullText) {
-                    setMessages(prev => [...prev, { role: 'ai', text: fullText, createdAt: new Date().toISOString() }]);
+                    const cleanedText = stripAnalysisSummaryBlock(fullText);
+                    const parsedSummary = parseAnalysisSummaryBlock(fullText);
+                    const baseAnalysis: AnalysisInfo = contextSummary;
+                    const planSummary = parsedSummary?.plan_summary || 'Not available';
+                    const confidence = parsedSummary?.confidence || 'unknown';
+                    const finalAnalysis: AIAnalysisSummary = {
+                        mode: baseAnalysis.mode,
+                        documents: baseAnalysis.documents,
+                        totalChars: baseAnalysis.totalChars,
+                        pagesReadTotal: baseAnalysis.pagesReadTotal,
+                        ocrUsed: baseAnalysis.ocrUsed,
+                        planSummary,
+                        confidence,
+                        responseTimeMs,
+                    };
+                    setCurrentAnalysis(prev => prev ? { ...prev, planSummary, confidence, responseTimeMs } : prev);
+                    setLastContextSummary(prev => prev ? { ...prev, planSummary, confidence, responseTimeMs } : prev);
+                    setMessages(prev => [...prev, { 
+                        role: 'ai', 
+                        text: cleanedText || fullText, 
+                        createdAt: new Date().toISOString(),
+                        id: crypto.randomUUID(),
+                        analysis: finalAnalysis,
+                    }]);
                 } else {
                     throw new Error('No response received');
                 }
@@ -1273,10 +1517,12 @@ FORMAT:
                 // Handle abort
                 if (streamErr.name === 'AbortError') {
                     if (streamingText) {
+                        const cleanedText = stripAnalysisSummaryBlock(streamingText);
                         setMessages(prev => [...prev, { 
                             role: 'ai', 
-                            text: streamingText + '\n\n*[Response stopped]*', 
-                            createdAt: new Date().toISOString() 
+                            text: (cleanedText || streamingText) + '\n\n*[Response stopped]*', 
+                            createdAt: new Date().toISOString(),
+                            id: crypto.randomUUID(),
                         }]);
                     }
                     return;
@@ -1298,7 +1544,7 @@ FORMAT:
             } else {
                 errorMessage = `### Connection Issue\nI encountered a technical error: ${error.message || 'Unknown error'}.`;
             }
-            setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
+            setMessages(prev => [...prev, { role: 'ai', text: errorMessage, createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
         } finally {
             setIsLoading(false);
             setIsStreaming(false);
@@ -1357,6 +1603,43 @@ FORMAT:
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const renderAnalysisPanel = (analysis: AnalysisInfo | AIAnalysisSummary, panelKey: string, labelPrefix?: string) => {
+        const isOpen = Boolean(openAnalysisPanels[panelKey]);
+        const modeLabel = analysis.mode === 'deep' ? 'Deep' : 'Fast';
+        const docsLabel = analysis.documents.length > 0
+            ? analysis.documents.map(d => d.name).join(', ')
+            : 'None';
+        const planSummary = analysis.planSummary || 'Not available';
+        const confidence = analysis.confidence || 'unknown';
+
+        return (
+            <div className="mb-2">
+                <button
+                    type="button"
+                    onClick={() => toggleAnalysisPanel(panelKey)}
+                    className="flex items-center gap-2 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                    <span>{labelPrefix || 'View analysis'}</span>
+                    <IconChevronRight className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                </button>
+                {isOpen && (
+                    <div className="mt-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-gray-400 space-y-1">
+                        <div>Mode: <span className="text-gray-200">{modeLabel}</span></div>
+                        <div>Documents used: <span className="text-gray-200">{docsLabel}</span></div>
+                        <div>Pages read: <span className="text-gray-200">{analysis.pagesReadTotal || 0}</span></div>
+                        <div>OCR used: <span className="text-gray-200">{analysis.ocrUsed ? 'Yes' : 'No'}</span></div>
+                        <div>Extracted chars: <span className="text-gray-200">{analysis.totalChars.toLocaleString()}</span></div>
+                        <div>Plan summary: <span className="text-gray-200">{planSummary}</span></div>
+                        <div>Confidence: <span className="text-gray-200">{confidence}</span></div>
+                        {analysis.responseTimeMs ? (
+                            <div>Response time: <span className="text-gray-200">{(analysis.responseTimeMs / 1000).toFixed(1)}s</span></div>
+                        ) : null}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const toggleRef = (ref: SelectedRef) => {
         setSelectedRefs(prev => 
             prev.find(r => r.id === ref.id && r.source === ref.source && r.folderId === ref.folderId) 
@@ -1364,6 +1647,78 @@ FORMAT:
                 : [...prev, ref]
         );
     };
+
+    const toggleAnalysisPanel = useCallback((key: string) => {
+        setOpenAnalysisPanels(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    const citationTargets = useMemo(() => {
+        const targets: { title: string; file?: PdfAttachment; dataUrl?: string }[] = [];
+
+        state.folders.forEach(folder => {
+            folder.items.forEach(item => {
+                if (item.type !== 'pdf') return;
+                const legacyData = item.content && item.content.startsWith('data:') ? item.content : undefined;
+                targets.push({ title: item.title, file: item.file, dataUrl: legacyData });
+            });
+        });
+
+        state.tasks.forEach(task => {
+            if (!task.pdfAttachment) return;
+            const legacyData = (task.pdfAttachment as any)?.data;
+            const dataUrl = legacyData && String(legacyData).startsWith('data:') ? legacyData : undefined;
+            targets.push({ title: task.pdfAttachment.name, file: task.pdfAttachment, dataUrl });
+        });
+
+        return targets;
+    }, [state.folders, state.tasks]);
+
+    const citationIndex = useMemo(() => {
+        const map = new Map<string, { title: string; file?: PdfAttachment; dataUrl?: string }>();
+        citationTargets.forEach(target => {
+            getCitationKeys(target.title).forEach(key => {
+                if (!map.has(key)) map.set(key, target);
+            });
+        });
+        return map;
+    }, [citationTargets]);
+
+    const handleCitationClick = useCallback(async (citation: CitationPayload) => {
+        const rawLabel = citation.raw || citation.doc;
+        const normalized = citation.doc.trim().toLowerCase();
+        const target = citationIndex.get(normalized) || citationIndex.get(normalized.replace(/\.pdf$/i, '').trim());
+
+        const copyFallback = async () => {
+            try {
+                await navigator.clipboard.writeText(`【${rawLabel}】`);
+            } catch (_) {
+                // Ignore clipboard failures
+            }
+        };
+
+        if (!target) {
+            await copyFallback();
+            return;
+        }
+
+        try {
+            let url = target.file?.url;
+            if (!url && target.file?.key) {
+                url = await getPdfSignedUrl(target.file.key);
+            }
+            if (!url && target.dataUrl) {
+                url = target.dataUrl;
+            }
+            if (!url) {
+                await copyFallback();
+                return;
+            }
+            const finalUrl = citation.page ? `${url}#page=${citation.page}` : url;
+            window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        } catch (_) {
+            await copyFallback();
+        }
+    }, [citationIndex]);
 
     return (
         <div className="fixed inset-0 bg-[#0A0C0F] z-[110] flex flex-col animate-fade-in overflow-hidden font-sans">
@@ -1657,76 +2012,58 @@ FORMAT:
                     </div>
                 )}
 
-                {messages.map((msg, idx) => (
-                    <div key={idx} className={`group flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
-                        {msg.refs && msg.refs.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-3 mr-2">
-                                {msg.refs.map((r, i) => (
-                                    <span key={i} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-medium">
-                                        {r}
-                                    </span>
-                                ))}
+                {messages.map((msg, idx) => {
+                    const messageKey = msg.id || `${idx}-${msg.createdAt || ''}`;
+                    const displayText = msg.role === 'ai' ? stripAnalysisSummaryBlock(msg.text) : msg.text;
+                    return (
+                        <div key={messageKey} className={`group flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
+                            {msg.refs && msg.refs.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-3 mr-2">
+                                    {msg.refs.map((r, i) => (
+                                        <span key={i} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-medium">
+                                            {r}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {msg.role === 'ai' && msg.analysis && renderAnalysisPanel(msg.analysis, `analysis-${messageKey}`)}
+                            <div className={`max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative ${
+                                msg.role === 'user' 
+                                    ? 'bg-white/10 text-white rounded-br-sm' 
+                                    : 'bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md'
+                            }`}>
+                                {msg.role === 'ai' ? <FormattedAIResponse text={displayText} onCitationClick={handleCitationClick} /> : displayText}
+                                
+                                {msg.role === 'ai' && (
+                                    <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                )}
+                                
+                                {/* Message Action Toolbar */}
+                                {msg.role === 'ai' && !isStreaming && (
+                                    <MessageActions
+                                        messageText={displayText}
+                                        messageIdx={idx}
+                                        onRegenerate={() => handleRegenerate(idx)}
+                                        onContinue={handleContinue}
+                                        onRewrite={(style) => handleRewrite(idx, style)}
+                                        isMobile={isMobile}
+                                    />
+                                )}
                             </div>
-                        )}
-                        <div className={`max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative ${
-                            msg.role === 'user' 
-                                ? 'bg-white/10 text-white rounded-br-sm' 
-                                : 'bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md'
-                        }`}>
-                            {msg.role === 'ai' ? <FormattedAIResponse text={msg.text} /> : msg.text}
-                            
-                            {msg.role === 'ai' && (
-                                <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                            )}
-                            
-                            {/* Message Action Toolbar */}
-                            {msg.role === 'ai' && !isStreaming && (
-                                <MessageActions
-                                    messageText={msg.text}
-                                    messageIdx={idx}
-                                    onRegenerate={() => handleRegenerate(idx)}
-                                    onContinue={handleContinue}
-                                    onRewrite={(style) => handleRewrite(idx, style)}
-                                    isMobile={isMobile}
-                                />
-                            )}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
                 {/* Streaming Response with Analysis Panel */}
                 {isStreaming && (
                     <div className="flex flex-col items-start animate-reveal">
                         {/* Analysis/Thinking Panel */}
-                        {currentAnalysis && (
-                            <div className="mb-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs max-w-[90%] md:max-w-[85%] lg:max-w-[75%]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                    <span className="text-emerald-400 font-semibold uppercase tracking-wider text-[10px]">
-                                        {currentAnalysis.mode === 'deep' ? '🔬 Deep Analysis' : '⚡ Fast Response'}
-                                    </span>
-                                </div>
-                                <div className="text-gray-400 space-y-1">
-                                    <div>Model: <span className="text-gray-300">{currentAnalysis.model}</span></div>
-                                    {currentAnalysis.documents && currentAnalysis.documents.length > 0 && (
-                                        <div>
-                                            Context: <span className="text-gray-300">
-                                                {currentAnalysis.documents.map(d => d.name).join(', ')} 
-                                                ({currentAnalysis.totalChars.toLocaleString()} chars)
-                                            </span>
-                                        </div>
-                                    )}
-                                    {currentAnalysis.responseTimeMs && (
-                                        <div>Time: <span className="text-gray-300">{(currentAnalysis.responseTimeMs / 1000).toFixed(1)}s</span></div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        {currentAnalysis && renderAnalysisPanel(currentAnalysis, 'analysis-streaming', 'Thinking… ▸ View analysis')}
                         
                         {/* Streaming Text */}
                         {streamingText ? (
                             <div className="max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md">
-                                <FormattedAIResponse text={streamingText} />
+                                <FormattedAIResponse text={stripAnalysisSummaryBlock(streamingText)} onCitationClick={handleCitationClick} />
                                 <span className="inline-block w-2 h-4 bg-emerald-400 animate-pulse ml-0.5" />
                                 <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                             </div>
@@ -1923,6 +2260,17 @@ FORMAT:
                                 </div>
                             ))}
                             <button type="button" onClick={() => setSelectedRefs([])} className="px-2 sm:px-3 text-[8px] sm:text-[9px] uppercase font-black text-gray-500 hover:text-red-400 transition-colors">Clear</button>
+                        </div>
+                    )}
+
+                    {lastContextSummary && lastContextSummary.documents.length > 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
+                            <div className="text-[10px] uppercase font-black tracking-[0.2em] text-emerald-400 mb-2">Context Summary</div>
+                            <div>Documents: <span className="text-gray-200">{lastContextSummary.documents.map(d => d.name).join(', ')}</span></div>
+                            <div>Pages read: <span className="text-gray-200">{lastContextSummary.pagesReadTotal || 0}</span></div>
+                            <div>OCR used: <span className="text-gray-200">{lastContextSummary.ocrUsed ? 'Yes' : 'No'}</span></div>
+                            <div>Extracted chars: <span className="text-gray-200">{lastContextSummary.totalChars.toLocaleString()}</span></div>
+                            <div>Confidence: <span className="text-gray-200">{lastContextSummary.confidence || 'unknown'}</span></div>
                         </div>
                     )}
 
