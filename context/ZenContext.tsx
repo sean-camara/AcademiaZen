@@ -115,6 +115,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncTimeoutRef = useRef<number | null>(null);
   const legacyMigrationRef = useRef(false);
   const audioInitializedRef = useRef(false); // Track if audio was initialized
+  const initialLoadRef = useRef(true); // Track if this is the initial load (prevent empty sync)
   
   const setStateWithTimestamp = useCallback((updater: (prev: ZenState) => ZenState) => {
     setState(prev => {
@@ -189,6 +190,20 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Save state to localStorage with user-specific key to prevent data leakage
   useEffect(() => {
     if (!isHydrated) return;
+    
+    // Safety check: Don't save completely empty state to localStorage
+    // This prevents overwriting good cached data with empty state on bugs
+    const hasAnyData = state.tasks.length > 0 || state.subjects.length > 0 || 
+                       state.folders.some(f => f.items.length > 0) || 
+                       state.aiReviewers.length > 0 ||
+                       (state.profile.firstName && state.profile.firstName !== 'Student');
+    
+    if (!hasAnyData && initialLoadRef.current === false) {
+      // Only warn if this isn't the initial load
+      console.warn('[Zen] Skipping localStorage save - state appears empty');
+      return;
+    }
+    
     try {
       if (user?.uid) {
         localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
@@ -371,6 +386,24 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (!user || !user.emailVerified) return;
     if (!isHydrated) return;
+    
+    // CRITICAL: Skip sync on initial load to prevent empty state from overwriting remote
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      console.log('[Zen] Skipping initial sync after hydration');
+      return;
+    }
+    
+    // Additional safety: Don't sync if state looks completely empty (likely a bug)
+    const hasAnyData = state.tasks.length > 0 || state.subjects.length > 0 || 
+                       state.folders.some(f => f.items.length > 0) || 
+                       state.aiReviewers.length > 0 ||
+                       (state.profile.firstName && state.profile.firstName !== 'Student');
+    
+    if (!hasAnyData) {
+      console.warn('[Zen] Skipping sync - state appears empty, this may be a bug');
+      return;
+    }
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
@@ -378,11 +411,16 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     syncTimeoutRef.current = window.setTimeout(async () => {
       try {
-        await apiFetch('/api/state', {
+        console.log('[Zen] Syncing state to backend:', { tasks: state.tasks.length, subjects: state.subjects.length });
+        const response = await apiFetch('/api/state', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ state }),
         });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          console.warn('[Zen] Sync failed:', data);
+        }
       } catch (err) {
         console.warn('[Zen] Failed to sync state', err);
       }
