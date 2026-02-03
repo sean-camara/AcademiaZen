@@ -1173,6 +1173,8 @@ FORMAT:
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
                         'Authorization': token ? `Bearer ${token}` : '',
                     },
                     body: JSON.stringify({
@@ -1279,30 +1281,8 @@ FORMAT:
                     return;
                 }
 
-                // Fall back to non-streaming endpoint
-                console.log('Streaming failed, falling back to regular endpoint:', streamErr.message);
-                setThinkingContext('Formulating response...');
-                
-                const response = await apiFetch('/api/ai/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                        prompt, 
-                        mode: analysisMode,
-                        history: recentHistory,
-                    }),
-                });
-
-                if (!response.ok) {
-                    throw new Error(`AI request failed (${response.status})`);
-                }
-
-                const data = await response.json();
-                const aiText = data.text || 'No response from AI.';
-                
-                setMessages(prev => [...prev, { role: 'ai', text: aiText, createdAt: new Date().toISOString() }]);
+                // Surface streaming errors instead of falling back to non-streaming
+                throw streamErr;
             }
         } catch (error: any) {
             console.error("Zen AI Error:", error);
