@@ -16,6 +16,15 @@ interface AnalysisInfo {
     responseTimeMs?: number;
 }
 
+// Conversation thread type
+interface ConversationThread {
+    id: string;
+    title: string;
+    messages: AIChatMessage[];
+    createdAt: string;
+    updatedAt: string;
+}
+
 // AI model handled by backend
 
 interface SelectedRef {
@@ -378,7 +387,7 @@ const ModeToggle: React.FC<{
                 onClick={() => onChange(mode === 'fast' ? 'deep' : 'fast')}
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
-                className={`h-9 px-4 rounded-xl border text-[10px] uppercase font-black tracking-wider transition-all flex items-center gap-2 ${
+                className={`h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl border text-[9px] sm:text-[10px] uppercase font-black tracking-wider transition-all flex items-center gap-1.5 sm:gap-2 ${
                     mode === 'deep'
                         ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
                         : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10'
@@ -389,7 +398,7 @@ const ModeToggle: React.FC<{
             </button>
 
             {showTooltip && (
-                <div className="absolute bottom-full left-0 mb-2 p-3 bg-[#1C2128] border border-white/10 rounded-xl shadow-2xl z-50 w-56 text-xs animate-fade-in">
+                <div className="absolute bottom-full left-0 mb-2 p-3 bg-[#1C2128] border border-white/10 rounded-xl shadow-2xl z-50 w-56 text-xs animate-fade-in hidden sm:block">
                     <div className="font-semibold text-white mb-2">
                         {mode === 'fast' ? '⚡ Fast Mode' : '🔬 Deep Mode'}
                     </div>
@@ -433,6 +442,9 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [streamingText, setStreamingText] = useState('');
     const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisInfo | null>(null);
     const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+    const [threads, setThreads] = useState<ConversationThread[]>([]);
+    const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+    const [showThreadsSidebar, setShowThreadsSidebar] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -458,6 +470,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const CHAT_STORAGE_KEY = 'zen_ai_chat_v1';
     const MAX_SAVED_MESSAGES = 60;
     const ANALYSIS_MODE_KEY = 'zen_ai_analysis_mode_v1';
+    const THREADS_STORAGE_KEY = 'zen_ai_threads_v1';
 
     const isSameChat = (a: AIChatMessage[], b: AIChatMessage[]) => {
         if (a === b) return true;
@@ -553,6 +566,30 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             // Ignore
         }
     }, [analysisMode]);
+
+    // Load threads from localStorage
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(THREADS_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setThreads(parsed);
+                }
+            }
+        } catch (_) {
+            // Ignore corrupted cache
+        }
+    }, []);
+
+    // Save threads to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(threads.slice(0, 20)));
+        } catch (_) {
+            // Storage may be full
+        }
+    }, [threads]);
 
     useEffect(() => {
         if (!hasLoadedChatRef.current) return;
@@ -1158,6 +1195,7 @@ FORMAT:
                 let buffer = '';
                 let fullText = '';
                 let responseTimeMs = 0;
+                let currentEventType = '';
 
                 setThinkingContext('');
 
@@ -1166,43 +1204,57 @@ FORMAT:
                     if (done) break;
 
                     buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
+                    
+                    // Process complete SSE messages (separated by double newlines)
+                    const messages = buffer.split('\n\n');
+                    buffer = messages.pop() || ''; // Keep incomplete message in buffer
 
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        if (line.startsWith('event:')) {
-                            const eventType = line.slice(6).trim();
-                            const dataLine = lines[i + 1];
-                            if (dataLine?.startsWith('data:')) {
-                                const dataStr = dataLine.slice(5).trim();
-                                try {
-                                    const data = JSON.parse(dataStr);
-                                    switch (eventType) {
-                                        case 'meta':
-                                            setCurrentAnalysis({
-                                                mode: data.mode,
-                                                model: data.model,
-                                                documents: contextInfo?.documents || [],
-                                                totalChars: contextInfo?.totalChars || 0,
-                                            });
-                                            break;
-                                        case 'delta':
-                                            fullText += data.text;
-                                            setStreamingText(fullText);
-                                            break;
-                                        case 'done':
-                                            responseTimeMs = data.responseTimeMs;
-                                            setCurrentAnalysis(prev => prev ? { ...prev, responseTimeMs } : null);
-                                            break;
-                                        case 'error':
-                                            throw new Error(data.message);
-                                    }
-                                } catch (parseErr) {
-                                    // Skip malformed JSON
-                                }
-                                i++; // Skip data line
+                    for (const message of messages) {
+                        if (!message.trim()) continue;
+                        
+                        const lines = message.split('\n');
+                        let eventType = '';
+                        let eventData = '';
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('event:')) {
+                                eventType = line.slice(6).trim();
+                            } else if (line.startsWith('data:')) {
+                                eventData = line.slice(5).trim();
                             }
+                        }
+                        
+                        if (!eventType || !eventData) continue;
+                        
+                        try {
+                            const data = JSON.parse(eventData);
+                            
+                            switch (eventType) {
+                                case 'meta':
+                                    setCurrentAnalysis({
+                                        mode: data.mode,
+                                        model: data.model,
+                                        documents: contextInfo?.documents || [],
+                                        totalChars: contextInfo?.totalChars || 0,
+                                    });
+                                    setThinkingContext('');
+                                    break;
+                                case 'delta':
+                                    if (data.text) {
+                                        fullText += data.text;
+                                        setStreamingText(fullText);
+                                    }
+                                    break;
+                                case 'done':
+                                    responseTimeMs = data.responseTimeMs || 0;
+                                    setCurrentAnalysis(prev => prev ? { ...prev, responseTimeMs } : null);
+                                    break;
+                                case 'error':
+                                    throw new Error(data.message || 'Stream error');
+                            }
+                        } catch (parseErr) {
+                            // Skip malformed JSON but log it
+                            console.warn('SSE parse error:', parseErr, eventData);
                         }
                     }
                 }
@@ -1342,12 +1394,22 @@ FORMAT:
             </div>
 
             {/* Header */}
-            <header className="px-5 py-4 border-b border-white/5 bg-[#0A0C0F]/80 backdrop-blur-xl sticky top-0 z-[120] flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
-                        <IconBot className="w-5 h-5" />
+            <header className="px-3 sm:px-5 py-3 sm:py-4 border-b border-white/5 bg-[#0A0C0F]/80 backdrop-blur-xl sticky top-0 z-[120] flex justify-between items-center">
+                <div className="flex items-center gap-2 sm:gap-4">
+                    {/* Threads sidebar toggle */}
+                    <button
+                        onClick={() => setShowThreadsSidebar(!showThreadsSidebar)}
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-emerald-400 transition-all active:scale-95 border border-white/5"
+                        aria-label="Toggle conversations"
+                    >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                    </button>
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
+                        <IconBot className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <div>
+                    <div className="hidden sm:block">
                         <h2 className="text-lg font-medium text-white tracking-tight">Zen Intelligence</h2>
                         <div className="flex items-center gap-2 mt-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1355,23 +1417,117 @@ FORMAT:
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                    <button
+                        onClick={() => {
+                            // Save current thread if has messages
+                            if (messages.length > 0) {
+                                const newThread: ConversationThread = {
+                                    id: Date.now().toString(),
+                                    title: messages[0]?.text.slice(0, 50) + (messages[0]?.text.length > 50 ? '...' : '') || 'New Chat',
+                                    messages: messages,
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString()
+                                };
+                                setThreads(prev => [newThread, ...prev.slice(0, 19)]); // Keep max 20 threads
+                            }
+                            clearChat();
+                        }}
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/5 hover:bg-emerald-500/10 flex items-center justify-center text-white/40 hover:text-emerald-400 transition-all active:scale-95"
+                        aria-label="New chat"
+                        title="New chat"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                    </button>
                     <button
                         onClick={clearChat}
-                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all active:scale-95"
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all active:scale-95"
                         aria-label="Clear chat"
                     >
                         <IconTrash className="w-4 h-4" />
                     </button>
                     <button 
                         onClick={onClose} 
-                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-red-500/10 flex items-center justify-center text-white/40 hover:text-red-400 transition-all active:scale-95 border border-transparent hover:border-red-500/20" 
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/5 hover:bg-red-500/10 flex items-center justify-center text-white/40 hover:text-red-400 transition-all active:scale-95 border border-transparent hover:border-red-500/20" 
                         aria-label="Close"
                     >
-                        <IconX className="w-5 h-5" />
+                        <IconX className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                 </div>
             </header>
+
+            {/* Conversation Threads Sidebar */}
+            {showThreadsSidebar && (
+                <>
+                    <div 
+                        className="fixed inset-0 bg-black/50 z-[118] sm:hidden" 
+                        onClick={() => setShowThreadsSidebar(false)} 
+                    />
+                    <aside className="fixed left-0 top-0 bottom-0 w-[280px] sm:w-[300px] bg-[#0A0C0F] border-r border-white/10 z-[119] flex flex-col transform transition-transform duration-300 ease-out pt-[60px]">
+                        <div className="p-4 border-b border-white/5">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-semibold text-white">Conversations</h3>
+                                <button
+                                    onClick={() => setShowThreadsSidebar(false)}
+                                    className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                                >
+                                    <IconX className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                            {threads.length === 0 ? (
+                                <div className="p-4 text-center text-gray-500 text-xs">
+                                    <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    No saved conversations yet.<br />
+                                    Click "+" to save the current chat.
+                                </div>
+                            ) : (
+                                threads.map((thread) => (
+                                    <button
+                                        key={thread.id}
+                                        onClick={() => {
+                                            setMessages(thread.messages);
+                                            setCurrentThreadId(thread.id);
+                                            setShowThreadsSidebar(false);
+                                        }}
+                                        className={`w-full text-left p-3 rounded-xl mb-1 transition-all group ${
+                                            currentThreadId === thread.id
+                                                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                                                : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-white truncate">{thread.title}</p>
+                                                <p className="text-[10px] text-gray-500 mt-1">
+                                                    {thread.messages.length} messages • {new Date(thread.updatedAt).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setThreads(prev => prev.filter(t => t.id !== thread.id));
+                                                    if (currentThreadId === thread.id) {
+                                                        setCurrentThreadId(null);
+                                                    }
+                                                }}
+                                                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-all"
+                                            >
+                                                <IconTrash className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </aside>
+                </>
+            )}
 
             {/* Upgrade Modal */}
             {showUpgradeModal && aiLocked && (
@@ -1557,14 +1713,54 @@ FORMAT:
                     </div>
                 ))}
 
-                {/* Streaming Response */}
-                {isStreaming && streamingText && (
+                {/* Streaming Response with Analysis Panel */}
+                {isStreaming && (
                     <div className="flex flex-col items-start animate-reveal">
-                        <div className="max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md">
-                            <FormattedAIResponse text={streamingText} />
-                            <span className="inline-block w-2 h-4 bg-emerald-400 animate-pulse ml-0.5" />
-                            <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                        </div>
+                        {/* Analysis/Thinking Panel */}
+                        {currentAnalysis && (
+                            <div className="mb-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs max-w-[90%] md:max-w-[85%] lg:max-w-[75%]">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                    <span className="text-emerald-400 font-semibold uppercase tracking-wider text-[10px]">
+                                        {currentAnalysis.mode === 'deep' ? '🔬 Deep Analysis' : '⚡ Fast Response'}
+                                    </span>
+                                </div>
+                                <div className="text-gray-400 space-y-1">
+                                    <div>Model: <span className="text-gray-300">{currentAnalysis.model}</span></div>
+                                    {currentAnalysis.documents && currentAnalysis.documents.length > 0 && (
+                                        <div>
+                                            Context: <span className="text-gray-300">
+                                                {currentAnalysis.documents.map(d => d.name).join(', ')} 
+                                                ({currentAnalysis.totalChars.toLocaleString()} chars)
+                                            </span>
+                                        </div>
+                                    )}
+                                    {currentAnalysis.responseTimeMs && (
+                                        <div>Time: <span className="text-gray-300">{(currentAnalysis.responseTimeMs / 1000).toFixed(1)}s</span></div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Streaming Text */}
+                        {streamingText ? (
+                            <div className="max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md">
+                                <FormattedAIResponse text={streamingText} />
+                                <span className="inline-block w-2 h-4 bg-emerald-400 animate-pulse ml-0.5" />
+                                <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <div className="flex gap-1.5">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.15s]" />
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.3s]" />
+                                </div>
+                                <span className="text-xs text-emerald-500 font-medium tracking-wide">{thinkingContext || 'Generating response...'}</span>
+                            </div>
+                        )}
+                        
+                        {/* Stop Button */}
                         <button
                             onClick={stopStreaming}
                             className="mt-3 ml-2 px-4 py-2 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-colors flex items-center gap-2"
@@ -1577,7 +1773,7 @@ FORMAT:
                     </div>
                 )}
 
-                {isLoading && !streamingText && (
+                {isLoading && !isStreaming && (
                     <div className="flex justify-start animate-reveal pl-4">
                         <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5">
                             <div className="flex gap-1.5">
@@ -1731,21 +1927,21 @@ FORMAT:
             )}
 
             {/* Input Bar Section */}
-            <div className="p-4 md:p-6 lg:p-8 pb-6 md:pb-8 bg-[#0A0C0F]/95 backdrop-blur-2xl relative z-[130] border-t border-white/5">
-                <div className="max-w-4xl mx-auto space-y-4">
+            <div className="p-2 sm:p-4 md:p-6 lg:p-8 pb-4 sm:pb-6 md:pb-8 bg-[#0A0C0F]/95 backdrop-blur-2xl relative z-[130] border-t border-white/5">
+                <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
                     
                     {/* Active Context Tokens */}
                     {selectedRefs.length > 0 && (
-                        <div className="flex flex-wrap gap-2 md:gap-3 animate-reveal">
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 md:gap-3 animate-reveal">
                             {selectedRefs.map(ref => (
-                                <div key={ref.id} className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-3 pr-2 py-2 shadow-sm">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 truncate max-w-[150px]">{ref.title}</span>
+                                <div key={ref.id} className="flex items-center gap-1.5 sm:gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-2 sm:pl-3 pr-1.5 sm:pr-2 py-1.5 sm:py-2 shadow-sm">
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-emerald-500 truncate max-w-[100px] sm:max-w-[150px]">{ref.title}</span>
                                     <button type="button" onClick={() => toggleRef(ref)} className="p-0.5 rounded hover:bg-emerald-500/20 text-emerald-500 transition-colors">
                                         <IconX className="w-3 h-3" />
                                     </button>
                                 </div>
                             ))}
-                            <button type="button" onClick={() => setSelectedRefs([])} className="px-3 text-[9px] uppercase font-black text-gray-500 hover:text-red-400 transition-colors">Clear Engine</button>
+                            <button type="button" onClick={() => setSelectedRefs([])} className="px-2 sm:px-3 text-[8px] sm:text-[9px] uppercase font-black text-gray-500 hover:text-red-400 transition-colors">Clear</button>
                         </div>
                     )}
 
@@ -1753,7 +1949,7 @@ FORMAT:
                         <div className="absolute inset-0 bg-emerald-500/5 blur-3xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
                         
                         {/* Unified Prompt Terminal Container */}
-                        <div className="relative bg-[#161B22]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 focus-within:border-emerald-500/30 ring-1 ring-white/0 focus-within:ring-emerald-500/20 transition-all duration-300">
+                        <div className="relative bg-[#161B22]/80 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl flex flex-col gap-3 sm:gap-4 focus-within:border-emerald-500/30 ring-1 ring-white/0 focus-within:ring-emerald-500/20 transition-all duration-300">
                             
                             {/* Top: Auto-expanding Text Area */}
                             <textarea
@@ -1766,15 +1962,15 @@ FORMAT:
                                     e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
                                 }}
                                 onKeyDown={handleInputKeyDown}
-                                placeholder={selectedRefs.length > 0 ? "Ask about the documents..." : "Ask your assistant anything..."}
+                                placeholder={selectedRefs.length > 0 ? "Ask about the docs..." : "Ask anything..."}
                                 disabled={isLoading || aiLocked}
                                 rows={1}
-                                className="w-full bg-transparent border-none text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-600 font-light resize-none leading-relaxed min-h-[44px] max-h-[160px] py-0 px-1"
+                                className="w-full bg-transparent border-none text-sm sm:text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-600 font-light resize-none leading-relaxed min-h-[40px] sm:min-h-[44px] max-h-[160px] py-0 px-0.5 sm:px-1"
                             />
 
                             {/* Bottom: Toolbar Actions */}
-                            <div className="flex items-center justify-between pt-1">
-                                <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-between pt-0.5 sm:pt-1">
+                                <div className="flex items-center gap-2 sm:gap-3">
                                      {/* Attachment Button */}
                                     <button 
                                         type="button"
@@ -1786,7 +1982,7 @@ FORMAT:
                                             setShowSelector(true);
                                         }}
                                         disabled={aiLocked}
-                                        className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center border ${
+                                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all flex items-center justify-center border ${
                                             aiLocked
                                                 ? 'bg-white/5 border-white/5 text-gray-600 cursor-not-allowed'
                                                 : selectedRefs.length > 0
@@ -1795,7 +1991,7 @@ FORMAT:
                                         }`}
                                         title="Attach context"
                                     >
-                                        <IconPaperclip className="w-4 h-4" />
+                                        <IconPaperclip className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
 
                                     {/* Integrated Mode Selector Pill with Tooltip */}
@@ -1809,16 +2005,16 @@ FORMAT:
                                 <button 
                                     type="submit"
                                     disabled={!input.trim() || isLoading || aiLocked} 
-                                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all ${
                                         !input.trim() || isLoading || aiLocked 
                                          ? 'bg-white/5 text-gray-600 cursor-not-allowed' 
                                          : 'bg-emerald-500 text-[#091510] hover:bg-emerald-400 hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
                                     }`}
                                 >
                                     {isLoading ? (
-                                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                        <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                                     ) : (
-                                        <IconChevronRight className="w-5 h-5" />
+                                        <IconChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                                     )}
                                 </button>
                             </div>
