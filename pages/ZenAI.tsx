@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
+import { auth } from '../firebase';
 import { apiFetch } from '../utils/api';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
 import { PdfAttachment, AIChatMessage } from '../types';
@@ -1165,7 +1166,7 @@ FORMAT:
             abortControllerRef.current = new AbortController();
 
             // Try streaming endpoint first, fall back to regular if it fails
-            const token = await (window as any).firebase?.auth?.()?.currentUser?.getIdToken?.();
+            const token = await auth.currentUser?.getIdToken();
             const apiUrl = (import.meta as any).env?.VITE_API_URL || '';
 
             try {
