@@ -1,11 +1,20 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
 import { PdfAttachment, AIChatMessage } from '../types';
+
+// Streaming analysis info type
+interface AnalysisInfo {
+    mode: string;
+    model: string;
+    documents: { name: string; pages?: number; chars: number; usedOCR?: boolean }[];
+    totalChars: number;
+    responseTimeMs?: number;
+}
 
 // AI model handled by backend
 
@@ -194,19 +203,216 @@ const FormattedAIResponse: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-// Helper: Handles bolding within lines
-const processInlines = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, idx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return (
-                <strong key={idx} className="text-zen-primary font-semibold">
-                    {part.slice(2, -2)}
+// Helper: Handles inline markdown (bold, code, links, citations)
+const processInlines = (text: string): React.ReactNode => {
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let key = 0;
+
+    while (remaining.length > 0) {
+        // Bold **text**
+        const boldMatch = remaining.match(/^\*\*(.*?)\*\*/);
+        if (boldMatch) {
+            parts.push(
+                <strong key={key++} className="text-emerald-400 font-semibold">
+                    {boldMatch[1]}
                 </strong>
             );
+            remaining = remaining.slice(boldMatch[0].length);
+            continue;
         }
-        return part;
-    });
+
+        // Inline code `code`
+        const codeMatch = remaining.match(/^`([^`]+)`/);
+        if (codeMatch) {
+            parts.push(
+                <code key={key++} className="bg-white/10 text-emerald-300 px-1.5 py-0.5 rounded text-[0.9em] font-mono">
+                    {codeMatch[1]}
+                </code>
+            );
+            remaining = remaining.slice(codeMatch[0].length);
+            continue;
+        }
+
+        // Links [text](url)
+        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+            parts.push(
+                <a key={key++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" 
+                   className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2">
+                    {linkMatch[1]}
+                </a>
+            );
+            remaining = remaining.slice(linkMatch[0].length);
+            continue;
+        }
+
+        // Citation pattern 【Document p.X】
+        const citationMatch = remaining.match(/^【([^】]+)】/);
+        if (citationMatch) {
+            parts.push(
+                <span key={key++} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {citationMatch[1]}
+                </span>
+            );
+            remaining = remaining.slice(citationMatch[0].length);
+            continue;
+        }
+
+        // Regular character
+        parts.push(remaining[0]);
+        remaining = remaining.slice(1);
+    }
+
+    // If it's just a plain string, return as-is
+    if (parts.length === 1 && typeof parts[0] === 'string') {
+        return parts[0];
+    }
+
+    return <>{parts}</>;
+};
+
+// Message Actions Toolbar Component
+interface MessageActionsProps {
+    messageText: string;
+    messageIdx: number;
+    onRegenerate: () => void;
+    onContinue: () => void;
+    onRewrite: (style: 'shorter' | 'simpler') => void;
+    isMobile?: boolean;
+}
+
+const MessageActions: React.FC<MessageActionsProps> = ({ 
+    messageText, 
+    messageIdx,
+    onRegenerate, 
+    onContinue, 
+    onRewrite,
+    isMobile = false
+}) => {
+    const [copied, setCopied] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+
+    const handleCopy = useCallback(() => {
+        navigator.clipboard.writeText(messageText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }, [messageText]);
+
+    const actions = useMemo(() => [
+        { icon: '↻', label: 'Regenerate', onClick: onRegenerate },
+        { icon: '→', label: 'Continue', onClick: onContinue },
+        { icon: '−', label: 'Shorter', onClick: () => onRewrite('shorter') },
+        { icon: '○', label: 'Simpler', onClick: () => onRewrite('simpler') },
+        { icon: copied ? '✓' : '⎘', label: copied ? 'Copied!' : 'Copy', onClick: handleCopy },
+    ], [onRegenerate, onContinue, onRewrite, copied, handleCopy]);
+
+    if (isMobile) {
+        return (
+            <div className="relative">
+                <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 text-gray-500 hover:text-white transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                    </svg>
+                </button>
+                {showMenu && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                        <div className="absolute right-0 bottom-full mb-2 bg-[#1C2128] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 min-w-[160px]">
+                            {actions.map((action, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => {
+                                        action.onClick();
+                                        if (action.label !== 'Copy' && action.label !== 'Copied!') setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3 transition-colors"
+                                >
+                                    <span className="text-base">{action.icon}</span>
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {actions.map((action, i) => (
+                <button
+                    key={i}
+                    onClick={action.onClick}
+                    className="px-2.5 py-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all text-xs flex items-center gap-1.5"
+                    title={action.label}
+                >
+                    <span>{action.icon}</span>
+                    <span className="hidden lg:inline">{action.label}</span>
+                </button>
+            ))}
+        </div>
+    );
+};
+
+// Mode Toggle with Tooltip Component
+const ModeToggle: React.FC<{
+    mode: 'fast' | 'deep';
+    onChange: (mode: 'fast' | 'deep') => void;
+}> = ({ mode, onChange }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => onChange(mode === 'fast' ? 'deep' : 'fast')}
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                className={`h-9 px-4 rounded-xl border text-[10px] uppercase font-black tracking-wider transition-all flex items-center gap-2 ${
+                    mode === 'deep'
+                        ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                        : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10'
+                }`}
+            >
+                <div className={`w-1.5 h-1.5 rounded-full ${mode === 'deep' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-gray-500'}`} />
+                <span>{mode === 'deep' ? 'Deep' : 'Fast'}</span>
+            </button>
+
+            {showTooltip && (
+                <div className="absolute bottom-full left-0 mb-2 p-3 bg-[#1C2128] border border-white/10 rounded-xl shadow-2xl z-50 w-56 text-xs animate-fade-in">
+                    <div className="font-semibold text-white mb-2">
+                        {mode === 'fast' ? '⚡ Fast Mode' : '🔬 Deep Mode'}
+                    </div>
+                    {mode === 'fast' ? (
+                        <ul className="text-gray-400 space-y-1.5">
+                            <li className="flex items-center gap-2"><span className="text-blue-400">•</span> Quick, concise responses</li>
+                            <li className="flex items-center gap-2"><span className="text-blue-400">•</span> Standard context window</li>
+                            <li className="flex items-center gap-2"><span className="text-blue-400">•</span> Best for simple questions</li>
+                        </ul>
+                    ) : (
+                        <ul className="text-gray-400 space-y-1.5">
+                            <li className="flex items-center gap-2"><span className="text-emerald-400">•</span> Thorough analysis</li>
+                            <li className="flex items-center gap-2"><span className="text-emerald-400">•</span> Full OCR on scanned PDFs</li>
+                            <li className="flex items-center gap-2"><span className="text-emerald-400">•</span> Best for complex tasks</li>
+                        </ul>
+                    )}
+                    <div className="mt-2 pt-2 border-t border-white/10 text-gray-500 text-[10px]">
+                        Click to switch modes
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
@@ -223,8 +429,13 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [thinkingContext, setThinkingContext] = useState('Formulating response...');
     const [analysisMode, setAnalysisMode] = useState<'fast' | 'deep'>('fast');
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [streamingText, setStreamingText] = useState('');
+    const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisInfo | null>(null);
+    const [showJumpToLatest, setShowJumpToLatest] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const upgradeCtaRef = useRef<HTMLButtonElement>(null);
@@ -232,6 +443,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const pdfTextCacheRef = useRef<Map<string, string>>(new Map());
     const hasLoadedChatRef = useRef(false);
     const hasAppliedRemoteChatRef = useRef(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const isAtBottomRef = useRef(true);
 
     const allowFreeAI = ((import.meta as any).env?.VITE_AI_FREE_MODE ?? 'true') === 'true';
     const MAX_PDF_PAGES = 8;
@@ -262,13 +475,30 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         return lastA.role === lastB.role && lastA.text === lastB.text && lastA.createdAt === lastB.createdAt;
     };
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const scrollToBottom = (force = false) => {
+        if (force || isAtBottomRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
     };
+
+    const handleScroll = useCallback(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        isAtBottomRef.current = isAtBottom;
+        setShowJumpToLatest(!isAtBottom && isStreaming);
+    }, [isStreaming]);
 
     useEffect(() => {
         scrollToBottom();
     }, [messages, isLoading]);
+
+    useEffect(() => {
+        if (isStreaming) {
+            scrollToBottom();
+        }
+    }, [streamingText, isStreaming]);
 
     useEffect(() => {
         try {
@@ -882,26 +1112,146 @@ FORMAT:
                 text: msg.text,
             }));
 
-            const response = await apiFetch('/api/ai/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    prompt, 
-                    mode: analysisMode,
-                    history: recentHistory,
-                }),
-            });
+            // Build context info for streaming metadata
+            const contextInfo = currentRefs.length > 0 ? {
+                documents: currentRefs.map(r => ({
+                    name: r.title,
+                    chars: (r.content || '').length,
+                })),
+                totalChars: currentRefs.reduce((s, r) => s + (r.content || '').length, 0),
+            } : null;
 
-            if (!response.ok) {
-                throw new Error(`AI request failed (${response.status})`);
+            setThinkingContext('Connecting to AI...');
+            setIsStreaming(true);
+            setStreamingText('');
+            setCurrentAnalysis(null);
+            abortControllerRef.current = new AbortController();
+
+            // Try streaming endpoint first, fall back to regular if it fails
+            const token = await (window as any).firebase?.auth?.()?.currentUser?.getIdToken?.();
+            const apiUrl = (import.meta as any).env?.VITE_API_URL || '';
+
+            try {
+                const streamResponse = await fetch(`${apiUrl}/api/ai/chat/stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : '',
+                    },
+                    body: JSON.stringify({
+                        prompt,
+                        mode: analysisMode,
+                        history: recentHistory,
+                        contextInfo,
+                    }),
+                    signal: abortControllerRef.current.signal,
+                });
+
+                if (!streamResponse.ok) {
+                    throw new Error(`Stream failed: ${streamResponse.status}`);
+                }
+
+                const reader = streamResponse.body?.getReader();
+                if (!reader) throw new Error('No response body');
+
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullText = '';
+                let responseTimeMs = 0;
+
+                setThinkingContext('');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (line.startsWith('event:')) {
+                            const eventType = line.slice(6).trim();
+                            const dataLine = lines[i + 1];
+                            if (dataLine?.startsWith('data:')) {
+                                const dataStr = dataLine.slice(5).trim();
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    switch (eventType) {
+                                        case 'meta':
+                                            setCurrentAnalysis({
+                                                mode: data.mode,
+                                                model: data.model,
+                                                documents: contextInfo?.documents || [],
+                                                totalChars: contextInfo?.totalChars || 0,
+                                            });
+                                            break;
+                                        case 'delta':
+                                            fullText += data.text;
+                                            setStreamingText(fullText);
+                                            break;
+                                        case 'done':
+                                            responseTimeMs = data.responseTimeMs;
+                                            setCurrentAnalysis(prev => prev ? { ...prev, responseTimeMs } : null);
+                                            break;
+                                        case 'error':
+                                            throw new Error(data.message);
+                                    }
+                                } catch (parseErr) {
+                                    // Skip malformed JSON
+                                }
+                                i++; // Skip data line
+                            }
+                        }
+                    }
+                }
+
+                // Finalize - add complete message
+                if (fullText) {
+                    setMessages(prev => [...prev, { role: 'ai', text: fullText, createdAt: new Date().toISOString() }]);
+                } else {
+                    throw new Error('No response received');
+                }
+
+            } catch (streamErr: any) {
+                // Handle abort
+                if (streamErr.name === 'AbortError') {
+                    if (streamingText) {
+                        setMessages(prev => [...prev, { 
+                            role: 'ai', 
+                            text: streamingText + '\n\n*[Response stopped]*', 
+                            createdAt: new Date().toISOString() 
+                        }]);
+                    }
+                    return;
+                }
+
+                // Fall back to non-streaming endpoint
+                console.log('Streaming failed, falling back to regular endpoint:', streamErr.message);
+                setThinkingContext('Formulating response...');
+                
+                const response = await apiFetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        prompt, 
+                        mode: analysisMode,
+                        history: recentHistory,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`AI request failed (${response.status})`);
+                }
+
+                const data = await response.json();
+                const aiText = data.text || 'No response from AI.';
+                
+                setMessages(prev => [...prev, { role: 'ai', text: aiText, createdAt: new Date().toISOString() }]);
             }
-
-            const data = await response.json();
-            const aiText = data.text || 'No response from AI.';
-            
-            setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
         } catch (error: any) {
             console.error("Zen AI Error:", error);
             let errorMessage: string;
@@ -918,8 +1268,61 @@ FORMAT:
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
         } finally {
             setIsLoading(false);
+            setIsStreaming(false);
+            setStreamingText('');
+            abortControllerRef.current = null;
         }
     };
+
+    // Stop streaming handler
+    const stopStreaming = useCallback(() => {
+        abortControllerRef.current?.abort();
+    }, []);
+
+    // Message action handlers
+    const handleRegenerate = useCallback((messageIdx: number) => {
+        // Find the last user message before this AI message
+        const userMessages = messages.slice(0, messageIdx).filter(m => m.role === 'user');
+        const lastUserMsg = userMessages[userMessages.length - 1];
+        if (lastUserMsg) {
+            // Remove the AI message and resend
+            setMessages(prev => prev.slice(0, messageIdx));
+            setInput(lastUserMsg.text);
+            setTimeout(() => {
+                formRef.current?.requestSubmit();
+            }, 100);
+        }
+    }, [messages]);
+
+    const handleContinue = useCallback(() => {
+        setInput('Continue from where you left off.');
+        setTimeout(() => {
+            formRef.current?.requestSubmit();
+        }, 100);
+    }, []);
+
+    const handleRewrite = useCallback((messageIdx: number, style: 'shorter' | 'simpler') => {
+        const aiMsg = messages[messageIdx];
+        if (!aiMsg || aiMsg.role !== 'ai') return;
+        
+        const prompt = style === 'shorter' 
+            ? `Please rewrite this response more concisely, keeping only the essential information:\n\n${aiMsg.text}`
+            : `Please rewrite this response in simpler terms that are easier to understand:\n\n${aiMsg.text}`;
+        
+        setInput(prompt);
+        setTimeout(() => {
+            formRef.current?.requestSubmit();
+        }, 100);
+    }, [messages]);
+
+    // Responsive detection
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const toggleRef = (ref: SelectedRef) => {
         setSelectedRefs(prev => 
@@ -1043,7 +1446,11 @@ FORMAT:
             )}
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 lg:p-12 space-y-6 md:space-y-8 relative z-[115] w-full max-w-4xl mx-auto custom-scrollbar">
+            <div 
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto px-4 py-6 md:p-8 lg:p-12 space-y-6 md:space-y-8 relative z-[115] w-full max-w-4xl mx-auto custom-scrollbar"
+            >
                                         {/* Custom scrollbar styles */}
                                         <style>{`
                                                 .custom-scrollbar {
@@ -1114,7 +1521,7 @@ FORMAT:
                 )}
 
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
+                    <div key={idx} className={`group flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start animate-reveal'}`}>
                         {msg.refs && msg.refs.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-3 mr-2">
                                 {msg.refs.map((r, i) => (
@@ -1134,11 +1541,43 @@ FORMAT:
                             {msg.role === 'ai' && (
                                 <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                             )}
+                            
+                            {/* Message Action Toolbar */}
+                            {msg.role === 'ai' && !isStreaming && (
+                                <MessageActions
+                                    messageText={msg.text}
+                                    messageIdx={idx}
+                                    onRegenerate={() => handleRegenerate(idx)}
+                                    onContinue={handleContinue}
+                                    onRewrite={(style) => handleRewrite(idx, style)}
+                                    isMobile={isMobile}
+                                />
+                            )}
                         </div>
                     </div>
                 ))}
 
-                {isLoading && (
+                {/* Streaming Response */}
+                {isStreaming && streamingText && (
+                    <div className="flex flex-col items-start animate-reveal">
+                        <div className="max-w-[90%] md:max-w-[85%] lg:max-w-[75%] p-4 md:p-6 lg:p-7 rounded-2xl md:rounded-3xl text-sm md:text-base leading-relaxed md:leading-7 relative bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-sm backdrop-blur-md">
+                            <FormattedAIResponse text={streamingText} />
+                            <span className="inline-block w-2 h-4 bg-emerald-400 animate-pulse ml-0.5" />
+                            <div className="absolute top-6 -left-3 w-1 h-6 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                        </div>
+                        <button
+                            onClick={stopStreaming}
+                            className="mt-3 ml-2 px-4 py-2 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
+                            Stop generating
+                        </button>
+                    </div>
+                )}
+
+                {isLoading && !streamingText && (
                     <div className="flex justify-start animate-reveal pl-4">
                         <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5">
                             <div className="flex gap-1.5">
@@ -1146,9 +1585,22 @@ FORMAT:
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.15s]" />
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.3s]" />
                             </div>
-                            <span className="text-xs text-emerald-500 font-medium tracking-wide">Thinking...</span>
+                            <span className="text-xs text-emerald-500 font-medium tracking-wide">{thinkingContext || 'Thinking...'}</span>
                         </div>
                     </div>
+                )}
+
+                {/* Jump to Latest Button */}
+                {showJumpToLatest && (
+                    <button
+                        onClick={() => scrollToBottom(true)}
+                        className="fixed bottom-32 left-1/2 -translate-x-1/2 px-4 py-2 bg-emerald-500 text-black text-xs font-semibold rounded-full shadow-lg hover:bg-emerald-400 transition-colors z-[125] flex items-center gap-2"
+                    >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                        Jump to latest
+                    </button>
                 )}
                 <div ref={messagesEndRef} className="h-32" />
             </div>
@@ -1346,19 +1798,11 @@ FORMAT:
                                         <IconPaperclip className="w-4 h-4" />
                                     </button>
 
-                                    {/* Integrated Mode Selector Pill */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setAnalysisMode(prev => (prev === 'deep' ? 'fast' : 'deep'))}
-                                        className={`h-9 px-4 rounded-xl border text-[10px] uppercase font-black tracking-wider transition-all flex items-center gap-2 ${
-                                            analysisMode === 'deep'
-                                                ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-                                                : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10'
-                                        }`}
-                                    >
-                                        <div className={`w-1.5 h-1.5 rounded-full ${analysisMode === 'deep' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-gray-500'}`} />
-                                        <span>{analysisMode === 'deep' ? 'Deep' : 'Fast'}</span>
-                                    </button>
+                                    {/* Integrated Mode Selector Pill with Tooltip */}
+                                    <ModeToggle 
+                                        mode={analysisMode} 
+                                        onChange={setAnalysisMode}
+                                    />
                                 </div>
 
                                 {/* Send Button */}
