@@ -1822,10 +1822,10 @@ If asked tech stack: "MERN Stack."`;
                                 
                                 {/* Message bubble - readable width, full mobile */}
                                 <div 
-                                    className={`w-full sm:max-w-[85%] lg:max-w-[75%] p-3 sm:p-4 rounded-2xl text-sm sm:text-base leading-relaxed min-w-0 ${
+                                    className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base leading-relaxed min-w-0 ${
                                         isUser 
-                                            ? 'bg-white/10 text-white rounded-br-md ml-auto' 
-                                            : 'bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-md'
+                                            ? 'max-w-[85%] sm:max-w-[75%] bg-white/10 text-white rounded-br-md' 
+                                            : 'w-full sm:max-w-[85%] lg:max-w-[75%] bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-md'
                                     }`}
                                 >
                                     {isUser ? (
