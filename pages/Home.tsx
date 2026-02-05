@@ -866,7 +866,7 @@ const Home: React.FC = () => {
         </div>
 
         {showAddTaskModal && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setShowAddTaskModal(false)} onSave={handleCreateTask} />}
-        {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate.slice(0, 16), notes: editingTask.notes || '', pdf: editingTask.pdfAttachment }} />}
+        {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate, notes: editingTask.notes || '', pdf: editingTask.pdfAttachment }} />}
         {activeActionTask && <TaskActionModal task={activeActionTask} onClose={() => setActiveActionTask(null)} onToggleDone={() => { toggleTask(activeActionTask.id); setActiveActionTask(null); }} onViewPdf={() => { if (activeActionTask.pdfAttachment) setViewingPdf(activeActionTask.pdfAttachment); setActiveActionTask(null); }} onEdit={() => handleEditTask(activeActionTask)} onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })} />}
         {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
         {viewingPdf && <PDFViewer attachment={viewingPdf} onClose={() => setViewingPdf(null)} />}

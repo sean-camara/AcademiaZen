@@ -17,20 +17,32 @@ interface AddTaskModalProps {
 }
 
 const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectName, editMode = false, initialData }) => {
+  // Helper to properly parse date - ensures UTC dates are converted to local time
+  const parseToLocalDate = (dateStr: string): Date => {
+    // If the date string doesn't have timezone info, assume it's already local
+    // If it has 'Z' or timezone offset, parse as UTC and convert to local
+    const d = new Date(dateStr);
+    return d;
+  };
+
   const getInitialDate = () => {
     if (initialData?.date) {
-      const d = new Date(initialData.date);
+      const d = parseToLocalDate(initialData.date);
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     }
-    return new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
   
   const getInitialTime = () => {
     if (initialData?.date) {
-      const d = new Date(initialData.date);
+      const d = parseToLocalDate(initialData.date);
       const hours = String(d.getHours()).padStart(2, '0');
       const minutes = String(d.getMinutes()).padStart(2, '0');
       return `${hours}:${minutes}`;
@@ -60,8 +72,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
     }
     if (!title.trim()) return;
     
+    // Store date with timezone offset to preserve user's intended local time
+    // This creates an ISO string like "2026-02-06T23:59:00+08:00" instead of UTC
     const combinedDate = new Date(`${date}T${time}:00`);
-    onSave(title, combinedDate.toISOString(), notes, pdf);
+    const tzOffset = -combinedDate.getTimezoneOffset();
+    const tzSign = tzOffset >= 0 ? '+' : '-';
+    const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+    const tzMins = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+    const localISOString = `${date}T${time}:00${tzSign}${tzHours}:${tzMins}`;
+    
+    onSave(title, localISOString, notes, pdf);
     onClose();
   };
 

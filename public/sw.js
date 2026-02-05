@@ -1,8 +1,8 @@
-const CACHE_NAME = 'zen-cache-v9';
-const STATIC_CACHE = 'zen-static-v9';
-const DYNAMIC_CACHE = 'zen-dynamic-v9';
+const CACHE_NAME = 'zen-cache-v10';
+const STATIC_CACHE = 'zen-static-v10';
+const DYNAMIC_CACHE = 'zen-dynamic-v10';
 
-console.log('[SW] Service Worker v8 loaded');
+console.log('[SW] Service Worker v10 loaded');
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -41,7 +41,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker v8');
+  console.log('[SW] Activating service worker v10');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -53,7 +53,7 @@ self.addEventListener('activate', (event) => {
           })
       );
     }).then(() => {
-      console.log('[SW] Service worker v8 activated and claiming clients');
+      console.log('[SW] Service worker v10 activated and claiming clients');
       return self.clients.claim();
     })
   );
@@ -240,10 +240,13 @@ self.addEventListener('push', (event) => {
       { action: 'open', title: 'Open' },
       { action: 'dismiss', title: 'Dismiss' }
     ],
-    requireInteraction: false,
+    // Windows compatibility settings
+    requireInteraction: true, // Keep notification visible until user interacts (important for Windows)
     tag: data.tag || 'zen-notification',
-    renotify: true,
-    silent: false // Allow system to play default sound
+    renotify: true, // Show notification even if same tag exists
+    silent: false, // Allow system to play default sound
+    // Timestamp helps Windows display notifications properly
+    timestamp: Date.now()
   };
 
   event.waitUntil(
