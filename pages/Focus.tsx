@@ -447,26 +447,26 @@ const Focus: React.FC = () => {
       {/* Main Layout Container */}
       <div className="w-full h-full max-w-lg md:max-w-4xl mx-auto flex flex-col items-center justify-between md:justify-evenly z-20">
 
-        {/* TOP SECTION: Stats Bar (Compact for mobile) */}
+        {/* TOP SECTION: Stats Bar (Optimized for 320px+) */}
         {!isActive && analytics && (
-          <div className="w-full flex items-center justify-center shrink-0">
+          <div className="w-full flex items-center justify-center shrink-0 px-2">
             <button
               onClick={() => setShowStatsPanel(!showStatsPanel)}
-              className="flex items-center gap-2 md:gap-3 px-3 md:px-5 py-1.5 md:py-2.5 bg-zen-surface/20 rounded-xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all active:scale-95"
+              className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8 px-5 sm:px-6 md:px-8 py-3 sm:py-3.5 md:py-4 bg-zen-surface/20 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all active:scale-[0.98]"
             >
-              <div className="text-center min-w-[45px] md:min-w-[60px]">
-                <p className="text-base md:text-xl font-bold text-zen-primary tabular-nums">{Math.round(analytics.weekMinutes / 60)}h</p>
-                <p className="text-[9px] md:text-xs font-medium uppercase tracking-wider md:tracking-widest text-zen-text-secondary">This Week</p>
+              <div className="text-center min-w-[52px] sm:min-w-[60px] md:min-w-[70px]">
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-zen-primary tabular-nums leading-tight">{Math.round(analytics.weekMinutes / 60)}h</p>
+                <p className="text-[10px] sm:text-xs md:text-xs font-medium uppercase tracking-wide sm:tracking-wider md:tracking-widest text-zen-text-secondary mt-0.5">This Week</p>
               </div>
-              <div className="w-px h-6 md:h-8 bg-zen-surface/50" />
-              <div className="text-center min-w-[45px] md:min-w-[60px]">
-                <p className="text-base md:text-xl font-bold text-zen-text-primary tabular-nums">{focusStreak}</p>
-                <p className="text-[9px] md:text-xs font-medium uppercase tracking-wider md:tracking-widest text-zen-text-secondary">Streak</p>
+              <div className="w-px h-8 sm:h-9 md:h-10 bg-zen-surface/40" />
+              <div className="text-center min-w-[52px] sm:min-w-[60px] md:min-w-[70px]">
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-zen-text-primary tabular-nums leading-tight">{focusStreak}</p>
+                <p className="text-[10px] sm:text-xs md:text-xs font-medium uppercase tracking-wide sm:tracking-wider md:tracking-widest text-zen-text-secondary mt-0.5">Streak</p>
               </div>
-              <div className="w-px h-6 md:h-8 bg-zen-surface/50" />
-              <div className="text-center min-w-[45px] md:min-w-[60px]">
-                <p className="text-base md:text-xl font-bold text-zen-text-primary tabular-nums">{analytics.totalSessions}</p>
-                <p className="text-[9px] md:text-xs font-medium uppercase tracking-wider md:tracking-widest text-zen-text-secondary">Sessions</p>
+              <div className="w-px h-8 sm:h-9 md:h-10 bg-zen-surface/40" />
+              <div className="text-center min-w-[52px] sm:min-w-[60px] md:min-w-[70px]">
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-zen-text-primary tabular-nums leading-tight">{analytics.totalSessions}</p>
+                <p className="text-[10px] sm:text-xs md:text-xs font-medium uppercase tracking-wide sm:tracking-wider md:tracking-widest text-zen-text-secondary mt-0.5">Sessions</p>
               </div>
             </button>
           </div>
@@ -475,41 +475,43 @@ const Focus: React.FC = () => {
         {/* HERO SECTION: Target & Timer */}
         <div className="flex flex-col items-center justify-center flex-1 w-full min-h-0">
           
-          {/* Focus Target - Compact on mobile */}
-          <div className="mb-2 md:mb-6 flex flex-col items-center gap-1 md:gap-4 shrink-0">
-            <div className="flex flex-col md:flex-row items-center gap-1 md:gap-3">
-              <span className="text-xs font-semibold text-zen-text-secondary uppercase tracking-widest hidden md:block">
-                {isBreakTime ? 'Break Time' : 'Focusing on:'}
+          {/* Focus Target - Optimized for 320px+ */}
+          <div className="mb-4 sm:mb-5 md:mb-6 flex flex-col items-center gap-4 sm:gap-5 md:gap-5 shrink-0 px-2 mt-6 sm:mt-8">
+            {/* Break Time Label - Only show during break */}
+            {isBreakTime && (
+              <span className="text-xs sm:text-sm font-semibold text-purple-400 uppercase tracking-widest">
+                Break Time
               </span>
-              <button
-                onClick={() => !isActive && setShowTargetModal(true)}
-                disabled={isActive}
-                className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full border text-xs md:text-sm font-semibold tracking-wide shadow-lg transition-all max-w-[85vw] truncate flex items-center gap-2 ${
-                  isBreakTime
-                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
-                    : focusTarget
-                    ? 'bg-zen-surface/40 border-zen-surface/60 text-zen-primary hover:bg-zen-surface/60 hover:border-zen-primary/50'
-                    : 'bg-transparent border-zen-surface text-zen-text-disabled hover:text-zen-primary hover:border-zen-primary/30'
-                } ${isActive ? 'cursor-default' : 'active:scale-95'}`}
-              >
-                 {focusTarget ? <span className="truncate">{focusTarget.label}</span> : <span>+ Select focus target</span>}
-                 {!isActive && !isBreakTime && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 opacity-50"><path d="M19 9l-7 7-7-7"/></svg>}
-              </button>
-            </div>
+            )}
             
-            {/* Pomodoro Mode Selector - Compact */}
+            <button
+              onClick={() => !isActive && setShowTargetModal(true)}
+              disabled={isActive}
+              className={`px-5 sm:px-6 md:px-6 py-2.5 sm:py-2.5 md:py-2.5 rounded-full border text-sm sm:text-sm md:text-sm font-semibold tracking-wide shadow-lg transition-all max-w-[280px] sm:max-w-[340px] truncate flex items-center gap-2 ${
+                isBreakTime
+                  ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                  : focusTarget
+                  ? 'bg-zen-surface/40 border-zen-surface/60 text-zen-primary hover:bg-zen-surface/60 hover:border-zen-primary/50'
+                  : 'bg-transparent border-zen-surface text-zen-text-disabled hover:text-zen-primary hover:border-zen-primary/30'
+              } ${isActive ? 'cursor-default' : 'active:scale-95'}`}
+            >
+               {focusTarget ? <span className="truncate">{focusTarget.label}</span> : <span>+ Select focus target</span>}
+               {!isActive && !isBreakTime && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 opacity-50 shrink-0"><path d="M19 9l-7 7-7-7"/></svg>}
+            </button>
+            
+            {/* Pomodoro Mode Selector - Better spacing */}
             {!isActive && !isBreakTime && (
               <button
                 onClick={() => setShowModeSelector(true)}
-                className="px-3 py-1 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-[0.15em] md:tracking-[0.2em] text-zen-text-secondary hover:text-zen-primary hover:bg-zen-surface/10 transition-all"
+                className="px-4 py-2 rounded-lg text-[11px] sm:text-xs md:text-xs font-bold uppercase tracking-wider sm:tracking-[0.15em] md:tracking-[0.2em] text-zen-text-secondary hover:text-zen-primary hover:bg-zen-surface/10 transition-all"
               >
                 {POMODORO_MODES[pomodoroMode]?.label || 'Classic (25/5)'} ▾
               </button>
             )}
             
-            {/* Streak Badge - Smaller on mobile */}
+            {/* Streak Badge - Better sizing */}
             {focusStreak > 0 && !isBreakTime && (
-              <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] md:tracking-[0.3em] text-zen-primary drop-shadow-sm">
+              <div className="text-[11px] sm:text-xs md:text-xs font-bold uppercase tracking-wider sm:tracking-[0.2em] md:tracking-[0.3em] text-zen-primary drop-shadow-sm">
                 🔥 Streak {focusStreak}
               </div>
             )}
