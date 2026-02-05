@@ -669,7 +669,8 @@ const Home: React.FC = () => {
 
   const selectedSubject = subjects.find(s => s.id === (selectedSubjectId || loadingSubjectId));
   const completedCount = tasks.filter(t => t.completed).length;
-  const pendingCount = tasks.filter(t => !t.completed).length;
+  const pastDueCount = tasks.filter(t => !t.completed && new Date(t.dueDate) < new Date()).length;
+  const pendingCount = tasks.filter(t => !t.completed && new Date(t.dueDate) >= new Date()).length;
 
   const handleClearCompleted = () => {
     const completedTasks = tasks.filter(t => t.completed);
@@ -683,6 +684,12 @@ const Home: React.FC = () => {
     const due = new Date(t.dueDate);
     return due >= now && due <= next72h;
   }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+  const pastDueTasks = tasks.filter(t => {
+    if (t.completed) return false;
+    const due = new Date(t.dueDate);
+    return due < now;
+  }).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
   const handleCreateSubject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -895,7 +902,7 @@ const Home: React.FC = () => {
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
                 <div className="lg:col-span-8 space-y-6">
-                   <div className="grid grid-cols-2 gap-4">
+                   <div className="grid grid-cols-3 gap-4">
                       <div onClick={completedCount > 0 ? handleClearCompleted : undefined} className={`bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 transition-all relative group h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}>
                           <span className="text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
                           <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors">Completed</span>
@@ -903,6 +910,10 @@ const Home: React.FC = () => {
                       <div className="bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 h-32">
                           <span className="text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
                           <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium">Pending</span>
+                      </div>
+                      <div className="bg-zen-card p-6 rounded-3xl border border-red-500/30 flex flex-col justify-center space-y-2 h-32">
+                          <span className="text-4xl font-light text-red-400">{pastDueCount}</span>
+                          <span className="text-xs text-red-400/70 uppercase tracking-widest font-medium">Past Due</span>
                       </div>
                    </div>
 
@@ -950,6 +961,48 @@ const Home: React.FC = () => {
                             </div>
                         ) : (
                             <div className="py-8 text-center"><p className="text-zen-text-secondary">All caught up. Breathe.</p></div>
+                        )}
+
+                        {pastDueTasks.length > 0 && (
+                          <>
+                            <h3 className="text-base sm:text-lg font-medium text-zen-text-primary mt-6 mb-4 sm:mb-6 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                              Past Due
+                            </h3>
+                            <div className="grid gap-3 sm:gap-4">
+                              {pastDueTasks.slice(0, 3).map((task) => {
+                                const taskSubject = subjects.find(s => s.id === task.subjectId);
+                                const handleTaskClick = () => {
+                                    if (task.subjectId) {
+                                        setSelectedSubjectId(task.subjectId);
+                                    }
+                                };
+                                
+                                return (
+                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all cursor-pointer" onClick={handleTaskClick}>
+                                    <div className="w-1.5 h-10 sm:h-12 rounded-full bg-red-400"></div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-sm sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            {taskSubject && (
+                                                <span className="text-[10px] sm:text-[11px] text-red-400 font-medium uppercase tracking-wider">{taskSubject.name}</span>
+                                            )}
+                                            {taskSubject && <span className="text-zen-text-disabled">•</span>}
+                                            <p className="text-[11px] sm:text-xs text-red-400/70">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+                                      className="p-2 text-zen-text-disabled hover:text-red-400 transition-colors"
+                                      aria-label={`Mark ${task.title} complete`}
+                                    >
+                                      <IconCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
+                                </div>
+                                );
+                              })}
+                            </div>
+                          </>
                         )}
                       </div>
                    </section>

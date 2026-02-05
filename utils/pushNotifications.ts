@@ -484,6 +484,7 @@ export async function syncTasksWithBackend(
 export type ZenNotificationType = 
   | 'task_reminder'
   | 'deadline_alert'
+  | 'past_due'
   | 'focus_complete'
   | 'daily_briefing'
   | 'study_reminder'
@@ -506,6 +507,11 @@ export async function sendZenNotification(
       title: '⚠️ Deadline Alert',
       body: 'A deadline is approaching soon!',
       url: '/?page=calendar',
+    },
+    past_due: {
+      title: '🚨 Task Past Due',
+      body: 'You have tasks that are past their due date!',
+      url: '/?page=home',
     },
     focus_complete: {
       title: '🎉 Focus Session Complete!',
