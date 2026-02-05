@@ -112,7 +112,6 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const timerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const bellAudioRef = useRef<HTMLAudioElement | null>(null);
-  const syncTimeoutRef = useRef<number | null>(null);
   const legacyMigrationRef = useRef(false);
   const audioInitializedRef = useRef(false); // Track if audio was initialized
   const initialLoadRef = useRef(true); // Track if this is the initial load (prevent empty sync)
@@ -187,33 +186,8 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Save state to localStorage with user-specific key to prevent data leakage
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    // Safety check: Don't save completely empty state to localStorage
-    // This prevents overwriting good cached data with empty state on bugs
-    const hasAnyData = state.tasks.length > 0 || state.subjects.length > 0 || 
-                       state.folders.some(f => f.items.length > 0) || 
-                       state.aiReviewers.length > 0 ||
-                       (state.profile.firstName && state.profile.firstName !== 'Student');
-    
-    if (!hasAnyData && initialLoadRef.current === false) {
-      // Only warn if this isn't the initial load
-      console.warn('[Zen] Skipping localStorage save - state appears empty');
-      return;
-    }
-    
-    try {
-      if (user?.uid) {
-        localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(state));
-      } else {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
-      }
-    } catch (err) {
-      console.warn('[Zen] Failed to cache state locally:', err);
-    }
-  }, [state, user?.uid, isHydrated]);
+  // NOTE: localStorage saves are now handled immediately in the backend sync effect below
+  // This ensures data is persisted locally even if the user refreshes before backend sync completes
 
   // Load remote state once user is authenticated
   useEffect(() => {
@@ -270,16 +244,40 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const remoteHasData = hasRealData(remote);
       const localHasData = hasRealData(local);
 
-      console.log('[Zen] pickLatestState:', { remoteHasData, localHasData, remoteSubjects: remote?.subjects?.length, localSubjects: local?.subjects?.length });
+      console.log('[Zen] pickLatestState:', { 
+        remoteHasData, 
+        localHasData, 
+        remoteTasks: remote?.tasks?.length || 0,
+        localTasks: local?.tasks?.length || 0,
+        remoteSubjects: remote?.subjects?.length || 0, 
+        localSubjects: local?.subjects?.length || 0,
+        remoteUpdatedAt: remote?.updatedAt,
+        localUpdatedAt: local?.updatedAt
+      });
 
-      // CRITICAL: Server is source of truth - ALWAYS prefer remote if it has data
-      // This prevents local cache from overwriting server data
+      // SMART MERGE: Compare timestamps to pick the most recent state
+      // This handles the case where local has newer data that wasn't synced yet
+      const remoteTime = remote?.updatedAt ? Date.parse(remote.updatedAt) : 0;
+      const localTime = local?.updatedAt ? Date.parse(local.updatedAt) : 0;
+      
+      // If both have data, pick the one with the more recent timestamp
+      if (remoteHasData && localHasData) {
+        if (localTime > remoteTime) {
+          console.log('[Zen] Using local state (more recent timestamp)');
+          return local!;
+        } else {
+          console.log('[Zen] Using remote state (more recent or equal timestamp)');
+          return remote!;
+        }
+      }
+      
+      // If only remote has data, use remote
       if (remoteHasData) {
         console.log('[Zen] Using remote state (has data)');
         return remote!;
       }
       
-      // Remote has no data - use local if it has data
+      // If only local has data, use local
       if (localHasData) {
         console.log('[Zen] Using local state (remote empty, local has data)');
         return local!;
@@ -346,6 +344,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Reset to initial state while loading (prevents showing wrong user's data)
     setState(INITIAL_STATE);
     setIsHydrated(false);
+    initialLoadRef.current = true; // Reset the initial load flag when user changes
     
     loadRemoteState();
 
@@ -381,10 +380,65 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [user?.uid, user?.emailVerified, isHydrated, setStateWithTimestamp]);
 
-  // Debounced sync to backend when state changes
+  // Track if we have pending changes that need to be synced
+  const pendingStateRef = useRef<ZenState | null>(null);
+  const isSyncingRef = useRef(false);
+
+  // Function to sync state to backend (MongoDB) - called immediately on state change
+  const syncToBackend = useCallback(async (stateToSync: ZenState) => {
+    if (isSyncingRef.current) {
+      // If already syncing, queue this state for after current sync completes
+      pendingStateRef.current = stateToSync;
+      return;
+    }
+
+    isSyncingRef.current = true;
+    try {
+      console.log('[Zen] Syncing state to database:', { tasks: stateToSync.tasks.length, subjects: stateToSync.subjects.length });
+      const response = await apiFetch('/api/state', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: stateToSync }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        console.warn('[Zen] Database sync failed:', data);
+      } else {
+        console.log('[Zen] State saved to database successfully');
+      }
+    } catch (err) {
+      console.warn('[Zen] Failed to sync state to database:', err);
+    } finally {
+      isSyncingRef.current = false;
+      // If there's a pending state update, sync it now
+      if (pendingStateRef.current) {
+        const pending = pendingStateRef.current;
+        pendingStateRef.current = null;
+        syncToBackend(pending);
+      }
+    }
+  }, []);
+
+  // Sync to backend IMMEDIATELY when state changes (no debounce)
+  // This ensures data is saved to MongoDB and accessible from all devices
   useEffect(() => {
-    if (!user || !user.emailVerified) return;
-    if (!isHydrated) return;
+    console.log('[Zen] Sync effect triggered:', { 
+      hasUser: !!user, 
+      emailVerified: user?.emailVerified, 
+      isHydrated, 
+      initialLoadRef: initialLoadRef.current,
+      taskCount: state.tasks.length,
+      subjectCount: state.subjects.length
+    });
+    
+    if (!user || !user.emailVerified) {
+      console.log('[Zen] Sync skipped - no user or not verified');
+      return;
+    }
+    if (!isHydrated) {
+      console.log('[Zen] Sync skipped - not hydrated yet');
+      return;
+    }
     
     // CRITICAL: Skip sync on initial load to prevent empty state from overwriting remote
     if (initialLoadRef.current) {
@@ -404,31 +458,20 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return;
     }
 
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
+    console.log('[Zen] Proceeding with sync to database:', { tasks: state.tasks.length, subjects: state.subjects.length });
+
+    // Also save to localStorage as a backup cache (for offline support)
+    try {
+      const userLocalKey = `${LOCAL_STORAGE_KEY}_${user.uid}`;
+      localStorage.setItem(userLocalKey, JSON.stringify(state));
+    } catch (err) {
+      console.warn('[Zen] Failed to cache state locally:', err);
     }
 
-    syncTimeoutRef.current = window.setTimeout(async () => {
-      try {
-        console.log('[Zen] Syncing state to backend:', { tasks: state.tasks.length, subjects: state.subjects.length });
-        const response = await apiFetch('/api/state', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state }),
-        });
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          console.warn('[Zen] Sync failed:', data);
-        }
-      } catch (err) {
-        console.warn('[Zen] Failed to sync state', err);
-      }
-    }, 1000);
+    // Sync to database IMMEDIATELY
+    syncToBackend(state);
 
-    return () => {
-      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    };
-  }, [state, user?.uid, user?.emailVerified, isHydrated]);
+  }, [state, user?.uid, user?.emailVerified, isHydrated, syncToBackend]);
 
   // Migrate legacy base64 PDFs to R2 after hydration
   useEffect(() => {
@@ -489,11 +532,17 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user?.uid, user?.emailVerified, isHydrated]);
 
   // Sync tasks with backend for deadline reminders whenever tasks change
+  // CRITICAL: Only sync AFTER hydration to prevent overwriting with empty data
   useEffect(() => {
-    if (user?.emailVerified && state.settings.notifications && state.settings.deadlineAlerts) {
-      syncTasksWithBackend(state.tasks);
-    }
-  }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts, user?.emailVerified]);
+    if (!isHydrated) return; // Don't sync before hydration completes
+    if (!user?.emailVerified) return;
+    if (!state.settings.notifications || !state.settings.deadlineAlerts) return;
+    
+    // Additional safety: don't sync if this is the initial load
+    if (initialLoadRef.current) return;
+    
+    syncTasksWithBackend(state.tasks);
+  }, [state.tasks, state.settings.notifications, state.settings.deadlineAlerts, user?.emailVerified, isHydrated]);
 
   // ========== AMBIENCE AUDIO MANAGEMENT ==========
   // Audio should ONLY play when:
@@ -629,7 +678,12 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Actions
   const addTask = (task: Task) => {
-    setStateWithTimestamp(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
+    console.log('[Zen] addTask called:', { taskId: task.id, taskTitle: task.title });
+    setStateWithTimestamp(prev => {
+      const newTasks = [...prev.tasks, task];
+      console.log('[Zen] New tasks array:', { count: newTasks.length, titles: newTasks.map(t => t.title) });
+      return { ...prev, tasks: newTasks };
+    });
     
     // Send immediate notification if task is due within 3 days and notifications are enabled
     if (
