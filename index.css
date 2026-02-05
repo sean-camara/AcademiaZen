@@ -36,10 +36,10 @@
     background-color: #30363d;
 }
 
-/* Custom Premium Scrollbar */
+/* Custom Premium Scrollbar - Subtle Zen Green */
 .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    scrollbar-color: rgba(100, 255, 218, 0.2) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -52,12 +52,12 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(100, 255, 218, 0.15);
     border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(100, 255, 218, 0.3);
 }
 
 .custom-scrollbar::-webkit-scrollbar-corner {

@@ -1730,7 +1730,7 @@ If asked tech stack: "MERN Stack."`;
             <main 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto overscroll-contain"
+                className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar"
                 role="log"
                 aria-label="Chat messages"
                 aria-live="polite"
