@@ -1982,7 +1982,7 @@ If asked tech stack: "MERN Stack."`;
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 overscroll-contain">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 overscroll-contain custom-scrollbar">
                            {selectorTab === 'library' ? (
                                 state.folders.filter(f => f.items.length > 0).map(folder => (
                                     <div key={folder.id} className="space-y-3">
@@ -2043,6 +2043,7 @@ If asked tech stack: "MERN Stack."`;
                                     {state.tasks.filter(t => t.pdfAttachment).map(task => {
                                         const isSelected = !!selectedRefs.find(r => r.id === task.id);
                                         const legacyData = (task.pdfAttachment as any)?.data;
+                                        const subjectName = task.subjectId ? state.subjects.find(s => s.id === task.subjectId)?.name : null;
                                         const refPayload: SelectedRef = {
                                             id: task.id,
                                             title: task.pdfAttachment!.name,
@@ -2070,7 +2071,9 @@ If asked tech stack: "MERN Stack."`;
                                                     </div>
                                                     <div className="text-left min-w-0">
                                                         <span className="text-sm font-medium block truncate max-w-[180px] sm:max-w-[280px]">{task.pdfAttachment!.name}</span>
-                                                        <span className="text-[9px] uppercase opacity-60 font-bold tracking-wider truncate block max-w-[180px]">From: {task.title}</span>
+                                                        {subjectName && (
+                                                            <span className="text-[9px] uppercase opacity-60 font-bold tracking-wider truncate block max-w-[180px]">From: {subjectName}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 {isSelected ? (
