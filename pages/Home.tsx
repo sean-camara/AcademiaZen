@@ -916,12 +916,26 @@ const Home: React.FC = () => {
                         
                         {upNextTasks.length > 0 ? (
                             <div className="grid gap-3 sm:gap-4">
-                            {upNextTasks.slice(0, 3).map((task, idx) => (
-                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={() => setActiveActionTask(task)}>
+                            {upNextTasks.slice(0, 3).map((task, idx) => {
+                                const taskSubject = subjects.find(s => s.id === task.subjectId);
+                                const handleTaskClick = () => {
+                                    if (task.subjectId) {
+                                        setSelectedSubjectId(task.subjectId);
+                                    }
+                                };
+                                
+                                return (
+                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={handleTaskClick}>
                                     <div className={`w-1.5 h-10 sm:h-12 rounded-full ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="text-sm sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
-                                        <p className="text-[11px] sm:text-xs text-zen-text-secondary mt-0.5">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            {taskSubject && (
+                                                <span className="text-[10px] sm:text-[11px] text-zen-primary font-medium uppercase tracking-wider">{taskSubject.name}</span>
+                                            )}
+                                            {taskSubject && <span className="text-zen-text-disabled">•</span>}
+                                            <p className="text-[11px] sm:text-xs text-zen-text-secondary">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                        </div>
                                     </div>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
@@ -931,7 +945,8 @@ const Home: React.FC = () => {
                                       <IconCheck className="w-4 h-4 sm:w-5 sm:h-5" />
                                     </button>
                                 </div>
-                            ))}
+                                );
+                            })}
                             </div>
                         ) : (
                             <div className="py-8 text-center"><p className="text-zen-text-secondary">All caught up. Breathe.</p></div>
