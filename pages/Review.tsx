@@ -580,14 +580,39 @@ const Review: React.FC = () => {
   // Handle matching question selection
   const handleMatchingSelect = (questionId: string, side: 'left' | 'right', value: string, question: ReviewerQuestion) => {
     if (side === 'left') {
+      // If this term is already matched, unmatch it (undo)
+      if (value in matchingSelections.pairs) {
+        const newPairs = { ...matchingSelections.pairs };
+        delete newPairs[value];
+        setMatchingSelections(prev => ({ ...prev, pairs: newPairs, left: null }));
+        // Clear the answer since pairs changed
+        handleAnswer(questionId, '');
+        return;
+      }
+      // If clicking the already-selected term, deselect it
+      if (matchingSelections.left === value) {
+        setMatchingSelections(prev => ({ ...prev, left: null }));
+        return;
+      }
       setMatchingSelections(prev => ({ ...prev, left: value }));
-    } else if (matchingSelections.left) {
-      const newPairs = { ...matchingSelections.pairs, [matchingSelections.left]: value };
-      setMatchingSelections({ left: null, pairs: newPairs });
-      
-      const totalPairs = question.pairs?.length || 0;
-      if (Object.keys(newPairs).length === totalPairs) {
-        handleAnswer(questionId, Object.entries(newPairs).map(([l, r]) => l+'::'+r));
+    } else if (side === 'right') {
+      // If this definition is already matched, unmatch it (undo)
+      const matchedTerm = Object.entries(matchingSelections.pairs).find(([, r]) => r === value)?.[0];
+      if (matchedTerm) {
+        const newPairs = { ...matchingSelections.pairs };
+        delete newPairs[matchedTerm];
+        setMatchingSelections(prev => ({ ...prev, pairs: newPairs, left: null }));
+        handleAnswer(questionId, '');
+        return;
+      }
+      if (matchingSelections.left) {
+        const newPairs = { ...matchingSelections.pairs, [matchingSelections.left]: value };
+        setMatchingSelections({ left: null, pairs: newPairs });
+        
+        const totalPairs = question.pairs?.length || 0;
+        if (Object.keys(newPairs).length === totalPairs) {
+          handleAnswer(questionId, Object.entries(newPairs).map(([l, r]) => l+'::'+r));
+        }
       }
     }
   };
@@ -1134,11 +1159,10 @@ const Review: React.FC = () => {
                       return (
                         <div key={pair.id} className="relative">
                           <button
-                            onClick={() => !isMatched && handleMatchingSelect(question.id, 'left', pair.left, question)}
-                            disabled={isMatched}
+                            onClick={() => handleMatchingSelect(question.id, 'left', pair.left, question)}
                             className={'group w-full text-left p-4 rounded-xl border-2 text-sm transition-all duration-200 '+(
                               isMatched
-                                ? 'bg-gradient-to-r from-zen-primary/10 to-transparent border-zen-primary/50 text-zen-text-primary cursor-default shadow-lg shadow-zen-primary/10'
+                                ? 'bg-gradient-to-r from-zen-primary/10 to-transparent border-zen-primary/50 text-zen-text-primary cursor-pointer shadow-lg shadow-zen-primary/10 hover:border-red-400/50 hover:from-red-500/10'
                                 : isSelected
                                   ? 'bg-zen-primary/20 border-zen-primary text-zen-text-primary scale-[1.02] shadow-lg shadow-zen-primary/20 animate-pulse'
                                   : 'bg-zen-card border-zen-surface text-zen-text-secondary hover:border-zen-primary/50 hover:scale-[1.01] active:scale-95'
@@ -1184,11 +1208,11 @@ const Review: React.FC = () => {
                       return (
                         <div key={pair.id} className="relative">
                           <button
-                            onClick={() => !isMatched && matchingSelections.left && handleMatchingSelect(question.id, 'right', pair.right, question)}
-                            disabled={isMatched || !matchingSelections.left}
+                            onClick={() => handleMatchingSelect(question.id, 'right', pair.right, question)}
+                            disabled={!isMatched && !matchingSelections.left}
                             className={'group w-full text-left p-4 rounded-xl border-2 text-sm transition-all duration-200 '+(
                               isMatched
-                                ? 'bg-gradient-to-l from-emerald-500/10 to-transparent border-emerald-500/50 text-zen-text-primary cursor-default shadow-lg shadow-emerald-500/10'
+                                ? 'bg-gradient-to-l from-emerald-500/10 to-transparent border-emerald-500/50 text-zen-text-primary cursor-pointer shadow-lg shadow-emerald-500/10 hover:border-red-400/50 hover:from-red-500/10'
                                 : !matchingSelections.left
                                 ? 'bg-zen-card border-zen-surface/50 text-zen-text-disabled cursor-not-allowed opacity-50'
                                 : 'bg-zen-card border-emerald-500/30 text-zen-text-secondary hover:bg-emerald-500/5 hover:border-emerald-500/50 hover:scale-[1.01] active:scale-95'

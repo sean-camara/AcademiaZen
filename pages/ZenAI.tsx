@@ -1555,7 +1555,7 @@ If asked tech stack: "MERN Stack."`;
             {/* ================================================================
                 HEADER - Fixed, responsive
             ================================================================ */}
-            <header className="flex-shrink-0 px-3 sm:px-4 py-3 border-b border-white/5 bg-[#0A0C0F]/95 backdrop-blur-xl sticky top-0 z-20 safe-area-top">
+            <header className="flex-shrink-0 px-3 sm:px-4 pt-4 pb-3 border-b border-white/5 bg-[#0A0C0F]/95 backdrop-blur-xl sticky top-0 z-20 safe-area-top">
                 <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         {/* Sidebar toggle - 44px min touch */}
