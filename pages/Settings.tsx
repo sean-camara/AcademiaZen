@@ -733,36 +733,37 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                 
                                 {/* AI Usage Section */}
                                 {aiUsage && (
-                                    <div className="bg-zen-card/50 rounded-[2rem] p-6 border border-zen-surface/50 lg:col-span-2">
+                                    <div className="bg-zen-card/50 rounded-[2rem] p-4 sm:p-6 border border-zen-surface/50 lg:col-span-2">
                                         <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">AI Usage Today</h3>
+                                            <h3 className="text-[10px] font-bold text-zen-text-disabled uppercase tracking-widest">AI Usage</h3>
                                             <span className="text-[10px] text-zen-text-disabled">
                                                 Resets daily at midnight
                                             </span>
                                         </div>
                                         
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {/* Daily + Monthly — overall quotas */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {/* Daily Usage */}
-                                            <div className="bg-zen-surface/30 rounded-xl p-4">
+                                            <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs text-zen-text-disabled">Daily Requests</span>
                                                     <span className={`text-xs font-bold ${
-                                                        aiUsage.dailyRemaining <= 5 
-                                                            ? 'text-amber-400' 
-                                                            : aiUsage.dailyRemaining === 0 
-                                                                ? 'text-red-400' 
+                                                        aiUsage.dailyRemaining === 0 
+                                                            ? 'text-red-400' 
+                                                            : aiUsage.dailyRemaining <= 5 
+                                                                ? 'text-amber-400' 
                                                                 : 'text-emerald-400'
                                                     }`}>
                                                         {aiUsage.dailyRemaining} left
                                                     </span>
                                                 </div>
-                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                <div className="h-1.5 bg-zen-surface rounded-full overflow-hidden">
                                                     <div 
-                                                        className={`h-full transition-all duration-300 ${
-                                                            aiUsage.dailyRemaining <= 5 
-                                                                ? 'bg-amber-500' 
-                                                                : aiUsage.dailyRemaining === 0 
-                                                                    ? 'bg-red-500' 
+                                                        className={`h-full transition-all duration-300 rounded-full ${
+                                                            aiUsage.dailyRemaining === 0 
+                                                                ? 'bg-red-500' 
+                                                                : aiUsage.dailyRemaining <= 5 
+                                                                    ? 'bg-amber-500' 
                                                                     : 'bg-emerald-500'
                                                         }`}
                                                         style={{ width: `${Math.min(100, (aiUsage.dailyCount / aiUsage.dailyCap) * 100)}%` }}
@@ -774,132 +775,139 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                 </div>
                                             </div>
                                             
-                                            {/* Deep Reasoning */}
-                                            <div className="bg-zen-surface/30 rounded-xl p-4">
+                                            {/* Monthly Usage */}
+                                            {aiUsage.monthlyCap ? (
+                                                <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs text-zen-text-disabled">Monthly Requests</span>
+                                                        <span className={`text-xs font-bold ${
+                                                            aiUsage.monthlyNearLimit 
+                                                                ? 'text-red-400' 
+                                                                : aiUsage.monthlyWarning 
+                                                                    ? 'text-amber-400' 
+                                                                    : 'text-emerald-400'
+                                                        }`}>
+                                                            {typeof aiUsage.monthlyRemaining === 'number' ? aiUsage.monthlyRemaining : '∞'} left
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-zen-surface rounded-full overflow-hidden">
+                                                        <div 
+                                                            className={`h-full transition-all duration-300 rounded-full ${
+                                                                aiUsage.monthlyNearLimit 
+                                                                    ? 'bg-red-500' 
+                                                                    : aiUsage.monthlyWarning 
+                                                                        ? 'bg-amber-500' 
+                                                                        : 'bg-emerald-500'
+                                                            }`}
+                                                            style={{ width: `${Math.min(100, aiUsage.monthlyUsagePercent)}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                        <span>{aiUsage.monthlyCount} used</span>
+                                                        <span>{aiUsage.monthlyCap}/mo</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4 flex items-center justify-center">
+                                                    <span className="text-xs text-zen-text-disabled">No monthly cap</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Deep Reasoning — daily + monthly grouped */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                            {/* Deep Daily */}
+                                            <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs text-zen-text-disabled">Deep Reasoning</span>
                                                     <span className={`text-xs font-bold ${
-                                                        aiUsage.deepDailyRemaining <= 2 
-                                                            ? 'text-amber-400' 
-                                                            : aiUsage.deepDailyRemaining === 0 
-                                                                ? 'text-red-400' 
+                                                        (aiUsage.deepDailyRemaining ?? 0) === 0 
+                                                            ? 'text-red-400' 
+                                                            : (aiUsage.deepDailyRemaining ?? 0) <= 2 
+                                                                ? 'text-amber-400' 
                                                                 : 'text-purple-400'
                                                     }`}>
-                                                        {aiUsage.deepDailyRemaining}/{aiUsage.deepDailyCap} left
+                                                        {aiUsage.deepDailyRemaining ?? 0}/{aiUsage.deepDailyCap ?? 10} today
                                                     </span>
                                                 </div>
-                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                <div className="h-1.5 bg-zen-surface rounded-full overflow-hidden">
                                                     <div 
-                                                        className={`h-full transition-all duration-300 ${
-                                                            aiUsage.deepDailyRemaining <= 2 
-                                                                ? 'bg-amber-500' 
-                                                                : aiUsage.deepDailyRemaining === 0 
-                                                                    ? 'bg-red-500' 
+                                                        className={`h-full transition-all duration-300 rounded-full ${
+                                                            (aiUsage.deepDailyRemaining ?? 0) === 0 
+                                                                ? 'bg-red-500' 
+                                                                : (aiUsage.deepDailyRemaining ?? 0) <= 2 
+                                                                    ? 'bg-amber-500' 
                                                                     : 'bg-purple-500'
                                                         }`}
                                                         style={{ width: `${Math.min(100, ((aiUsage.deepDailyCount || 0) / (aiUsage.deepDailyCap || 10)) * 100)}%` }}
                                                     />
                                                 </div>
                                                 <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
-                                                    <span>{aiUsage.deepDailyCount || 0} used today</span>
+                                                    <span>{aiUsage.deepDailyCount || 0} used</span>
                                                     <span>Resets daily</span>
                                                 </div>
                                             </div>
-                                        </div>
-                                        
-                                        {/* Deep Reasoning Monthly */}
-                                        {aiUsage.deepMonthlyCap && (
-                                            <div className="mt-4 bg-zen-surface/30 rounded-xl p-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs text-zen-text-disabled">Deep Reasoning (Monthly)</span>
-                                                    <span className={`text-xs font-bold ${
-                                                        (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
-                                                            ? 'text-amber-400' 
-                                                            : (aiUsage.deepMonthlyRemaining ?? 0) === 0 
+                                            
+                                            {/* Deep Monthly */}
+                                            {aiUsage.deepMonthlyCap ? (
+                                                <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs text-zen-text-disabled">Deep Monthly</span>
+                                                        <span className={`text-xs font-bold ${
+                                                            (aiUsage.deepMonthlyRemaining ?? 0) === 0 
                                                                 ? 'text-red-400' 
-                                                                : 'text-purple-400'
-                                                    }`}>
-                                                        {aiUsage.deepMonthlyRemaining ?? 0}/{aiUsage.deepMonthlyCap} left
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={`h-full transition-all duration-300 ${
-                                                            (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
-                                                                ? 'bg-amber-500' 
-                                                                : (aiUsage.deepMonthlyRemaining ?? 0) === 0 
+                                                                : (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
+                                                                    ? 'text-amber-400' 
+                                                                    : 'text-purple-400'
+                                                        }`}>
+                                                            {aiUsage.deepMonthlyRemaining ?? 0}/{aiUsage.deepMonthlyCap} left
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-zen-surface rounded-full overflow-hidden">
+                                                        <div 
+                                                            className={`h-full transition-all duration-300 rounded-full ${
+                                                                (aiUsage.deepMonthlyRemaining ?? 0) === 0 
                                                                     ? 'bg-red-500' 
-                                                                    : 'bg-purple-500'
-                                                        }`}
-                                                        style={{ width: `${Math.min(100, ((aiUsage.deepMonthlyCount || 0) / (aiUsage.deepMonthlyCap || 40)) * 100)}%` }}
-                                                    />
+                                                                    : (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
+                                                                        ? 'bg-amber-500' 
+                                                                        : 'bg-purple-500'
+                                                            }`}
+                                                            style={{ width: `${Math.min(100, ((aiUsage.deepMonthlyCount || 0) / (aiUsage.deepMonthlyCap || 40)) * 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                        <span>{aiUsage.deepMonthlyCount || 0} used</span>
+                                                        <span>Resets monthly</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
-                                                    <span>{aiUsage.deepMonthlyCount || 0} used this month</span>
-                                                    <span>Resets monthly</span>
+                                            ) : (
+                                                <div className="bg-zen-surface/30 rounded-xl p-3 sm:p-4 flex items-center justify-center">
+                                                    <span className="text-xs text-zen-text-disabled">No deep monthly cap</span>
                                                 </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* All Time Stats — compact row */}
+                                        <div className="mt-3 bg-zen-surface/30 rounded-xl p-3 sm:p-4">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-zen-text-disabled">All Time</span>
+                                                <span className="text-xs font-bold text-blue-400">{aiUsage.totalRequests} total</span>
                                             </div>
-                                        )}
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                            {/* Total Stats */}
-                                            <div className="bg-zen-surface/30 rounded-xl p-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs text-zen-text-disabled">All Time</span>
-                                                    <span className="text-xs font-bold text-blue-400">
-                                                        {aiUsage.totalRequests} total
-                                                    </span>
+                                            <div className="flex gap-4 sm:gap-6 mt-2">
+                                                <div className="flex items-center gap-1.5 text-[10px] text-zen-text-disabled">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
+                                                    <span>Chat: {aiUsage.totalChatRequests}</span>
                                                 </div>
-                                                <div className="space-y-1 mt-2">
-                                                    <div className="flex justify-between text-[10px] text-zen-text-disabled">
-                                                        <span>Chat requests</span>
-                                                        <span>{aiUsage.totalChatRequests}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-[10px] text-zen-text-disabled">
-                                                        <span>Reviewer requests</span>
-                                                        <span>{aiUsage.totalReviewerRequests}</span>
-                                                    </div>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-zen-text-disabled">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500/60" />
+                                                    <span>Reviewer: {aiUsage.totalReviewerRequests}</span>
                                                 </div>
                                             </div>
                                         </div>
-                                        
-                                        {/* Monthly Usage (all users) */}
-                                        {aiUsage.monthlyCap && (
-                                            <div className="mt-4 bg-zen-surface/30 rounded-xl p-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs text-zen-text-disabled">Monthly Usage</span>
-                                                    <span className={`text-xs font-bold ${
-                                                        aiUsage.monthlyNearLimit 
-                                                            ? 'text-red-400' 
-                                                            : aiUsage.monthlyWarning 
-                                                                ? 'text-amber-400' 
-                                                                : 'text-emerald-400'
-                                                    }`}>
-                                                        {typeof aiUsage.monthlyRemaining === 'number' ? aiUsage.monthlyRemaining : '∞'} left
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={`h-full transition-all duration-300 ${
-                                                            aiUsage.monthlyNearLimit 
-                                                                ? 'bg-red-500' 
-                                                                : aiUsage.monthlyWarning 
-                                                                    ? 'bg-amber-500' 
-                                                                    : 'bg-emerald-500'
-                                                        }`}
-                                                        style={{ width: `${Math.min(100, aiUsage.monthlyUsagePercent)}%` }}
-                                                    />
-                                                </div>
-                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
-                                                    <span>{aiUsage.monthlyCount} used</span>
-                                                    <span>{aiUsage.monthlyCap} monthly cap</span>
-                                                </div>
-                                            </div>
-                                        )}
                                         
                                         {/* Monthly warning alert */}
                                         {aiUsage.monthlyWarning && (
-                                            <div className={`mt-4 p-3 rounded-xl ${
+                                            <div className={`mt-3 p-3 rounded-xl ${
                                                 aiUsage.monthlyNearLimit 
                                                     ? 'bg-red-500/10 border border-red-500/20' 
                                                     : 'bg-amber-500/10 border border-amber-500/20'
@@ -916,7 +924,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         
                                         {/* Upgrade prompt for free users */}
                                         {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
-                                            <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                            <div className="mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
                                                     <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests, 300/month, and no cooldown.
                                                 </p>

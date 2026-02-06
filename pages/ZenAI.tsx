@@ -1868,10 +1868,10 @@ If asked tech stack: "MERN Stack."`;
             {quotaExhausted && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setQuotaExhausted(null)} />
-                    <div className="relative w-full sm:max-w-md bg-[#0D1117] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up sm:animate-scale-in safe-area-bottom">
-                        <div className="p-5 sm:p-6 border-b border-white/5">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                    <div className="relative w-full sm:max-w-md bg-[#0D1117] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up sm:animate-scale-in safe-area-bottom max-h-[85vh] flex flex-col">
+                        <div className="p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shrink-0">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                                 </div>
                                 <div>
@@ -1884,9 +1884,9 @@ If asked tech stack: "MERN Stack."`;
                                     </h3>
                                 </div>
                             </div>
-                            <p className="text-sm text-gray-400">{quotaExhausted.message}</p>
+                            <p className="text-sm text-gray-400 pl-12 sm:pl-[52px]">{quotaExhausted.message}</p>
                         </div>
-                        <div className="p-5 sm:p-6 space-y-3">
+                        <div className="p-4 sm:p-6 space-y-3 overflow-y-auto custom-scrollbar flex-1">
                             {/* Switch to Fast mode (for deep limits) */}
                             {(quotaExhausted.type === 'deep_daily' || quotaExhausted.type === 'deep_monthly') && (
                                 <button 
@@ -1894,7 +1894,7 @@ If asked tech stack: "MERN Stack."`;
                                         setAnalysisMode('fast');
                                         setQuotaExhausted(null);
                                     }}
-                                    className="min-h-[48px] w-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors border border-purple-500/20"
+                                    className="min-h-[44px] w-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-colors border border-purple-500/20"
                                 >
                                     Switch to Fast Mode
                                 </button>
@@ -1907,7 +1907,7 @@ If asked tech stack: "MERN Stack."`;
                                         setForceFreeModel(true);
                                         setQuotaExhausted(null);
                                     }}
-                                    className="min-h-[48px] w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors border border-blue-500/20"
+                                    className="min-h-[44px] w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-colors border border-blue-500/20"
                                 >
                                     Continue with Free Model
                                 </button>
@@ -1920,14 +1920,14 @@ If asked tech stack: "MERN Stack."`;
                                     onClose();
                                     window.location.href = '/?page=settings';
                                 }}
-                                className="min-h-[48px] w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-[#091510] font-bold text-sm uppercase tracking-wider rounded-xl transition-colors"
+                                className="min-h-[44px] w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-[#091510] font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-colors"
                             >
                                 Manage Subscription
                             </button>
                             
                             <button 
                                 onClick={() => setQuotaExhausted(null)} 
-                                className="min-h-[48px] w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-medium text-sm rounded-xl transition-colors"
+                                className="min-h-[44px] w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-medium text-xs sm:text-sm rounded-xl transition-colors"
                             >
                                 Dismiss
                             </button>
