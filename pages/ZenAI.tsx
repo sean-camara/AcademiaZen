@@ -199,7 +199,7 @@ const FormattedAIResponse: React.FC<{
             const trimmed = line.trim();
             const key = `text-${startKey}-${i}`;
             
-            // Headers
+            // Headers (check most specific first: #### before ### before ## before #)
             if (trimmed.startsWith('#### ')) {
                 elements.push(
                     <h4 key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-3 sm:mt-5 mb-1.5 flex items-center gap-2">
@@ -213,7 +213,7 @@ const FormattedAIResponse: React.FC<{
                 elements.push(
                     <h3 key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-4 sm:mt-6 mb-2 flex items-center gap-2">
                         <div className="w-1 h-4 sm:h-5 bg-emerald-500/30 rounded-full flex-shrink-0" />
-                        <span className="break-words">{trimmed.replace('### ', '')}</span>
+                        <span className="break-words">{processInlines(trimmed.slice(4), onCitationClick)}</span>
                     </h3>
                 );
                 return;
@@ -221,8 +221,26 @@ const FormattedAIResponse: React.FC<{
             if (trimmed.startsWith('## ')) {
                 elements.push(
                     <h2 key={key} className="text-base sm:text-lg font-bold text-emerald-400 mt-6 sm:mt-8 mb-3 sm:mb-4 border-b border-emerald-500/10 pb-2 break-words">
-                        {trimmed.replace('## ', '')}
+                        {processInlines(trimmed.slice(3), onCitationClick)}
                     </h2>
+                );
+                return;
+            }
+            if (trimmed.startsWith('# ')) {
+                elements.push(
+                    <h1 key={key} className="text-lg sm:text-xl font-bold text-emerald-400 mt-6 sm:mt-8 mb-3 sm:mb-4 border-b border-emerald-500/20 pb-2 break-words">
+                        {processInlines(trimmed.slice(2), onCitationClick)}
+                    </h1>
+                );
+                return;
+            }
+            // Standalone bold line as sub-header (e.g., **Section Title**)
+            const standaloneBold = trimmed.match(/^\*\*(.+)\*\*$/);
+            if (standaloneBold) {
+                elements.push(
+                    <div key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-3 sm:mt-5 mb-1.5">
+                        {processInlines(standaloneBold[1], onCitationClick)}
+                    </div>
                 );
                 return;
             }
@@ -307,6 +325,18 @@ const processInlines = (text: string, onCitationClick?: (citation: CitationPaylo
                 </strong>
             );
             remaining = remaining.slice(boldMatch[0].length);
+            continue;
+        }
+
+        // Italic *text* (single asterisk, not double)
+        const italicMatch = remaining.match(/^\*([^*]+)\*/);
+        if (italicMatch) {
+            parts.push(
+                <em key={key++} className="text-white/90 italic">
+                    {italicMatch[1]}
+                </em>
+            );
+            remaining = remaining.slice(italicMatch[0].length);
             continue;
         }
 
@@ -1247,23 +1277,36 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
             // Build system prompt
             let systemPrompt = '';
+            const FORMATTING_RULES = `
+FORMATTING RULES (strictly follow):
+- Use ## for major section headings.
+- Use ### for sub-section headings.
+- Use #### for smaller sub-headings.
+- NEVER use **bold** as a heading. Always use ## / ### / #### instead.
+- Use **bold** ONLY for inline emphasis within a sentence.
+- Use - for bullet points. Keep each bullet on ONE line.
+- For numbered lists, keep the number and text on the SAME line (e.g., "1. Content here").
+- Use --- between major sections to create visual separation.
+- Do NOT output raw markdown symbols that won't render (no stray # or * at line starts unless they are proper headers or bullets).
+- Never truncate mid-sentence. If running long, finish the current section cleanly.
+- At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic.`;
+
             if (useStudentMode && isProgrammingTask) {
                 systemPrompt = `You are Zen, an AI academic assistant in PROGRAMMING ANSWER MODE.
-Output submission-ready code. No explanations inside code blocks. Use proper markdown.
-At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the student learn better.
+Output submission-ready code. No explanations inside code blocks.
+${FORMATTING_RULES}
 If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
             } else if (useStudentMode) {
                 systemPrompt = `You are Zen, an AI academic assistant in STUDENT ANSWER MODE.
 Produce submission-ready work. No restating requirements. Be concrete.
-Use ### for headers, - for bullets.
-At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the student learn better.
+${FORMATTING_RULES}
 If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
             } else {
                 systemPrompt = `You are Zen, an educational AI. Be direct, minimal, accurate.
 Lead with the answer. Use plain language.
-At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the user.
+${FORMATTING_RULES}
 If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
             }
@@ -1305,7 +1348,7 @@ If asked tech stack: "MERN Stack."`;
             let resolvedRefs: ResolvedRef[] = [];
 
             if (currentRefs.length > 0) {
-                userMessage += `CITATION RULES:\n- Cite document claims with 【Document Name p.X】\n\n`;
+                userMessage += `CITATION RULES:\n- Cite document claims with 【Document Name p.X】\n- Place citations at the END of the bullet point or paragraph, never mid-sentence.\n- After the first mention, use the short form 【p.X】 instead of repeating the full document name.\n\n`;
             }
 
             if (currentRefs.length > 0) {
