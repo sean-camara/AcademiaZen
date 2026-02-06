@@ -1267,6 +1267,35 @@ If asked tech stack: "MERN Stack."`;
                 .replace(/sk-[A-Za-z0-9_-]{10,}/g, 'sk-***')
                 .replace(/mongodb\+srv:\/\/[^@\s]+@/g, 'mongodb+srv://***@');
 
+            // Build task/calendar context so AI knows about user's tasks
+            const now = new Date();
+            const taskContextLines: string[] = [];
+            const tasksWithPdfs: string[] = [];
+            if (state.tasks.length > 0) {
+                state.tasks.forEach(task => {
+                    const subjectName = task.subjectId ? state.subjects.find(s => s.id === task.subjectId)?.name : null;
+                    const dueDate = new Date(task.dueDate);
+                    const isPastDue = !task.completed && dueDate < now;
+                    const status = task.completed ? 'Completed' : isPastDue ? 'Past Due' : 'Pending';
+                    let line = `- "${task.title}" | Subject: ${subjectName || 'None'} | Due: ${dueDate.toLocaleString()} | Status: ${status}`;
+                    if (task.notes) line += ` | Notes: ${task.notes}`;
+                    if (task.pdfAttachment?.name) {
+                        line += ` | PDF Attached: "${task.pdfAttachment.name}"`;
+                        tasksWithPdfs.push(task.title);
+                    }
+                    taskContextLines.push(line);
+                });
+            }
+
+            const taskContext = taskContextLines.length > 0
+                ? `\nUSER'S TASKS/CALENDAR (current date: ${now.toLocaleDateString()}):\n${taskContextLines.join('\n')}\n`
+                : `\nUSER'S TASKS/CALENDAR: The user has no tasks.\n`;
+
+            // Add PDF instruction to system prompt if any tasks have PDFs
+            if (tasksWithPdfs.length > 0) {
+                systemPrompt += `\n\nIMPORTANT: Some tasks have PDF attachments. When answering about a task that has a PDF attached, ask the user: "This task has an attached PDF (\\"[filename]\\"). Would you like me to scan it for more details?" Only ask this for tasks that actually have a PDF. Do NOT ask for tasks without PDFs.`;
+            }
+
             let userMessage = '';
             let resolvedRefs: ResolvedRef[] = [];
 
@@ -1351,6 +1380,7 @@ If asked tech stack: "MERN Stack."`;
             }
             
             setThinkingContext('Connecting...');
+            userMessage += taskContext;
             userMessage += `\nQUESTION:\n${redact(userQuery)}`;
             const prompt = `${systemPrompt}\n\n${userMessage}`;
             const recentHistory = messages.slice(-12).map(msg => ({ role: msg.role, text: msg.text }));
