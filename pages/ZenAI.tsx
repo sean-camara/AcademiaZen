@@ -1293,7 +1293,7 @@ If asked tech stack: "MERN Stack."`;
 
             // Add PDF instruction to system prompt if any tasks have PDFs
             if (tasksWithPdfs.length > 0) {
-                systemPrompt += `\n\nIMPORTANT: Some tasks have PDF attachments. When answering about a task that has a PDF attached, ask the user: "This task has an attached PDF (\\"[filename]\\"). Would you like me to scan it for more details?" Only ask this for tasks that actually have a PDF. Do NOT ask for tasks without PDFs.`;
+                systemPrompt += `\n\nIMPORTANT: Some tasks have PDF attachments. You can see which tasks have PDFs in the task list above. However, you CANNOT read or scan PDF contents on your own. If the user asks about a PDF's contents, tell them: "To read that PDF, tap the 📎 attach button below, select the PDF from your Library or Tasks, and I'll be able to read its contents." Do NOT claim you can scan or read the PDF without the user attaching it first. Do NOT repeatedly ask "Would you like me to scan it?" — you cannot initiate scans.`;
             }
 
             let userMessage = '';
