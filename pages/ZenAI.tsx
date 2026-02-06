@@ -200,6 +200,15 @@ const FormattedAIResponse: React.FC<{
             const key = `text-${startKey}-${i}`;
             
             // Headers
+            if (trimmed.startsWith('#### ')) {
+                elements.push(
+                    <h4 key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-3 sm:mt-5 mb-1.5 flex items-center gap-2">
+                        <div className="w-1 h-3.5 sm:h-4 bg-emerald-500/20 rounded-full flex-shrink-0" />
+                        <span className="break-words">{processInlines(trimmed.slice(5), onCitationClick)}</span>
+                    </h4>
+                );
+                return;
+            }
             if (trimmed.startsWith('### ')) {
                 elements.push(
                     <h3 key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-4 sm:mt-6 mb-2 flex items-center gap-2">
@@ -1241,15 +1250,20 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             if (useStudentMode && isProgrammingTask) {
                 systemPrompt = `You are Zen, an AI academic assistant in PROGRAMMING ANSWER MODE.
 Output submission-ready code. No explanations inside code blocks. Use proper markdown.
+At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the student learn better.
 If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
             } else if (useStudentMode) {
                 systemPrompt = `You are Zen, an AI academic assistant in STUDENT ANSWER MODE.
 Produce submission-ready work. No restating requirements. Be concrete.
-Use ### for headers, - for bullets.`;
+Use ### for headers, - for bullets.
+At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the student learn better.
+If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
+If asked tech stack: "MERN Stack."`;
             } else {
                 systemPrompt = `You are Zen, an educational AI. Be direct, minimal, accurate.
 Lead with the answer. Use plain language.
+At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic to help the user.
 If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
             }
