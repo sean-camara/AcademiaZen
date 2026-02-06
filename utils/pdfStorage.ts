@@ -3,30 +3,10 @@ import { PdfAttachment } from '../types';
 
 const MAX_UPLOAD_BYTES = Number((import.meta as any).env?.VITE_MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
 
-/** Gzip compress a file using the native CompressionStream API */
-async function compressFile(file: File): Promise<Blob> {
-  // Fallback if CompressionStream is not supported
-  if (typeof CompressionStream === 'undefined') {
-    return file;
-  }
-  try {
-    const stream = file.stream().pipeThrough(new CompressionStream('gzip'));
-    return await new Response(stream).blob();
-  } catch {
-    // If compression fails, return original file
-    return file;
-  }
-}
-
 export async function uploadPdfToR2(file: File): Promise<PdfAttachment> {
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new Error('File size exceeds upload limit.');
   }
-
-  // Compress the file before uploading
-  const compressedBlob = await compressFile(file);
-  const isCompressed = compressedBlob.size < file.size;
-  const uploadSize = isCompressed ? compressedBlob.size : file.size;
 
   const presignRes = await apiFetch('/api/uploads/presign', {
     method: 'POST',
@@ -34,8 +14,7 @@ export async function uploadPdfToR2(file: File): Promise<PdfAttachment> {
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || 'application/pdf',
-      size: uploadSize,
-      compressed: isCompressed,
+      size: file.size,
     }),
   });
 
@@ -46,17 +25,10 @@ export async function uploadPdfToR2(file: File): Promise<PdfAttachment> {
 
   const { key, uploadUrl, publicUrl } = await presignRes.json();
 
-  const uploadHeaders: Record<string, string> = {
-    'Content-Type': file.type || 'application/pdf',
-  };
-  if (isCompressed) {
-    uploadHeaders['Content-Encoding'] = 'gzip';
-  }
-
   const putRes = await fetch(uploadUrl, {
     method: 'PUT',
-    headers: uploadHeaders,
-    body: isCompressed ? compressedBlob : file,
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
   });
 
   if (!putRes.ok) {
