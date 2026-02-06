@@ -1278,18 +1278,42 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             // Build system prompt
             let systemPrompt = '';
             const FORMATTING_RULES = `
-FORMATTING RULES (strictly follow):
+FORMATTING & STRUCTURE RULES (strictly follow):
+
+Headings & Hierarchy:
 - Use ## for major section headings.
 - Use ### for sub-section headings.
-- Use #### for smaller sub-headings.
-- NEVER use **bold** as a heading. Always use ## / ### / #### instead.
+- Use #### for smaller sub-headings within a sub-section.
+- NEVER use **bold** as a heading substitute. Always use ## / ### / #### for headings.
 - Use **bold** ONLY for inline emphasis within a sentence.
+
+Lists:
 - Use - for bullet points. Keep each bullet on ONE line.
 - For numbered lists, keep the number and text on the SAME line (e.g., "1. Content here").
+- Before a bullet cluster, add a brief summary sentence introducing what the bullets cover.
+- Limit bullet clusters to 5-7 items. If more are needed, break into sub-sections.
+
+Spacing & Separation:
 - Use --- between major sections to create visual separation.
 - Do NOT output raw markdown symbols that won't render (no stray # or * at line starts unless they are proper headers or bullets).
-- Never truncate mid-sentence. If running long, finish the current section cleanly.
-- At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic.`;
+
+Transitions:
+- Between every major section, write 1-2 bridge sentences that explain why the analysis is shifting focus. Never jump from one ## section to the next without a transition.
+
+Completeness:
+- NEVER truncate mid-sentence or mid-section. If approaching length limits, prioritize finishing all sections at reduced depth rather than going deep on early sections and cutting off later ones.
+- ALWAYS end with a clear concluding section (## Conclusion or ## Summary) that synthesizes the key takeaways in 3-5 sentences.
+- At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic.
+
+Depth Balance:
+- Distribute analytical depth evenly across all sections. Do not front-load the outline; keep structural mapping concise so that deeper analysis and review material get adequate coverage.
+
+Ambiguity Handling:
+- When the source material is vague, incomplete, or contradictory, explicitly state it (e.g., "The document does not specify..." or "This claim is unresolved in the text.").
+- Do NOT fill gaps with speculation. If you infer beyond the source, label it clearly as an inference.
+
+Academic Review:
+- When a user asks for "review" content, include a review section with key terms, concept checks, and sample questions organized by difficulty (easy, medium, hard).`;
 
             if (useStudentMode && isProgrammingTask) {
                 systemPrompt = `You are Zen, an AI academic assistant in PROGRAMMING ANSWER MODE.
