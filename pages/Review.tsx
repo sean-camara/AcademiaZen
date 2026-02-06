@@ -2168,7 +2168,7 @@ const Review: React.FC = () => {
                   <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs shrink-0 mt-0.5">?</span>
                   <div>
                     <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
-                    <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations with deep reasoning</p>
+                    <p className="text-zen-text-disabled text-xs mt-0.5">200 daily requests, no cooldown, deep reasoning</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">

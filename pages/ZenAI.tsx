@@ -1603,10 +1603,10 @@ If asked tech stack: "MERN Stack."`;
             else if (error.message?.includes('402')) errorMessage = "### Premium Required\nUpgrade to use Zen AI.";
             else if (error.message?.startsWith('COOLDOWN:')) {
                 const timeLeft = error.message.replace('COOLDOWN:', '');
-                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for unlimited AI access, or wait **${timeLeft}** for your cooldown to reset.`;
+                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 200 daily requests with no cooldown, or wait **${timeLeft}** for your cooldown to reset.`;
             }
             else if (error.message?.includes('429')) {
-                errorMessage = "### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for unlimited AI access, or wait for your cooldown to reset.";
+                errorMessage = "### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 200 daily requests with no cooldown, or wait for your cooldown to reset.";
             }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage, createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
         } finally {
@@ -1802,12 +1802,12 @@ If asked tech stack: "MERN Stack."`;
                         <div className="p-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="p-4 rounded-xl bg-white/5 text-center">
-                                    <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Monthly</p>
-                                    <p className="text-xl text-white font-medium">₱149</p>
+                                    <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Weekly</p>
+                                    <p className="text-xl text-white font-medium">₱49</p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-white/5 text-center">
-                                    <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Yearly</p>
-                                    <p className="text-xl text-white font-medium">₱1490</p>
+                                    <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Monthly</p>
+                                    <p className="text-xl text-white font-medium">₱129</p>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-3 pt-2">

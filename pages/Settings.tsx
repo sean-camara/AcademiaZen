@@ -656,7 +656,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 text-[10px] font-bold">AI</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">Unlimited conversations, deep reasoning mode</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">200 daily requests, no cooldown, deep reasoning mode</p>
                                             </div>
                                         </div>
                                         
@@ -665,7 +665,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 text-[10px] font-bold">QUIZ</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">AI Quiz Generator</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">50 questions, all types & difficulties</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">Up to 50 questions, all types & difficulties</p>
                                             </div>
                                         </div>
                                         
@@ -687,21 +687,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                         </div>
                                         
-                                        {/* Focus */}
+                                        {/* Higher Limits */}
                                         <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 text-[10px] font-bold">FOCUS</span>
+                                            <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 text-[10px] font-bold">15x</span>
                                             <div>
-                                                <span className="text-zen-text-primary text-sm font-medium">Focus Timer</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">All durations, ambient sounds, stats</p>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Priority Support */}
-                                        <div className="flex items-start gap-3 bg-zen-surface/30 rounded-xl p-3">
-                                            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0 text-[10px] font-bold">PRO</span>
-                                            <div>
-                                                <span className="text-zen-text-primary text-sm font-medium">Priority Support</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">Fast responses, early access to features</p>
+                                                <span className="text-zen-text-primary text-sm font-medium">Higher Rate Limits</span>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">15 requests/min, no cooldown restrictions</p>
                                             </div>
                                         </div>
                                     </div>
@@ -728,7 +719,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                             <div className="flex justify-between">
                                                 <span>Zen AI</span>
-                                                <span>Limited access</span>
+                                                <span>5 messages, then 12h cooldown</span>
                                             </div>
                                         </div>
                                     </div>
@@ -857,7 +848,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                         {aiUsage.monthlyNearLimit ? '⚠️ Monthly limit almost reached!' : '📊 High usage this month'}
                                                     </span>
                                                     {' '}You've used {aiUsage.monthlyUsagePercent}% of your monthly allowance. 
-                                                    Upgrade to Premium for unlimited monthly requests.
+                                                    Upgrade to Premium for no monthly cap and no cooldown.
                                                 </p>
                                             </div>
                                         )}
@@ -866,7 +857,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
                                             <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
-                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 200 daily requests and 15 requests/minute.
+                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 200 daily requests, 15 requests/min, and no cooldown.
                                                 </p>
                                             </div>
                                         )}
