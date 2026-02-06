@@ -889,7 +889,7 @@ const Home: React.FC = () => {
           </div>
       )}
 
-      <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar desktop-scroll-area p-6 lg:p-10 pb-24 lg:pb-10">
+      <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar desktop-scroll-area p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-8">
              
              <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -902,22 +902,22 @@ const Home: React.FC = () => {
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
                 <div className="lg:col-span-8 space-y-6">
-                   <div className="grid grid-cols-3 gap-4">
-                      <div onClick={completedCount > 0 ? handleClearCompleted : undefined} className={`bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 transition-all relative group h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}>
-                          <span className="text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
-                          <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors">Completed</span>
+                   <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                      <div onClick={completedCount > 0 ? handleClearCompleted : undefined} className={`bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 transition-all relative group h-20 sm:h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}>
+                          <span className="text-2xl sm:text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
+                          <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors text-center">Completed</span>
                       </div>
-                      <div className="bg-zen-card p-6 rounded-3xl border border-zen-surface/30 flex flex-col justify-center space-y-2 h-32">
-                          <span className="text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
-                          <span className="text-xs text-zen-text-disabled uppercase tracking-widest font-medium">Pending</span>
+                      <div className="bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 h-20 sm:h-32">
+                          <span className="text-2xl sm:text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
+                          <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium text-center">Pending</span>
                       </div>
-                      <div className="bg-zen-card p-6 rounded-3xl border border-red-500/30 flex flex-col justify-center space-y-2 h-32">
-                          <span className="text-4xl font-light text-red-400">{pastDueCount}</span>
-                          <span className="text-xs text-red-400/70 uppercase tracking-widest font-medium">Past Due</span>
+                      <div className="bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-red-500/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 h-20 sm:h-32">
+                          <span className="text-2xl sm:text-4xl font-light text-red-400">{pastDueCount}</span>
+                          <span className="text-[8px] sm:text-xs text-red-400/70 uppercase tracking-wider sm:tracking-widest font-medium text-center whitespace-nowrap">Past Due</span>
                       </div>
                    </div>
 
-                    <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-3xl p-5 sm:p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
+                    <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-2xl sm:rounded-3xl p-3 sm:p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-zen-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-zen-secondary/20 transition-colors duration-1000"></div>
                       <div className="relative z-10">
                         <h3 className="text-base sm:text-lg font-medium text-zen-text-primary mb-4 sm:mb-6 flex items-center gap-2">
@@ -936,16 +936,15 @@ const Home: React.FC = () => {
                                 };
                                 
                                 return (
-                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={handleTaskClick}>
-                                    <div className={`w-1.5 h-10 sm:h-12 rounded-full ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
-                                        <div className="flex items-center gap-2 mt-0.5">
+                                <div key={task.id} className="flex items-center gap-2 sm:gap-4 bg-zen-bg/50 p-2.5 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={handleTaskClick}>
+                                    <div className={`w-1 sm:w-1.5 h-10 sm:h-12 rounded-full flex-shrink-0 ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                        <h4 className="text-xs sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
+                                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
                                             {taskSubject && (
-                                                <span className="text-[10px] sm:text-[11px] text-zen-primary font-medium uppercase tracking-wider">{taskSubject.name}</span>
+                                                <span className="text-[9px] sm:text-[11px] text-zen-primary font-medium uppercase tracking-wide sm:tracking-wider truncate max-w-[120px] sm:max-w-none">{taskSubject.name}</span>
                                             )}
-                                            {taskSubject && <span className="text-zen-text-disabled">•</span>}
-                                            <p className="text-[11px] sm:text-xs text-zen-text-secondary">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                            <p className="text-[9px] sm:text-xs text-zen-text-secondary whitespace-nowrap">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
                                         </div>
                                     </div>
                                     <button
@@ -979,16 +978,15 @@ const Home: React.FC = () => {
                                 };
                                 
                                 return (
-                                <div key={task.id} className="flex items-center gap-3 sm:gap-4 bg-zen-bg/50 p-3 sm:p-4 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all cursor-pointer" onClick={handleTaskClick}>
-                                    <div className="w-1.5 h-10 sm:h-12 rounded-full bg-red-400"></div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
-                                        <div className="flex items-center gap-2 mt-0.5">
+                                <div key={task.id} className="flex items-center gap-2 sm:gap-4 bg-zen-bg/50 p-2.5 sm:p-4 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all cursor-pointer" onClick={handleTaskClick}>
+                                    <div className="w-1 sm:w-1.5 h-10 sm:h-12 rounded-full bg-red-400 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                        <h4 className="text-xs sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
+                                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
                                             {taskSubject && (
-                                                <span className="text-[10px] sm:text-[11px] text-red-400 font-medium uppercase tracking-wider">{taskSubject.name}</span>
+                                                <span className="text-[9px] sm:text-[11px] text-red-400 font-medium uppercase tracking-wide sm:tracking-wider truncate max-w-[120px] sm:max-w-none">{taskSubject.name}</span>
                                             )}
-                                            {taskSubject && <span className="text-zen-text-disabled">•</span>}
-                                            <p className="text-[11px] sm:text-xs text-red-400/70">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
+                                            <p className="text-[9px] sm:text-xs text-red-400/70 whitespace-nowrap">{new Date(task.dueDate).toLocaleString([], {weekday: 'short', hour:'2-digit', minute:'2-digit'})}</p>
                                         </div>
                                     </div>
                                     <button
