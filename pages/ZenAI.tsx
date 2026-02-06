@@ -1501,6 +1501,15 @@ If asked tech stack: "MERN Stack."`;
                         const minutes = Math.ceil((remainMs % (1000 * 60 * 60)) / (1000 * 60));
                         throw new Error(`COOLDOWN:${hours}h ${minutes}m`);
                     }
+                    if (streamResponse.status === 429 && errorBody?.error === 'daily_quota_exceeded') {
+                        throw new Error('DAILY_LIMIT');
+                    }
+                    if (streamResponse.status === 429 && errorBody?.error === 'monthly_quota_exceeded') {
+                        throw new Error('MONTHLY_LIMIT');
+                    }
+                    if (streamResponse.status === 429 && errorBody?.error === 'deep_quota_exceeded') {
+                        throw new Error('DEEP_LIMIT:' + (errorBody?.message || ''));
+                    }
                     throw new Error(`Stream failed: ${streamResponse.status}`);
                 }
 
@@ -1603,10 +1612,19 @@ If asked tech stack: "MERN Stack."`;
             else if (error.message?.includes('402')) errorMessage = "### Premium Required\nUpgrade to use Zen AI.";
             else if (error.message?.startsWith('COOLDOWN:')) {
                 const timeLeft = error.message.replace('COOLDOWN:', '');
-                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 200 daily requests with no cooldown, or wait **${timeLeft}** for your cooldown to reset.`;
+                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 30 daily requests with no cooldown, or wait **${timeLeft}** for your cooldown to reset.`;
+            }
+            else if (error.message === 'DAILY_LIMIT') {
+                errorMessage = "### Daily Limit Reached\nYou've used all your AI requests for today. Your limit resets at midnight.";
+            }
+            else if (error.message === 'MONTHLY_LIMIT') {
+                errorMessage = "### Monthly Limit Reached\nYou've reached your monthly AI request limit. Your limit resets next month.";
+            }
+            else if (error.message?.startsWith('DEEP_LIMIT:')) {
+                errorMessage = "### Deep Reasoning Limit\nYou've used all your deep reasoning requests for today. Switch to **Fast** mode to continue, or wait until tomorrow.";
             }
             else if (error.message?.includes('429')) {
-                errorMessage = "### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 200 daily requests with no cooldown, or wait for your cooldown to reset.";
+                errorMessage = "### Rate Limited\nToo many requests. Please wait a moment and try again.";
             }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage, createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
         } finally {

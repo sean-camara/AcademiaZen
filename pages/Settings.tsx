@@ -656,7 +656,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 text-[10px] font-bold">AI</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">200 daily requests, no cooldown, deep reasoning mode</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">30 daily requests, no cooldown, deep reasoning mode</p>
                                             </div>
                                         </div>
                                         
@@ -692,7 +692,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 text-[10px] font-bold">15x</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Higher Rate Limits</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">15 requests/min, no cooldown restrictions</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">15 requests/min, 200/month, 8 deep/day</p>
                                             </div>
                                         </div>
                                     </div>
@@ -768,17 +768,36 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                 </div>
                                             </div>
                                             
-                                            {/* Rate Limit */}
+                                            {/* Deep Reasoning */}
                                             <div className="bg-zen-surface/30 rounded-xl p-4">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs text-zen-text-disabled">Rate Limit</span>
-                                                    <span className="text-xs font-bold text-purple-400">
-                                                        {aiUsage.perMinuteLimit}/min
+                                                    <span className="text-xs text-zen-text-disabled">Deep Reasoning</span>
+                                                    <span className={`text-xs font-bold ${
+                                                        aiUsage.deepDailyRemaining <= 2 
+                                                            ? 'text-amber-400' 
+                                                            : aiUsage.deepDailyRemaining === 0 
+                                                                ? 'text-red-400' 
+                                                                : 'text-purple-400'
+                                                    }`}>
+                                                        {aiUsage.deepDailyRemaining}/{aiUsage.deepDailyCap} left
                                                     </span>
                                                 </div>
-                                                <p className="text-[10px] text-zen-text-disabled mt-2">
-                                                    Maximum requests per minute to ensure fair usage.
-                                                </p>
+                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full transition-all duration-300 ${
+                                                            aiUsage.deepDailyRemaining <= 2 
+                                                                ? 'bg-amber-500' 
+                                                                : aiUsage.deepDailyRemaining === 0 
+                                                                    ? 'bg-red-500' 
+                                                                    : 'bg-purple-500'
+                                                        }`}
+                                                        style={{ width: `${Math.min(100, ((aiUsage.deepDailyCount || 0) / (aiUsage.deepDailyCap || 8)) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                    <span>{aiUsage.deepDailyCount || 0} used today</span>
+                                                    <span>Resets daily</span>
+                                                </div>
                                             </div>
                                             
                                             {/* Total Stats */}
@@ -802,8 +821,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                         </div>
                                         
-                                        {/* Monthly Usage (Free users only) */}
-                                        {billing?.effectivePlan !== 'premium' && aiUsage.monthlyCap && (
+                                        {/* Monthly Usage (all users) */}
+                                        {aiUsage.monthlyCap && (
                                             <div className="mt-4 bg-zen-surface/30 rounded-xl p-4">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs text-zen-text-disabled">Monthly Usage</span>
@@ -848,7 +867,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                         {aiUsage.monthlyNearLimit ? '⚠️ Monthly limit almost reached!' : '📊 High usage this month'}
                                                     </span>
                                                     {' '}You've used {aiUsage.monthlyUsagePercent}% of your monthly allowance. 
-                                                    Upgrade to Premium for no monthly cap and no cooldown.
+                                                    Upgrade to Premium for 200 monthly requests and no cooldown.
                                                 </p>
                                             </div>
                                         )}
@@ -857,7 +876,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
                                             <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
-                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 200 daily requests, 15 requests/min, and no cooldown.
+                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests, 200/month, and no cooldown.
                                                 </p>
                                             </div>
                                         )}
