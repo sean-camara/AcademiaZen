@@ -527,21 +527,64 @@ const MessageActions: React.FC<MessageActionsProps> = ({
 const ModeToggle: React.FC<{
     mode: 'fast' | 'deep';
     onChange: (mode: 'fast' | 'deep') => void;
-}> = ({ mode, onChange }) => {
+    quota?: { fastLeft: number; fastCap: number; deepLeft: number; deepCap: number } | null;
+}> = ({ mode, onChange, quota }) => {
+    const [hovered, setHovered] = useState(false);
+
+    const currentLeft = mode === 'deep' ? quota?.deepLeft : quota?.fastLeft;
+    const currentCap = mode === 'deep' ? quota?.deepCap : quota?.fastCap;
+
     return (
-        <button
-            type="button"
-            onClick={() => onChange(mode === 'fast' ? 'deep' : 'fast')}
-            className={`h-9 sm:h-10 px-3 sm:px-4 rounded-xl border text-[10px] sm:text-xs uppercase font-bold tracking-wider transition-all flex items-center gap-2 min-w-[70px] sm:min-w-[80px] justify-center ${
-                mode === 'deep'
-                    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-                    : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10 active:bg-white/15'
-            }`}
-            aria-label={`Switch to ${mode === 'fast' ? 'deep' : 'fast'} mode`}
-        >
-            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${mode === 'deep' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}`} />
-            <span>{mode === 'deep' ? 'Deep' : 'Fast'}</span>
-        </button>
+        <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+            <button
+                type="button"
+                onClick={() => onChange(mode === 'fast' ? 'deep' : 'fast')}
+                className={`h-9 sm:h-10 px-3 sm:px-4 rounded-xl border text-[10px] sm:text-xs uppercase font-bold tracking-wider transition-all flex items-center gap-2 min-w-[70px] sm:min-w-[80px] justify-center ${
+                    mode === 'deep'
+                        ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                        : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10 active:bg-white/15'
+                }`}
+                aria-label={`Switch to ${mode === 'fast' ? 'deep' : 'fast'} mode`}
+            >
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${mode === 'deep' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}`} />
+                <span>{mode === 'deep' ? 'Deep' : 'Fast'}</span>
+            </button>
+
+            {/* Hover tooltip showing remaining quota */}
+            {hovered && quota && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none animate-in fade-in duration-150">
+                    <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 shadow-xl min-w-[140px]">
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide">Fast</span>
+                                <span className={`text-[11px] font-semibold ${(quota.fastLeft ?? 0) === 0 ? 'text-red-400' : 'text-gray-200'}`}>
+                                    {quota.fastLeft}/{quota.fastCap}
+                                </span>
+                            </div>
+                            <div className="w-full h-1 rounded-full bg-white/5 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all ${(quota.fastLeft ?? 0) === 0 ? 'bg-red-500' : 'bg-blue-400'}`}
+                                    style={{ width: `${quota.fastCap ? (quota.fastLeft / quota.fastCap) * 100 : 0}%` }}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between gap-3 mt-0.5">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide">Deep</span>
+                                <span className={`text-[11px] font-semibold ${(quota.deepLeft ?? 0) === 0 ? 'text-red-400' : 'text-gray-200'}`}>
+                                    {quota.deepLeft}/{quota.deepCap}
+                                </span>
+                            </div>
+                            <div className="w-full h-1 rounded-full bg-white/5 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all ${(quota.deepLeft ?? 0) === 0 ? 'bg-red-500' : 'bg-emerald-400'}`}
+                                    style={{ width: `${quota.deepCap ? (quota.deepLeft / quota.deepCap) * 100 : 0}%` }}
+                                />
+                            </div>
+                        </div>
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-white/10" />
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -613,6 +656,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [isPremium, setIsPremium] = useState(false);
     const [billingChecked, setBillingChecked] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [modeQuota, setModeQuota] = useState<{ fastLeft: number; fastCap: number; deepLeft: number; deepCap: number } | null>(null);
     
     // Quota exhausted modal
     const [quotaExhausted, setQuotaExhausted] = useState<{ type: 'daily' | 'monthly' | 'deep_daily' | 'deep_monthly'; message: string } | null>(null);
@@ -849,6 +893,15 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
                 const isActive = !!data?.billing?.isActive;
                 setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
                 setBillingChecked(true);
+                if (data?.aiUsage) {
+                    const u = data.aiUsage;
+                    setModeQuota({
+                        fastLeft: u.dailyRemaining ?? 0,
+                        fastCap: u.dailyCap ?? 0,
+                        deepLeft: u.deepDailyRemaining ?? 0,
+                        deepCap: u.deepDailyCap ?? 0,
+                    });
+                }
             })
             .catch(() => {
                 if (!active) return;
@@ -2434,7 +2487,7 @@ If asked tech stack: "MERN Stack."`;
                                     </button>
 
                                     {/* Mode toggle */}
-                                    <ModeToggle mode={analysisMode} onChange={setAnalysisMode} />
+                                    <ModeToggle mode={analysisMode} onChange={setAnalysisMode} quota={modeQuota} />
                                 </div>
 
                                 {/* Send button */}
