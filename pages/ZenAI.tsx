@@ -583,7 +583,7 @@ const ThinkingPanel: React.FC<ThinkingPanelProps> = ({ text, isStreaming, isOpen
             {isOpen && (
                 <div 
                     ref={panelRef}
-                    className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[13px] text-gray-400 leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+                    className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[13px] text-gray-400 leading-relaxed max-h-[200px] overflow-y-auto custom-scrollbar whitespace-pre-wrap break-words"
                 >
                     {text}
                     {isStreaming && <span className="inline-block w-1.5 h-3 bg-emerald-400/60 animate-pulse ml-0.5 align-middle" aria-hidden="true" />}
@@ -1729,7 +1729,7 @@ If asked tech stack: "MERN Stack."`;
                                 <IconX className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-2 overscroll-contain">
+                        <div className="flex-1 overflow-y-auto p-2 overscroll-contain custom-scrollbar">
                             {threads.length === 0 ? (
                                 <div className="p-4 text-center text-gray-500 text-xs">
                                     <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1799,7 +1799,7 @@ If asked tech stack: "MERN Stack."`;
                             </div>
                             <p className="text-sm text-gray-400">Get deep document analysis and AI-powered features.</p>
                         </div>
-                        <div className="p-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                        <div className="p-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="p-4 rounded-xl bg-white/5 text-center">
                                     <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Monthly</p>
@@ -2276,7 +2276,7 @@ If asked tech stack: "MERN Stack."`;
                                 placeholder={selectedRefs.length > 0 ? "Ask about the docs..." : "Ask anything..."}
                                 disabled={isLoading || aiLocked}
                                 rows={1}
-                                className="w-full bg-transparent border-none text-sm sm:text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-500 resize-none leading-relaxed min-h-[44px] max-h-[160px] py-0"
+                                className="w-full bg-transparent border-none text-sm sm:text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-500 resize-none leading-relaxed min-h-[44px] max-h-[160px] py-0 custom-scrollbar"
                                 aria-label="Message input"
                             />
 
