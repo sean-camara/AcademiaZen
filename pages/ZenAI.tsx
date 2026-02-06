@@ -507,21 +507,24 @@ const ModeToggle: React.FC<{
 };
 
 // ============================================================================
-// COLLAPSIBLE ANALYSIS PANEL
+// COLLAPSIBLE THINKING PANEL
 // ============================================================================
 
-interface AnalysisPanelProps {
-    analysis: AnalysisInfo | AIAnalysisSummary;
+interface ThinkingPanelProps {
+    text: string;
+    isStreaming?: boolean;
     isOpen: boolean;
     onToggle: () => void;
-    label?: string;
 }
 
-const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isOpen, onToggle, label }) => {
-    const modeLabel = analysis.mode === 'deep' ? 'Deep' : 'Fast';
-    const docsLabel = analysis.documents.length > 0
-        ? analysis.documents.map(d => d.name).join(', ')
-        : 'None';
+const ThinkingPanel: React.FC<ThinkingPanelProps> = ({ text, isStreaming, isOpen, onToggle }) => {
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isStreaming && isOpen && panelRef.current) {
+            panelRef.current.scrollTop = panelRef.current.scrollHeight;
+        }
+    }, [text, isStreaming, isOpen]);
 
     return (
         <div className="mb-2">
@@ -532,29 +535,19 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isOpen, onToggl
                 aria-expanded={isOpen}
             >
                 <IconChevronRight className={`w-3 h-3 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
-                <span>{label || 'View analysis'}</span>
+                <span className="flex items-center gap-1.5">
+                    {isStreaming && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                    {isStreaming ? 'Thinking...' : 'Thought process'}
+                </span>
             </button>
             
             {isOpen && (
-                <div className="mt-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-gray-400 space-y-1.5 animate-reveal">
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                        <span>Mode: <span className="text-gray-200">{modeLabel}</span></span>
-                        <span>Pages: <span className="text-gray-200">{analysis.pagesReadTotal || 0}</span></span>
-                        <span>OCR: <span className="text-gray-200">{analysis.ocrUsed ? 'Yes' : 'No'}</span></span>
-                    </div>
-                    {analysis.documents.length > 0 && (
-                        <div className="break-words">Docs: <span className="text-gray-200">{docsLabel}</span></div>
-                    )}
-                    <div>Chars: <span className="text-gray-200">{analysis.totalChars.toLocaleString()}</span></div>
-                    {analysis.planSummary && (
-                        <div className="break-words">Summary: <span className="text-gray-200">{analysis.planSummary}</span></div>
-                    )}
-                    {analysis.confidence && analysis.confidence !== 'unknown' && (
-                        <div>Confidence: <span className="text-gray-200 capitalize">{analysis.confidence}</span></div>
-                    )}
-                    {analysis.responseTimeMs ? (
-                        <div>Time: <span className="text-gray-200">{(analysis.responseTimeMs / 1000).toFixed(1)}s</span></div>
-                    ) : null}
+                <div 
+                    ref={panelRef}
+                    className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[13px] text-gray-400 leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+                >
+                    {text}
+                    {isStreaming && <span className="inline-block w-1.5 h-3 bg-emerald-400/60 animate-pulse ml-0.5 align-middle" aria-hidden="true" />}
                 </div>
             )}
         </div>
@@ -587,8 +580,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [analysisMode, setAnalysisMode] = useState<'fast' | 'deep'>('fast');
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamingText, setStreamingText] = useState('');
-    const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisInfo | null>(null);
-    const [lastContextSummary, setLastContextSummary] = useState<AnalysisInfo | null>(null);
+    const [streamingThinking, setStreamingThinking] = useState('');
     
     // Scroll behavior
     const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -599,8 +591,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
     const [showThreadsSidebar, setShowThreadsSidebar] = useState(false);
     
-    // Analysis panels
-    const [openAnalysisPanels, setOpenAnalysisPanels] = useState<Record<string, boolean>>({});
+    // Thinking panels
+    const [openThinkingPanels, setOpenThinkingPanels] = useState<Record<string, boolean>>({});
     
     // Responsive
     const [isMobile, setIsMobile] = useState(false);
@@ -855,7 +847,6 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         setMessages([]);
         setInput('');
         setSelectedRefs([]);
-        setLastContextSummary(null);
         setUserHasScrolledUp(false);
         try { localStorage.removeItem(CHAT_STORAGE_KEY); } catch (_) {}
         clearAIChat();
@@ -869,8 +860,8 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
         );
     };
 
-    const toggleAnalysisPanel = useCallback((key: string) => {
-        setOpenAnalysisPanels(prev => ({ ...prev, [key]: !prev[key] }));
+    const toggleThinkingPanel = useCallback((key: string) => {
+        setOpenThinkingPanels(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
     // ========================================================================
@@ -1303,8 +1294,6 @@ If asked tech stack: "MERN Stack."`;
                 userMessage += `CITATION RULES:\n- Cite document claims with 【Document Name p.X】\n\n`;
             }
 
-            userMessage += `TRANSPARENCY: Append at end: ${ANALYSIS_SUMMARY_OPEN}{"plan_summary":"...","confidence":"low|medium|high"}${ANALYSIS_SUMMARY_CLOSE}\n\n`;
-
             if (currentRefs.length > 0) {
                 resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
                     if (ref.type !== 'pdf') {
@@ -1374,9 +1363,6 @@ If asked tech stack: "MERN Stack."`;
                     pagesReadTotal: documents.reduce((sum, doc) => sum + doc.pages, 0),
                     ocrUsed: documents.some(doc => doc.usedOCR),
                 };
-                setLastContextSummary(contextSummary);
-            } else {
-                setLastContextSummary(null);
             }
             
             setThinkingContext('Connecting...');
@@ -1387,7 +1373,8 @@ If asked tech stack: "MERN Stack."`;
 
             setIsStreaming(true);
             setStreamingText('');
-            setCurrentAnalysis(contextSummary);
+            setStreamingThinking('');
+            setOpenThinkingPanels(prev => ({ ...prev, 'thinking-streaming': true }));
             abortControllerRef.current = new AbortController();
 
             const token = await auth.currentUser?.getIdToken();
@@ -1424,6 +1411,7 @@ If asked tech stack: "MERN Stack."`;
                 const decoder = new TextDecoder();
                 let buffer = '';
                 let fullText = '';
+                let fullThinking = '';
                 let responseTimeMs = 0;
 
                 setThinkingContext('');
@@ -1455,17 +1443,13 @@ If asked tech stack: "MERN Stack."`;
                             
                             switch (eventType) {
                                 case 'meta':
-                                    setCurrentAnalysis(prev => ({
-                                        mode: data.mode || prev?.mode || analysisMode,
-                                        documents: data.contextInfo?.documents || prev?.documents || [],
-                                        totalChars: data.contextInfo?.totalChars || prev?.totalChars || 0,
-                                        pagesReadTotal: data.contextInfo?.pagesReadTotal || prev?.pagesReadTotal || 0,
-                                        ocrUsed: data.contextInfo?.ocrUsed ?? prev?.ocrUsed ?? false,
-                                        planSummary: prev?.planSummary,
-                                        confidence: prev?.confidence,
-                                        responseTimeMs: prev?.responseTimeMs,
-                                    }));
                                     setThinkingContext('');
+                                    break;
+                                case 'thinking':
+                                    if (data.text) {
+                                        fullThinking += data.text;
+                                        setStreamingThinking(fullThinking);
+                                    }
                                     break;
                                 case 'delta':
                                     if (data.text) {
@@ -1475,7 +1459,6 @@ If asked tech stack: "MERN Stack."`;
                                     break;
                                 case 'done':
                                     responseTimeMs = data.responseTimeMs || 0;
-                                    setCurrentAnalysis(prev => prev ? { ...prev, responseTimeMs } : null);
                                     break;
                                 case 'error':
                                     throw new Error(data.message || 'Stream error');
@@ -1488,25 +1471,12 @@ If asked tech stack: "MERN Stack."`;
 
                 if (fullText) {
                     const cleanedText = stripAnalysisSummaryBlock(fullText);
-                    const parsedSummary = parseAnalysisSummaryBlock(fullText);
-                    const finalAnalysis: AIAnalysisSummary = {
-                        mode: contextSummary.mode,
-                        documents: contextSummary.documents,
-                        totalChars: contextSummary.totalChars,
-                        pagesReadTotal: contextSummary.pagesReadTotal,
-                        ocrUsed: contextSummary.ocrUsed,
-                        planSummary: parsedSummary?.plan_summary || 'Not available',
-                        confidence: parsedSummary?.confidence || 'unknown',
-                        responseTimeMs,
-                    };
-                    setCurrentAnalysis(prev => prev ? { ...prev, planSummary: finalAnalysis.planSummary, confidence: finalAnalysis.confidence, responseTimeMs } : prev);
-                    setLastContextSummary(prev => prev ? { ...prev, planSummary: finalAnalysis.planSummary, confidence: finalAnalysis.confidence, responseTimeMs } : prev);
                     setMessages(prev => [...prev, { 
                         role: 'ai', 
                         text: cleanedText || fullText, 
                         createdAt: new Date().toISOString(),
                         id: crypto.randomUUID(),
-                        analysis: finalAnalysis,
+                        thinking: fullThinking || undefined,
                     }]);
                 } else {
                     throw new Error('No response received');
@@ -1852,12 +1822,12 @@ If asked tech stack: "MERN Stack."`;
                                     </div>
                                 )}
                                 
-                                {/* Analysis panel (AI messages only) */}
-                                {!isUser && msg.analysis && (
-                                    <AnalysisPanel
-                                        analysis={msg.analysis}
-                                        isOpen={Boolean(openAnalysisPanels[`analysis-${messageKey}`])}
-                                        onToggle={() => toggleAnalysisPanel(`analysis-${messageKey}`)}
+                                {/* Thinking panel (AI messages only) */}
+                                {!isUser && msg.thinking && (
+                                    <ThinkingPanel
+                                        text={msg.thinking}
+                                        isOpen={Boolean(openThinkingPanels[`thinking-${messageKey}`])}
+                                        onToggle={() => toggleThinkingPanel(`thinking-${messageKey}`)}
                                     />
                                 )}
                                 
@@ -1896,13 +1866,13 @@ If asked tech stack: "MERN Stack."`;
                     ============================================================ */}
                     {isStreaming && (
                         <div className="flex flex-col items-start">
-                            {/* Collapsible analysis */}
-                            {currentAnalysis && (
-                                <AnalysisPanel
-                                    analysis={currentAnalysis}
-                                    isOpen={Boolean(openAnalysisPanels['analysis-streaming'])}
-                                    onToggle={() => toggleAnalysisPanel('analysis-streaming')}
-                                    label="Thinking… ▸ View analysis"
+                            {/* Live thinking stream */}
+                            {streamingThinking && (
+                                <ThinkingPanel
+                                    text={streamingThinking}
+                                    isStreaming
+                                    isOpen={Boolean(openThinkingPanels['thinking-streaming'])}
+                                    onToggle={() => toggleThinkingPanel('thinking-streaming')}
                                 />
                             )}
                             
@@ -2181,19 +2151,6 @@ If asked tech stack: "MERN Stack."`;
                             >
                                 Clear
                             </button>
-                        </div>
-                    )}
-
-                    {/* Context summary */}
-                    {lastContextSummary && lastContextSummary.documents.length > 0 && (
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
-                            <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 mb-1.5">Context</div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                                <span>Docs: <span className="text-gray-200">{lastContextSummary.documents.length}</span></span>
-                                <span>Pages: <span className="text-gray-200">{lastContextSummary.pagesReadTotal}</span></span>
-                                <span>Chars: <span className="text-gray-200">{lastContextSummary.totalChars.toLocaleString()}</span></span>
-                                {lastContextSummary.ocrUsed && <span className="text-amber-400">OCR used</span>}
-                            </div>
                         </div>
                     )}
 

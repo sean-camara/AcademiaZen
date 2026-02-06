@@ -27,6 +27,7 @@ export interface AIChatMessage {
   createdAt?: string;
   id?: string;
   analysis?: AIAnalysisSummary;
+  thinking?: string;
 }
 
 export interface Task {
