@@ -614,6 +614,10 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
     const [billingChecked, setBillingChecked] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     
+    // Quota exhausted modal
+    const [quotaExhausted, setQuotaExhausted] = useState<{ type: 'daily' | 'monthly' | 'deep_daily' | 'deep_monthly'; message: string } | null>(null);
+    const [forceFreeModel, setForceFreeModel] = useState(false);
+    
     // Streaming
     const [thinkingContext, setThinkingContext] = useState('Formulating response...');
     const [analysisMode, setAnalysisMode] = useState<'fast' | 'deep'>('fast');
@@ -1481,6 +1485,7 @@ If asked tech stack: "MERN Stack."`;
                         prompt,
                         mode: analysisMode,
                         history: recentHistory,
+                        forceFreeModel: forceFreeModel || undefined,
                         contextInfo: resolvedRefs.length > 0 ? {
                             documents: contextSummary.documents,
                             totalChars: contextSummary.totalChars,
@@ -1509,6 +1514,9 @@ If asked tech stack: "MERN Stack."`;
                     }
                     if (streamResponse.status === 429 && errorBody?.error === 'deep_quota_exceeded') {
                         throw new Error('DEEP_LIMIT:' + (errorBody?.message || ''));
+                    }
+                    if (streamResponse.status === 429 && errorBody?.error === 'deep_monthly_quota_exceeded') {
+                        throw new Error('DEEP_MONTHLY_LIMIT:' + (errorBody?.message || ''));
                     }
                     throw new Error(`Stream failed: ${streamResponse.status}`);
                 }
@@ -1615,13 +1623,20 @@ If asked tech stack: "MERN Stack."`;
                 errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 30 daily requests with no cooldown, or wait **${timeLeft}** for your cooldown to reset.`;
             }
             else if (error.message === 'DAILY_LIMIT') {
+                setQuotaExhausted({ type: 'daily', message: 'You\'ve used all 30 AI requests for today.' });
                 errorMessage = "### Daily Limit Reached\nYou've used all your AI requests for today. Your limit resets at midnight.";
             }
             else if (error.message === 'MONTHLY_LIMIT') {
-                errorMessage = "### Monthly Limit Reached\nYou've reached your monthly AI request limit. Your limit resets next month.";
+                setQuotaExhausted({ type: 'monthly', message: 'You\'ve reached your 300 monthly request limit.' });
+                errorMessage = "### Monthly Limit Reached\nYou've reached your monthly AI request limit.";
             }
             else if (error.message?.startsWith('DEEP_LIMIT:')) {
-                errorMessage = "### Deep Reasoning Limit\nYou've used all your deep reasoning requests for today. Switch to **Fast** mode to continue, or wait until tomorrow.";
+                setQuotaExhausted({ type: 'deep_daily', message: 'You\'ve used all 10 deep reasoning requests for today.' });
+                errorMessage = "### Deep Reasoning Limit\nYou've used all your deep reasoning requests for today.";
+            }
+            else if (error.message?.startsWith('DEEP_MONTHLY_LIMIT:')) {
+                setQuotaExhausted({ type: 'deep_monthly', message: 'You\'ve used all 40 deep reasoning requests this month.' });
+                errorMessage = "### Deep Reasoning Monthly Limit\nYou've used all your deep reasoning requests for this month.";
             }
             else if (error.message?.includes('429')) {
                 errorMessage = "### Rate Limited\nToo many requests. Please wait a moment and try again.";
@@ -1821,11 +1836,11 @@ If asked tech stack: "MERN Stack."`;
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="p-4 rounded-xl bg-white/5 text-center">
                                     <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Weekly</p>
-                                    <p className="text-xl text-white font-medium">₱49</p>
+                                    <p className="text-xl text-white font-medium">₱149</p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-white/5 text-center">
                                     <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Monthly</p>
-                                    <p className="text-xl text-white font-medium">₱129</p>
+                                    <p className="text-xl text-white font-medium">₱500</p>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-3 pt-2">
@@ -1848,6 +1863,80 @@ If asked tech stack: "MERN Stack."`;
             )}
 
             {/* ================================================================
+                QUOTA EXHAUSTED MODAL
+            ================================================================ */}
+            {quotaExhausted && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setQuotaExhausted(null)} />
+                    <div className="relative w-full sm:max-w-md bg-[#0D1117] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up sm:animate-scale-in safe-area-bottom">
+                        <div className="p-5 sm:p-6 border-b border-white/5">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-amber-500 font-bold">Limit Reached</p>
+                                    <h3 className="text-lg text-white font-medium">
+                                        {quotaExhausted.type === 'daily' && 'Daily Limit Reached'}
+                                        {quotaExhausted.type === 'monthly' && 'Monthly Limit Reached'}
+                                        {quotaExhausted.type === 'deep_daily' && 'Deep Reasoning Daily Limit'}
+                                        {quotaExhausted.type === 'deep_monthly' && 'Deep Reasoning Monthly Limit'}
+                                    </h3>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-400">{quotaExhausted.message}</p>
+                        </div>
+                        <div className="p-5 sm:p-6 space-y-3">
+                            {/* Switch to Fast mode (for deep limits) */}
+                            {(quotaExhausted.type === 'deep_daily' || quotaExhausted.type === 'deep_monthly') && (
+                                <button 
+                                    onClick={() => {
+                                        setAnalysisMode('fast');
+                                        setQuotaExhausted(null);
+                                    }}
+                                    className="min-h-[48px] w-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors border border-purple-500/20"
+                                >
+                                    Switch to Fast Mode
+                                </button>
+                            )}
+                            
+                            {/* Use Free Model */}
+                            {isPremium && (
+                                <button 
+                                    onClick={() => {
+                                        setForceFreeModel(true);
+                                        setQuotaExhausted(null);
+                                    }}
+                                    className="min-h-[48px] w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors border border-blue-500/20"
+                                >
+                                    Continue with Free Model
+                                </button>
+                            )}
+                            
+                            {/* Go to Settings to renew */}
+                            <button 
+                                onClick={() => {
+                                    setQuotaExhausted(null);
+                                    onClose();
+                                    window.location.href = '/?page=settings';
+                                }}
+                                className="min-h-[48px] w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-[#091510] font-bold text-sm uppercase tracking-wider rounded-xl transition-colors"
+                            >
+                                Manage Subscription
+                            </button>
+                            
+                            <button 
+                                onClick={() => setQuotaExhausted(null)} 
+                                className="min-h-[48px] w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-medium text-sm rounded-xl transition-colors"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ================================================================
                 MESSAGES AREA - Full width, proper scroll
             ================================================================ */}
             <main 
@@ -1859,6 +1948,14 @@ If asked tech stack: "MERN Stack."`;
                 aria-live="polite"
             >
                 <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
+                    
+                    {/* Free Model Mode Banner */}
+                    {forceFreeModel && (
+                        <div className="py-2 px-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center text-xs text-blue-400 flex items-center justify-between">
+                            <span>Using free model — responses may be shorter</span>
+                            <button onClick={() => setForceFreeModel(false)} className="text-blue-300 hover:text-white font-bold ml-2">✕</button>
+                        </div>
+                    )}
                     
                     {/* Billing check */}
                     {!billingChecked && (
@@ -1980,6 +2077,17 @@ If asked tech stack: "MERN Stack."`;
                                         />
                                     )}
                                 </div>
+                                
+                                {/* Prominent Continue button for truncated responses */}
+                                {!isUser && !isStreaming && idx === messages.length - 1 && /shall\s+I\s+continue\s*\??/i.test(displayText) && (
+                                    <button
+                                        onClick={handleContinue}
+                                        className="mt-2 min-h-[44px] px-5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors border border-emerald-500/20 flex items-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                        Continue
+                                    </button>
+                                )}
                             </div>
                         );
                     })}

@@ -50,6 +50,12 @@ interface AIUsageInfo {
   monthlyUsagePercent: number;
   monthlyWarning: boolean;
   monthlyNearLimit: boolean;
+  deepDailyCount?: number;
+  deepDailyCap?: number;
+  deepDailyRemaining?: number;
+  deepMonthlyCount?: number;
+  deepMonthlyCap?: number | null;
+  deepMonthlyRemaining?: number | null;
   perMinuteLimit: number;
   totalRequests: number;
   totalChatRequests: number;
@@ -656,7 +662,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 text-[10px] font-bold">AI</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Zen AI Assistant</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">30 daily requests, no cooldown, deep reasoning mode</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">30 fast/day, 10 deep/day, 300/month total</p>
                                             </div>
                                         </div>
                                         
@@ -692,7 +698,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             <span className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 text-[10px] font-bold">15x</span>
                                             <div>
                                                 <span className="text-zen-text-primary text-sm font-medium">Higher Rate Limits</span>
-                                                <p className="text-zen-text-disabled text-xs mt-0.5">15 requests/min, 200/month, 8 deep/day</p>
+                                                <p className="text-zen-text-disabled text-xs mt-0.5">15 requests/min, 300/month, 10 deep/day, 40 deep/month</p>
                                             </div>
                                         </div>
                                     </div>
@@ -791,7 +797,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                                     ? 'bg-red-500' 
                                                                     : 'bg-purple-500'
                                                         }`}
-                                                        style={{ width: `${Math.min(100, ((aiUsage.deepDailyCount || 0) / (aiUsage.deepDailyCap || 8)) * 100)}%` }}
+                                                        style={{ width: `${Math.min(100, ((aiUsage.deepDailyCount || 0) / (aiUsage.deepDailyCap || 10)) * 100)}%` }}
                                                     />
                                                 </div>
                                                 <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
@@ -799,7 +805,43 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                     <span>Resets daily</span>
                                                 </div>
                                             </div>
-                                            
+                                        </div>
+                                        
+                                        {/* Deep Reasoning Monthly */}
+                                        {aiUsage.deepMonthlyCap && (
+                                            <div className="mt-4 bg-zen-surface/30 rounded-xl p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-zen-text-disabled">Deep Reasoning (Monthly)</span>
+                                                    <span className={`text-xs font-bold ${
+                                                        (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
+                                                            ? 'text-amber-400' 
+                                                            : (aiUsage.deepMonthlyRemaining ?? 0) === 0 
+                                                                ? 'text-red-400' 
+                                                                : 'text-purple-400'
+                                                    }`}>
+                                                        {aiUsage.deepMonthlyRemaining ?? 0}/{aiUsage.deepMonthlyCap} left
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 bg-zen-surface rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full transition-all duration-300 ${
+                                                            (aiUsage.deepMonthlyRemaining ?? 0) <= 5 
+                                                                ? 'bg-amber-500' 
+                                                                : (aiUsage.deepMonthlyRemaining ?? 0) === 0 
+                                                                    ? 'bg-red-500' 
+                                                                    : 'bg-purple-500'
+                                                        }`}
+                                                        style={{ width: `${Math.min(100, ((aiUsage.deepMonthlyCount || 0) / (aiUsage.deepMonthlyCap || 40)) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between mt-1 text-[10px] text-zen-text-disabled">
+                                                    <span>{aiUsage.deepMonthlyCount || 0} used this month</span>
+                                                    <span>Resets monthly</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                             {/* Total Stats */}
                                             <div className="bg-zen-surface/30 rounded-xl p-4">
                                                 <div className="flex items-center justify-between mb-2">
@@ -867,7 +909,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                         {aiUsage.monthlyNearLimit ? '⚠️ Monthly limit almost reached!' : '📊 High usage this month'}
                                                     </span>
                                                     {' '}You've used {aiUsage.monthlyUsagePercent}% of your monthly allowance. 
-                                                    Upgrade to Premium for 200 monthly requests and no cooldown.
+                                                    Upgrade to Premium for 300 monthly requests and no cooldown.
                                                 </p>
                                             </div>
                                         )}
@@ -876,7 +918,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
                                             <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
-                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests, 200/month, and no cooldown.
+                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests, 300/month, and no cooldown.
                                                 </p>
                                             </div>
                                         )}
@@ -1148,7 +1190,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                     </div>
                     <div>
                         <h3 className="text-lg font-medium text-white">Confirm Extension</h3>
-                        <p className="text-sm text-gray-400 mt-2">Charge <strong className="text-white">PHP {billing?.interval === 'weekly' ? '49' : '129'}</strong> to extend by {billing?.interval === 'weekly' ? '1 week' : '1 month'}?</p>
+                        <p className="text-sm text-gray-400 mt-2">Charge <strong className="text-white">PHP {billing?.interval === 'weekly' ? '149' : '500'}</strong> to extend by {billing?.interval === 'weekly' ? '1 week' : '1 month'}?</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => setShowExtensionConfirm(false)} className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase">Cancel</button>
