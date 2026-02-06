@@ -1484,7 +1484,18 @@ If asked tech stack: "MERN Stack."`;
                     signal: abortControllerRef.current.signal,
                 });
 
-                if (!streamResponse.ok) throw new Error(`Stream failed: ${streamResponse.status}`);
+                if (!streamResponse.ok) {
+                    // Try to parse error body for cooldown details
+                    let errorBody: any = null;
+                    try { errorBody = await streamResponse.json(); } catch (_) {}
+                    if (streamResponse.status === 429 && errorBody?.error === 'free_cooldown') {
+                        const remainMs = errorBody.remainingMs || 0;
+                        const hours = Math.floor(remainMs / (1000 * 60 * 60));
+                        const minutes = Math.ceil((remainMs % (1000 * 60 * 60)) / (1000 * 60));
+                        throw new Error(`COOLDOWN:${hours}h ${minutes}m`);
+                    }
+                    throw new Error(`Stream failed: ${streamResponse.status}`);
+                }
 
                 const reader = streamResponse.body?.getReader();
                 if (!reader) throw new Error('No response body');
@@ -1583,7 +1594,13 @@ If asked tech stack: "MERN Stack."`;
             let errorMessage = `### Error\n${error.message || 'Unknown error'}`;
             if (error.message?.includes('401')) errorMessage = "### Sign In Required\nPlease sign in again.";
             else if (error.message?.includes('402')) errorMessage = "### Premium Required\nUpgrade to use Zen AI.";
-            else if (error.message?.includes('429')) errorMessage = "### Rate Limited\nPlease wait and try again.";
+            else if (error.message?.startsWith('COOLDOWN:')) {
+                const timeLeft = error.message.replace('COOLDOWN:', '');
+                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for unlimited AI access, or wait **${timeLeft}** for your cooldown to reset.`;
+            }
+            else if (error.message?.includes('429')) {
+                errorMessage = "### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for unlimited AI access, or wait for your cooldown to reset.";
+            }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage, createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
         } finally {
             setIsLoading(false);
