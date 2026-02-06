@@ -1761,27 +1761,38 @@ If asked tech stack: "MERN Stack."`;
                             </p>
                             
                             {/* Suggestion cards - stack on mobile */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
                                 <button
                                     disabled={aiLocked}
-                                    onClick={() => setInput("Summarize the key themes...")}
+                                    onClick={() => setInput("What tasks are due this week and how should I prioritize them?")}
                                     className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
                                         aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 active:bg-emerald-500/10'
                                     }`}
                                 >
-                                    <p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-2">Synthesis</p>
-                                    <p className="text-sm sm:text-base text-white">"Summarize the key themes..."</p>
+                                    <p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-2">Plan</p>
+                                    <p className="text-sm sm:text-base text-white">"What's due this week and how should I prioritize?"</p>
                                 </button>
 
                                 <button
                                     disabled={aiLocked}
-                                    onClick={() => setInput("Create a quiz for review...")}
+                                    onClick={() => setInput("Help me break down my upcoming tasks into smaller steps")}
                                     className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
                                         aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-purple-500/30 hover:bg-purple-500/5 active:bg-purple-500/10'
                                     }`}
                                 >
-                                    <p className="text-[10px] text-purple-400 uppercase font-bold tracking-wider mb-2">Practice</p>
-                                    <p className="text-sm sm:text-base text-white">"Create a quiz for review..."</p>
+                                    <p className="text-[10px] text-purple-400 uppercase font-bold tracking-wider mb-2">Organize</p>
+                                    <p className="text-sm sm:text-base text-white">"Break down my tasks into smaller steps"</p>
+                                </button>
+
+                                <button
+                                    disabled={aiLocked}
+                                    onClick={() => setInput("Create a study schedule for my past due and upcoming deadlines")}
+                                    className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
+                                        aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-amber-500/30 hover:bg-amber-500/5 active:bg-amber-500/10'
+                                    }`}
+                                >
+                                    <p className="text-[10px] text-amber-400 uppercase font-bold tracking-wider mb-2">Schedule</p>
+                                    <p className="text-sm sm:text-base text-white">"Create a study schedule for my deadlines"</p>
                                 </button>
                             </div>
                         </div>
