@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tab, ZenState } from '../types';
-import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot, IconLogOut } from './Icons';
+import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot, IconLogOut, IconChevronRight } from './Icons';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
@@ -243,9 +243,10 @@ const Layout: React.FC<LayoutProps> = () => {
     { tab: Tab.Focus, icon: IconFocus, label: 'Focus', path: tabPaths[Tab.Focus] },
     { tab: Tab.Library, icon: IconLibrary, label: 'Library', path: tabPaths[Tab.Library] },
   ];
+  const activeNavItem = navItems.find((item) => item.tab === activeTab) ?? { label: 'Home' };
 
   return (
-    <div className="flex h-screen w-full bg-zen-bg text-zen-text-primary overflow-hidden font-sans selection:bg-zen-primary/30">
+    <div className="app-shell flex h-screen w-full overflow-hidden font-sans text-zen-text-primary selection:bg-zen-primary/30">
       <a
         href="#main-content"
         className="fixed left-4 top-4 z-[200] -translate-y-24 rounded-lg bg-zen-primary px-4 py-2 font-semibold text-zen-bg transition-transform focus:translate-y-0"
@@ -269,18 +270,22 @@ const Layout: React.FC<LayoutProps> = () => {
       )}
       
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden lg:flex flex-col w-72 h-full border-r border-zen-surface bg-zen-bg z-30 transition-all duration-300">
-        <div className="p-8 pb-4">
+      <aside className="app-sidebar z-30 hidden h-full w-[272px] flex-col lg:flex">
+        <div className="px-5 pb-5 pt-6">
           <div className="flex items-center gap-3">
-             <h1 className="text-2xl font-bold tracking-wide text-zen-primary">ZEN</h1>
+            <div className="brand-mark" aria-hidden="true"><span>A</span></div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-[15px] font-bold tracking-[-0.02em] text-white">AcademiaZen</h1>
+                {isPremium && <span className="plan-chip">Pro</span>}
+              </div>
+              <p className="mt-0.5 text-[11px] text-zen-text-disabled">Your study operating system</p>
+            </div>
           </div>
-          {isPremium && (
-            <p className="text-[9px] text-zen-primary/80 mt-1 ml-1 tracking-[0.3em] uppercase font-black">Premium</p>
-          )}
-          <p className="text-xs text-zen-text-disabled mt-2 ml-1 tracking-wider uppercase">Student Dashboard</p>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto no-scrollbar">
+        <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-3 py-3" aria-label="Primary navigation">
+          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Workspace</p>
           {navItems.map((item) => {
             const isActive = activeTab === item.tab;
             const isFocusRunning = item.tab === Tab.Focus && focusSession.isActive;
@@ -290,53 +295,42 @@ const Layout: React.FC<LayoutProps> = () => {
                 key={item.tab}
                 onClick={() => navigate(item.path)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center gap-4 px-4 py-3.5 w-full rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                  isActive 
-                    ? 'bg-zen-surface text-zen-primary shadow-lg shadow-black/20' 
-                    : 'text-zen-text-secondary hover:bg-zen-surface/50 hover:text-zen-text-primary'
+                className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                  isActive
+                    ? 'nav-item-active text-white'
+                    : 'text-zen-text-secondary hover:bg-white/[0.045] hover:text-white'
                 }`}
               >
-                {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-zen-primary rounded-r-full shadow-[0_0_10px_2px_rgba(99,255,218,0.3)]"></div>}
-                <item.icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'} ${isFocusRunning && !isActive ? 'animate-pulse text-zen-primary' : ''}`} />
-                <span className="font-medium tracking-wide text-sm">{item.label}</span>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${isActive ? 'border-zen-primary/20 bg-zen-primary/10 text-zen-primary' : 'border-white/5 bg-white/[0.025] group-hover:border-white/10'} ${isFocusRunning && !isActive ? 'animate-pulse text-zen-primary' : ''}`}>
+                  <item.icon className="h-[18px] w-[18px]" />
+                </span>
+                <span className="text-sm font-semibold tracking-[-0.01em]">{item.label}</span>
+                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-zen-primary shadow-[0_0_12px_rgba(100,255,218,0.8)]" aria-hidden="true" />}
               </button>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-zen-surface/50 space-y-2 bg-gradient-to-t from-zen-bg to-transparent">
+        <div className="space-y-2 border-t border-white/[0.06] p-3">
              <button 
                onClick={() => setShowAI(true)}
                aria-label="Open Zen AI"
-               className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zen-surface/80 transition-all text-zen-secondary group border border-transparent hover:border-zen-surface"
+               className="ai-launch-card group flex w-full items-center gap-3 rounded-2xl p-3.5 text-left text-zen-secondary transition-colors"
              >
-               <div className="p-1.5 bg-zen-secondary/10 rounded-lg group-hover:bg-zen-secondary/20 transition-colors">
+               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-zen-secondary/20 bg-zen-secondary/10">
                    <IconBot className="w-5 h-5" />
                </div>
                <div className="flex flex-col items-start">
-                   <span className="text-sm font-medium">Zen AI Guide</span>
-                   <span className="text-[10px] text-zen-text-disabled group-hover:text-zen-text-secondary">Ready to help</span>
+                   <span className="text-sm font-semibold text-white">Ask Zen AI</span>
+                   <span className="text-[10px] text-zen-text-disabled group-hover:text-zen-text-secondary">DeepSeek V4 Flash</span>
                </div>
+               <IconChevronRight className="ml-auto h-4 w-4 text-zen-text-disabled transition-transform group-hover:translate-x-0.5" />
              </button>
 
-             <button 
-               onClick={() => setShowSettings(true)}
-               onPointerEnter={loadSettings}
-               onFocus={loadSettings}
-               aria-label="Open settings"
-               className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zen-surface/80 transition-all text-zen-text-secondary hover:text-zen-text-primary"
-             >
-               <IconSettings className="w-5 h-5" />
-               <span className="text-sm font-medium">Settings</span>
-             </button>
-
-             <button 
-               onClick={() => setShowLogoutConfirm(true)}
-               className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-500/10 transition-all text-zen-text-secondary hover:text-red-400 group"
-             >
-               <IconLogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
-               <span className="text-sm font-medium">Logout</span>
-             </button>
+             <div className="grid grid-cols-2 gap-2">
+               <button onClick={() => setShowSettings(true)} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
+               <button onClick={() => setShowLogoutConfirm(true)} className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
+             </div>
         </div>
       </aside>
 
@@ -344,23 +338,20 @@ const Layout: React.FC<LayoutProps> = () => {
       <div className="flex-1 flex flex-col h-full relative min-w-0">
         
         {/* Mobile Header (Hidden on Desktop) */}
-        <header className="lg:hidden flex justify-between items-center px-6 py-4 bg-zen-bg z-10 sticky top-0 border-b border-zen-surface/20 backdrop-blur-md bg-zen-bg/90">
-          <div className="flex items-center gap-2 group cursor-pointer">
-             <div className="flex flex-col leading-tight">
-                <h1 className="text-xl font-medium tracking-wide text-zen-primary/90">ZEN</h1>
-                {isPremium && (
-                  <span className="text-[9px] uppercase tracking-[0.3em] text-zen-primary/80 font-black">
-                    Premium
-                  </span>
-                )}
+        <header className="mobile-app-header sticky top-0 z-10 flex items-center justify-between px-4 py-3 lg:hidden">
+          <div className="flex min-w-0 items-center gap-3">
+             <div className="brand-mark brand-mark-small" aria-hidden="true"><span>A</span></div>
+             <div className="min-w-0 leading-tight">
+                <p className="truncate text-sm font-bold text-white">{activeNavItem.label}</p>
+                <p className="truncate text-[10px] text-zen-text-disabled">AcademiaZen{isPremium ? ' · Pro' : ''}</p>
              </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
              <button 
                onClick={() => setShowAI(true)}
                aria-label="Open Zen AI"
-               className="p-2 rounded-full hover:bg-zen-surface transition-all text-zen-secondary relative active:scale-90"
+               className="mobile-header-action text-zen-secondary"
              >
                <IconBot className="w-6 h-6" />
              </button>
@@ -369,7 +360,7 @@ const Layout: React.FC<LayoutProps> = () => {
                onPointerEnter={loadSettings}
                onFocus={loadSettings}
                aria-label="Open settings"
-               className="p-2 rounded-full hover:bg-zen-surface transition-all text-zen-text-secondary active:scale-90"
+               className="mobile-header-action text-zen-text-secondary"
              >
                <IconSettings className="w-6 h-6" />
              </button>
@@ -377,21 +368,21 @@ const Layout: React.FC<LayoutProps> = () => {
         </header>
 
         {/* Content Area */}
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative desktop-scroll-area pb-24 lg:pb-0 scroll-smooth">
+        <main id="main-content" tabIndex={-1} className="app-main desktop-scroll-area no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto pb-24 scroll-smooth lg:pb-0">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Home /></div>} />
-              <Route path="/calendar" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Calendar /></div>} />
-              <Route path="/review" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Review /></div>} />
-              <Route path="/focus" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Focus /></div>} />
-              <Route path="/library" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Library /></div>} />
+              <Route path="/" element={<div className="app-route"><Home /></div>} />
+              <Route path="/calendar" element={<div className="app-route"><Calendar /></div>} />
+              <Route path="/review" element={<div className="app-route"><Review /></div>} />
+              <Route path="/focus" element={<div className="app-route"><Focus /></div>} />
+              <Route path="/library" element={<div className="app-route"><Library /></div>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </main>
 
         {/* Mobile Bottom Navigation (Hidden on Desktop) */}
-        <nav className={`lg:hidden fixed bottom-0 left-0 right-0 bg-zen-bg/95 backdrop-blur-md border-t border-zen-surface px-4 py-2 pb-6 flex justify-around items-center z-20 transition-transform duration-300 ${hideNavbar || keyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
+        <nav aria-label="Mobile navigation" className={`mobile-nav-dock fixed bottom-3 left-3 right-3 z-20 flex items-center justify-around p-1.5 lg:hidden ${hideNavbar || keyboardVisible ? 'translate-y-[150%]' : 'translate-y-0'}`}>
           {navItems.map((item) => {
             const isActive = activeTab === item.tab;
             const isFocusRunning = item.tab === Tab.Focus && focusSession.isActive;
@@ -402,15 +393,12 @@ const Layout: React.FC<LayoutProps> = () => {
                 onClick={() => navigate(item.path)}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={item.label}
-                className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 relative ${
-                  isActive ? 'text-zen-primary transform -translate-y-1' : 'text-zen-text-disabled hover:text-zen-text-secondary'
+                className={`relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1 py-2 transition-colors ${
+                  isActive ? 'bg-zen-primary/10 text-zen-primary' : 'text-zen-text-disabled hover:text-zen-text-secondary'
                 }`}
               >
-                <item.icon className={`w-6 h-6 transition-transform duration-300 ${isActive ? 'scale-110' : ''} ${isFocusRunning && !isActive ? 'animate-pulse text-zen-primary' : ''}`} />
-                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
-                {isActive && (
-                  <div className="absolute -bottom-1 w-1 h-1 bg-zen-primary rounded-full animate-scale-in" />
-                )}
+                <item.icon className={`h-5 w-5 ${isFocusRunning && !isActive ? 'animate-pulse text-zen-primary' : ''}`} />
+                <span className="truncate text-[9px] font-semibold">{item.label}</span>
               </button>
             );
           })}

@@ -2,6 +2,149 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+    .app-shell {
+        background:
+            radial-gradient(circle at 76% -12%, rgba(127, 90, 240, 0.12), transparent 34rem),
+            radial-gradient(circle at 28% 110%, rgba(100, 255, 218, 0.08), transparent 36rem),
+            #070a0f;
+    }
+
+    .app-sidebar {
+        background: linear-gradient(180deg, rgba(14, 18, 25, 0.98), rgba(8, 11, 16, 0.99));
+        border-right: 1px solid rgba(255, 255, 255, 0.065);
+        box-shadow: 24px 0 60px rgba(0, 0, 0, 0.18);
+    }
+
+    .brand-mark {
+        @apply relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-zen-primary/25 text-sm font-black text-zen-primary;
+        background: linear-gradient(145deg, rgba(100, 255, 218, 0.16), rgba(127, 90, 240, 0.13));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.24);
+    }
+
+    .brand-mark::after {
+        content: '';
+        position: absolute;
+        right: 5px;
+        top: 5px;
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: #64ffda;
+        box-shadow: 0 0 10px rgba(100, 255, 218, 0.8);
+    }
+
+    .brand-mark-small {
+        @apply h-9 w-9 rounded-xl text-xs;
+    }
+
+    .plan-chip {
+        @apply rounded-full border border-zen-primary/20 bg-zen-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-zen-primary;
+    }
+
+    .nav-item-active {
+        background: linear-gradient(90deg, rgba(100, 255, 218, 0.08), rgba(100, 255, 218, 0.025));
+        box-shadow: inset 0 0 0 1px rgba(100, 255, 218, 0.1);
+    }
+
+    .ai-launch-card {
+        border: 1px solid rgba(127, 90, 240, 0.2);
+        background: linear-gradient(135deg, rgba(127, 90, 240, 0.12), rgba(100, 255, 218, 0.055));
+    }
+
+    .ai-launch-card:hover {
+        border-color: rgba(127, 90, 240, 0.34);
+        background: linear-gradient(135deg, rgba(127, 90, 240, 0.17), rgba(100, 255, 218, 0.08));
+    }
+
+    .sidebar-utility {
+        @apply flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] px-2 text-[11px] font-semibold text-zen-text-secondary transition-colors hover:border-white/10 hover:bg-white/[0.045] hover:text-white;
+    }
+
+    .mobile-app-header {
+        background: rgba(8, 11, 16, 0.94);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+        backdrop-filter: blur(16px);
+    }
+
+    .mobile-header-action {
+        @apply flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.035] transition-colors hover:border-white/15 hover:bg-white/[0.07];
+    }
+
+    .app-main {
+        background:
+            linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+        background-size: 42px 42px;
+    }
+
+    .app-route {
+        @apply mx-auto h-full w-full max-w-[1540px];
+    }
+
+    .mobile-nav-dock {
+        padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 20px;
+        background: rgba(13, 17, 23, 0.96);
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(18px);
+        transition: transform 220ms ease;
+    }
+
+    .dashboard-hero {
+        @apply relative overflow-hidden rounded-[28px] border border-white/[0.07] p-6 sm:p-8;
+        background:
+            radial-gradient(circle at 84% 20%, rgba(100, 255, 218, 0.14), transparent 18rem),
+            radial-gradient(circle at 68% 140%, rgba(127, 90, 240, 0.16), transparent 22rem),
+            linear-gradient(135deg, rgba(19, 25, 34, 0.96), rgba(12, 16, 22, 0.98));
+        box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    }
+
+    .dashboard-hero::after {
+        content: '';
+        position: absolute;
+        right: -3rem;
+        top: -5rem;
+        width: 18rem;
+        height: 18rem;
+        border: 1px solid rgba(100, 255, 218, 0.1);
+        border-radius: 999px;
+        box-shadow: 0 0 0 2rem rgba(100, 255, 218, 0.018), 0 0 0 5rem rgba(127, 90, 240, 0.018);
+        pointer-events: none;
+    }
+
+    .dashboard-surface {
+        @apply rounded-[24px] border border-white/[0.07];
+        background: linear-gradient(150deg, rgba(18, 23, 31, 0.96), rgba(12, 16, 22, 0.98));
+        box-shadow: 0 18px 55px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    }
+
+    .dashboard-stat {
+        @apply relative min-h-28 overflow-hidden rounded-[20px] border border-white/[0.065] p-4 sm:min-h-32 sm:p-5;
+        background: linear-gradient(145deg, rgba(19, 25, 34, 0.92), rgba(12, 16, 22, 0.96));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    }
+
+    .dashboard-stat::after {
+        content: '';
+        position: absolute;
+        right: -1.5rem;
+        bottom: -2rem;
+        width: 6rem;
+        height: 6rem;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: 0.035;
+    }
+
+    @media (min-width: 1024px) {
+        .app-route {
+            @apply px-7 py-7;
+        }
+    }
+}
+
 @layer utilities {
     .no-scrollbar::-webkit-scrollbar {
         display: none;

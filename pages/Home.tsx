@@ -907,47 +907,57 @@ const Home: React.FC = () => {
           </div>
       )}
 
-      <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar desktop-scroll-area p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10">
-          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-8">
+      <div className="desktop-scroll-area no-scrollbar h-full w-full flex-1 overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24 lg:p-0 lg:pb-8">
+          <div className="mx-auto max-w-[1440px] space-y-6 lg:space-y-7">
              
-             <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div className="space-y-1">
-                   <h2 className="text-3xl md:text-4xl font-light text-zen-text-primary tracking-tight">{getGreeting(profile.firstName || 'Student')}</h2>
-                   <p className="text-zen-text-secondary md:text-lg font-light">{formatDateFull(new Date())}</p>
+             <header className="dashboard-hero">
+                <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                  <div className="max-w-3xl">
+                    <div className="mb-5 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-zen-primary shadow-[0_0_14px_rgba(100,255,218,0.75)]" aria-hidden="true" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zen-primary">Today&apos;s workspace</p>
+                    </div>
+                    <h2 className="max-w-2xl text-3xl font-semibold leading-[1.08] tracking-[-0.045em] text-white sm:text-4xl lg:text-5xl">{getGreeting(profile.firstName || 'Student')}</h2>
+                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-zen-text-secondary sm:text-base">Turn your workload into a clear next step. Your subjects, deadlines, and study momentum are all here.</p>
+                    <p className="mt-5 text-xs font-medium text-zen-text-disabled">{formatDateFull(new Date())}</p>
+                  </div>
+                  <button type="button" onClick={() => setShowAddSubject(true)} className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-zen-primary px-4 text-sm font-bold text-zen-bg shadow-[0_10px_30px_rgba(100,255,218,0.16)] transition-colors hover:bg-[#8affdf] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zen-primary">
+                    <IconPlus className="h-4 w-4" />
+                    New subject
+                  </button>
                 </div>
              </header>
 
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 
-                <div className="lg:col-span-8 space-y-6">
-                   <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="space-y-6 lg:col-span-8">
+                   <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={handleClearCompleted}
                         disabled={completedCount === 0}
                         aria-label={completedCount > 0 ? `Clear ${completedCount} completed tasks` : 'No completed tasks'}
-                        className={`bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 transition-all relative group h-20 sm:h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary' : 'cursor-default'}`}
+                        className={`dashboard-stat group flex flex-col items-start justify-between text-left text-zen-primary transition-colors ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary' : 'cursor-default'}`}
                       >
-                          <span className="text-2xl sm:text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
-                          <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors text-center">Completed</span>
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-zen-primary/15 bg-zen-primary/10"><IconCheck className="h-4 w-4" /></span>
+                          <span><strong className="block text-2xl font-semibold tracking-tight text-white sm:text-3xl">{completedCount}</strong><span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.14em] text-zen-text-disabled sm:text-[10px]">Completed</span></span>
                       </button>
-                      <div className="bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 h-20 sm:h-32">
-                          <span className="text-2xl sm:text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
-                          <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium text-center">Pending</span>
+                      <div className="dashboard-stat flex flex-col items-start justify-between text-zen-secondary">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-zen-secondary/15 bg-zen-secondary/10"><IconCalendar className="h-4 w-4" /></span>
+                          <span><strong className="block text-2xl font-semibold tracking-tight text-white sm:text-3xl">{pendingCount}</strong><span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.14em] text-zen-text-disabled sm:text-[10px]">Pending</span></span>
                       </div>
-                      <div className="bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-red-500/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 h-20 sm:h-32">
-                          <span className="text-2xl sm:text-4xl font-light text-red-400">{pastDueCount}</span>
-                          <span className="text-[8px] sm:text-xs text-red-400/70 uppercase tracking-wider sm:tracking-widest font-medium text-center whitespace-nowrap">Past Due</span>
+                      <div className="dashboard-stat flex flex-col items-start justify-between border-red-500/15 text-red-400">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-400/15 bg-red-400/10"><IconRefresh className="h-4 w-4" /></span>
+                          <span><strong className="block text-2xl font-semibold tracking-tight text-white sm:text-3xl">{pastDueCount}</strong><span className="mt-0.5 block whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.14em] text-red-400/70 sm:text-[10px]">Past due</span></span>
                       </div>
                    </div>
 
-                    <section className="bg-gradient-to-br from-zen-surface to-zen-card rounded-2xl sm:rounded-3xl p-3 sm:p-6 lg:p-8 border border-zen-surface shadow-xl relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-zen-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-zen-secondary/20 transition-colors duration-1000"></div>
-                      <div className="relative z-10">
-                        <h3 className="text-base sm:text-lg font-medium text-zen-text-primary mb-4 sm:mb-6 flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-zen-secondary"></div>
-                          Up Next
-                        </h3>
+                    <section className="dashboard-surface p-4 sm:p-6 lg:p-7">
+                      <div>
+                        <div className="mb-5 flex items-end justify-between gap-4">
+                          <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zen-primary">Priority queue</p><h3 className="text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">Next actions</h3></div>
+                          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-zen-text-secondary">{upNextTasks.length} upcoming</span>
+                        </div>
                         
                         {upNextTasks.length > 0 ? (
                             <div className="grid gap-3 sm:gap-4">
@@ -960,7 +970,20 @@ const Home: React.FC = () => {
                                 };
                                 
                                 return (
-                                <div key={task.id} className="flex items-center gap-2 sm:gap-4 bg-zen-bg/50 p-2.5 sm:p-4 rounded-xl border border-zen-surface/20 hover:border-zen-primary/30 transition-all cursor-pointer" onClick={handleTaskClick}>
+                                <div
+                                  key={task.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`Open ${task.title}`}
+                                  className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/[0.055] bg-black/15 p-3 transition-colors hover:border-zen-primary/20 hover:bg-zen-primary/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary sm:gap-4 sm:p-4"
+                                  onClick={handleTaskClick}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      handleTaskClick();
+                                    }
+                                  }}
+                                >
                                     <div className={`w-1 sm:w-1.5 h-10 sm:h-12 rounded-full flex-shrink-0 ${idx === 0 ? 'bg-zen-primary' : 'bg-zen-text-disabled'}`}></div>
                                     <div className="flex-1 min-w-0 overflow-hidden">
                                         <h4 className="text-xs sm:text-base text-zen-text-primary font-medium truncate">{task.title}</h4>
@@ -1040,11 +1063,11 @@ const Home: React.FC = () => {
                    </section>
                 </div>
                 
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-zen-card/50 backdrop-blur-sm rounded-3xl p-6 border border-zen-surface h-full min-h-[400px]">
+                <div className="space-y-6 lg:col-span-4">
+                    <div className="dashboard-surface h-full min-h-[400px] p-5 sm:p-6">
                        <div className="flex justify-between items-center mb-6">
-                          <h3 className="text-xl font-bold text-zen-text-primary tracking-tight">Subjects</h3>
-                          <button onClick={() => setShowAddSubject(true)} aria-label="Create subject" className="p-2 hover:bg-zen-surface rounded-full text-zen-primary transition-colors"><IconPlus className="w-5 h-5" /></button>
+                          <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zen-secondary">Study spaces</p><h3 className="text-xl font-semibold tracking-[-0.025em] text-white">Subjects</h3></div>
+                          <button onClick={() => setShowAddSubject(true)} aria-label="Create subject" className="flex h-10 w-10 items-center justify-center rounded-xl border border-zen-primary/15 bg-zen-primary/10 text-zen-primary transition-colors hover:bg-zen-primary/15"><IconPlus className="w-5 h-5" /></button>
                        </div>
                        
                        {showAddSubject && (
