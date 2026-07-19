@@ -1538,17 +1538,13 @@ If asked tech stack: "MERN Stack."`;
             setOpenThinkingPanels(prev => ({ ...prev, 'thinking-streaming': true }));
             abortControllerRef.current = new AbortController();
 
-            const token = await auth.currentUser?.getIdToken();
-            const apiUrl = (import.meta as any).env?.VITE_API_URL || '';
-
             try {
-                const streamResponse = await fetch(`${apiUrl}/api/ai/chat/stream`, {
+                const streamResponse = await apiFetch('/api/ai/chat/stream', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'text/event-stream',
                         'Cache-Control': 'no-cache',
-                        'Authorization': token ? `Bearer ${token}` : '',
                     },
                     body: JSON.stringify({
                         prompt,
@@ -1712,6 +1708,9 @@ If asked tech stack: "MERN Stack."`;
             else if (error.message?.includes('429')) {
                 errorMessage = "### Rate Limited\nToo many requests. Please wait a moment and try again.";
             }
+            else if (error instanceof TypeError && error.message?.toLowerCase().includes('fetch')) {
+                errorMessage = "### Connection Issue\nZen AI couldn't reach the service. Check your connection and try again.";
+            }
             setMessages(prev => [...prev, { role: 'ai', text: errorMessage, createdAt: new Date().toISOString(), id: crypto.randomUUID() }]);
         } finally {
             setIsLoading(false);
@@ -1728,7 +1727,7 @@ If asked tech stack: "MERN Stack."`;
     return (
         <aside
             id="zen-ai-panel"
-            className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full flex-col overflow-hidden font-sans sm:w-[min(520px,100vw)] xl:relative xl:inset-auto xl:z-30 xl:h-full xl:w-[440px] xl:shrink-0 2xl:w-[480px]"
+            className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full flex-col overflow-hidden font-sans sm:w-[min(520px,100vw)] min-[1180px]:relative min-[1180px]:inset-auto min-[1180px]:z-30 min-[1180px]:h-full min-[1180px]:w-[420px] min-[1180px]:shrink-0 xl:w-[440px] 2xl:w-[480px]"
             aria-label="Zen AI assistant"
         >
             {/* ================================================================

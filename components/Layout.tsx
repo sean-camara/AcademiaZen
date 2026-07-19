@@ -40,7 +40,7 @@ const SettingsLoading = () => (
 const AIPanelLoading = () => (
   <aside
     id="zen-ai-panel"
-    className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full items-center justify-center sm:w-[min(520px,100vw)] xl:relative xl:inset-auto xl:z-30 xl:h-full xl:w-[440px] xl:shrink-0 2xl:w-[480px]"
+    className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full items-center justify-center sm:w-[min(520px,100vw)] min-[1180px]:relative min-[1180px]:inset-auto min-[1180px]:z-30 min-[1180px]:h-full min-[1180px]:w-[420px] min-[1180px]:shrink-0 xl:w-[440px] 2xl:w-[480px]"
     aria-label="Opening Zen AI"
     aria-live="polite"
   >
@@ -453,7 +453,7 @@ const Layout: React.FC<LayoutProps> = () => {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-[100] hidden cursor-default bg-black/55 backdrop-blur-[2px] sm:block xl:hidden"
+            className="fixed inset-0 z-[100] hidden cursor-default bg-black/55 backdrop-blur-[2px] sm:block min-[1180px]:hidden"
             onClick={() => setShowAI(false)}
             aria-label="Close Zen AI"
           />

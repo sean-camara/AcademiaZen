@@ -9,7 +9,17 @@ vi.mock('../../firebase', () => ({
   }
 }));
 
-import { apiFetch, apiFetchWithTimeout } from '../../utils/api';
+import { apiFetch, apiFetchWithTimeout, resolveApiBaseUrl } from '../../utils/api';
+
+describe('resolveApiBaseUrl', () => {
+  it.each(['academiazen.app', 'www.academiazen.app'])('uses the same-origin proxy on %s', (hostname) => {
+    expect(resolveApiBaseUrl('https://api.academiazen.app', hostname)).toBe('');
+  });
+
+  it('preserves the configured backend during local development', () => {
+    expect(resolveApiBaseUrl('http://localhost:3001', 'localhost')).toBe('http://localhost:3001');
+  });
+});
 
 describe('API Utils', () => {
   const mockFetch = vi.fn();
