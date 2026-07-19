@@ -30,11 +30,11 @@ export interface UsePushNotificationsReturn {
 /**
  * React hook for managing push notifications
  */
-export function usePushNotifications(): UsePushNotificationsReturn {
+export function usePushNotifications(enabled = true): UsePushNotificationsReturn {
   const [isSupported] = useState(() => isPushSupported());
   const [permission, setPermission] = useState<NotificationPermission>(() => getPermissionStatus());
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   // Check current subscription status
@@ -71,8 +71,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   // Initialize on mount
   useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+    void refreshStatus();
+  }, [enabled, refreshStatus]);
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {

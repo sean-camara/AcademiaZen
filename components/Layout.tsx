@@ -12,7 +12,8 @@ const Calendar = lazy(() => import('@/pages/Calendar'));
 const Review = lazy(() => import('@/pages/Review'));
 const Focus = lazy(() => import('@/pages/Focus'));
 const Library = lazy(() => import('@/pages/Library'));
-const Settings = lazy(() => import('@/pages/Settings'));
+const loadSettings = () => import('@/pages/Settings');
+const Settings = lazy(loadSettings);
 const ZenAI = lazy(() => import('@/pages/ZenAI'));
 
 const RouteLoading = () => (
@@ -20,6 +21,17 @@ const RouteLoading = () => (
     <div className="flex items-center gap-3 text-sm text-zen-text-secondary">
       <span className="h-5 w-5 animate-spin rounded-full border-2 border-zen-primary border-t-transparent" aria-hidden="true" />
       Loading your study space…
+    </div>
+  </div>
+);
+
+const SettingsLoading = () => (
+  <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/75 md:items-center" role="status" aria-live="polite">
+    <div className="flex h-[92vh] w-full items-center justify-center rounded-t-[2rem] border border-white/10 bg-[#0D1117] md:h-[min(780px,calc(100vh-2rem))] md:w-[min(950px,calc(100vw-2rem))] md:rounded-[2rem]">
+      <div className="flex items-center gap-3 text-sm text-zen-text-secondary">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-zen-primary border-t-transparent" aria-hidden="true" />
+        Opening settings…
+      </div>
     </div>
   </div>
 );
@@ -37,6 +49,16 @@ const Layout: React.FC<LayoutProps> = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const preload = () => { void loadSettings(); };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = globalThis.setTimeout(preload, 500);
+    return () => globalThis.clearTimeout(id);
+  }, []);
 
   const tabPaths: Record<Tab, string> = {
     [Tab.Home]: '/',
@@ -267,6 +289,7 @@ const Layout: React.FC<LayoutProps> = () => {
         <div className="p-4 border-t border-zen-surface/50 space-y-2 bg-gradient-to-t from-zen-bg to-transparent">
              <button 
                onClick={() => setShowAI(true)}
+               aria-label="Open Zen AI"
                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zen-surface/80 transition-all text-zen-secondary group border border-transparent hover:border-zen-surface"
              >
                <div className="p-1.5 bg-zen-secondary/10 rounded-lg group-hover:bg-zen-secondary/20 transition-colors">
@@ -280,6 +303,9 @@ const Layout: React.FC<LayoutProps> = () => {
 
              <button 
                onClick={() => setShowSettings(true)}
+               onPointerEnter={loadSettings}
+               onFocus={loadSettings}
+               aria-label="Open settings"
                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zen-surface/80 transition-all text-zen-text-secondary hover:text-zen-text-primary"
              >
                <IconSettings className="w-5 h-5" />
@@ -315,12 +341,16 @@ const Layout: React.FC<LayoutProps> = () => {
           <div className="flex items-center gap-4">
              <button 
                onClick={() => setShowAI(true)}
+               aria-label="Open Zen AI"
                className="p-2 rounded-full hover:bg-zen-surface transition-all text-zen-secondary relative active:scale-90"
              >
                <IconBot className="w-6 h-6" />
              </button>
              <button 
                onClick={() => setShowSettings(true)}
+               onPointerEnter={loadSettings}
+               onFocus={loadSettings}
+               aria-label="Open settings"
                className="p-2 rounded-full hover:bg-zen-surface transition-all text-zen-text-secondary active:scale-90"
              >
                <IconSettings className="w-6 h-6" />
@@ -369,7 +399,7 @@ const Layout: React.FC<LayoutProps> = () => {
 
       {/* Overlays */}
       {showSettings && (
-        <Suspense fallback={<RouteLoading />}>
+        <Suspense fallback={<SettingsLoading />}>
           <Settings
             onClose={() => {
               setShowSettings(false);
