@@ -13,6 +13,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:run": "playwright test",
     "verify": "npm run typecheck && npm run test:run && npm run build && npm run check:bundle"
   },
   "dependencies": {
@@ -22,6 +24,7 @@
     "react-router-dom": "7.18.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

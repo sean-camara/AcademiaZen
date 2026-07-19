@@ -86,7 +86,7 @@ const Landing: React.FC = () => {
         <nav aria-label="Primary navigation" className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <Link to="/" className="flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300">
             <span className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-300/25 bg-emerald-300/10 font-semibold text-emerald-200">A</span>
-            <span className="font-semibold tracking-tight text-white">AcademiaZen</span>
+            <span className="sr-only min-[430px]:not-sr-only min-[430px]:font-semibold min-[430px]:tracking-tight min-[430px]:text-white">AcademiaZen</span>
           </Link>
           <div className="hidden items-center gap-8 text-sm text-slate-400 md:flex">
             <a href="#workflow" className="hover:text-white">How it works</a>
@@ -94,13 +94,13 @@ const Landing: React.FC = () => {
             <a href="#trust" className="hover:text-white">Trust</a>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link to="/login" className="min-h-11 rounded-xl px-3 py-3 text-sm font-medium text-slate-300 hover:text-white sm:px-4">Sign in</Link>
-            <Link to="/login?mode=signup" className="min-h-11 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#09201a] hover:bg-emerald-200 sm:px-5">Get started</Link>
+            <Link to="/login" className="min-h-11 whitespace-nowrap rounded-xl px-3 py-3 text-sm font-medium text-slate-300 hover:text-white sm:px-4">Sign in</Link>
+            <Link to="/login?mode=signup" className="min-h-11 whitespace-nowrap rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#09201a] hover:bg-emerald-200 sm:px-5">Get started</Link>
           </div>
         </nav>
       </header>
 
-      <main id="main">
+      <main id="main" tabIndex={-1} className="focus:outline-none">
         <section className="relative isolate mx-auto grid min-h-[760px] max-w-[1600px] items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:px-12 lg:py-24">
           <div className="relative z-10 max-w-2xl">
             <p className="mb-6 inline-flex rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">Your calm academic system</p>

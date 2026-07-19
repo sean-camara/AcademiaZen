@@ -14,6 +14,21 @@ Measured 2026-07-19 on Windows Node 22.19.0/npm 10.9.3 and the production VPS.
 
 The build warns that the sole JS chunk exceeds 500 kB and that `utils/api.ts` cannot be split because it is both static and dynamic. Browser capture loaded the auth page with no console errors; one autocomplete warning was observed.
 
+## Modernized build comparison
+
+Measured on the same workstation after the first modernization slice:
+
+| Measure | Modernized build |
+|---|---:|
+| transformed modules | 63 |
+| CSS | 95.43 kB / 15.99 kB gzip |
+| initial JS | 289.61 kB / 89.67 kB gzip |
+| landing route | 15.26 kB / 4.35 kB gzip |
+| auth route | 11.79 kB / 3.52 kB gzip |
+| largest authenticated route | 59.71 kB / 17.24 kB gzip |
+
+Initial JavaScript gzip is 53.6% below baseline. Route splitting, responsive WebP artwork, a CI bundle budget, and a manifest-driven public-shell precache were added. Chromium smoke tests confirm no 360 px overflow and a previously installed production shell can reload offline. Lighthouse/Core Web Vitals remain unmeasured because the requested Chrome DevTools integration was unavailable; no score is inferred.
+
 ## Budgets
 
 - Public landing critical JS <= 120 kB gzip; optional 3D excluded and lazy.

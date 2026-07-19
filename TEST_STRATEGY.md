@@ -16,6 +16,10 @@ On 2026-07-19, `npm run test:run` passed 4 files/48 tests in 4.14 s. Coverage is
 
 Clean lockfile install, strict typecheck, lint, format check, unit/component tests, production build, critical Playwright smoke, bundle budget, and dependency review. Tests assert behavior and accessible names, not Tailwind class strings.
 
+## Implemented browser gate
+
+`npm run test:e2e` builds the production bundle and runs Chromium against `vite preview`. The initial suite verifies the public heading and signup path, keyboard skip-link focus transfer, anonymous protected-route redirect, 360 px overflow, reduced-motion CSS, and an installed production shell reloading offline. CI installs Chromium and runs the same suite. Authenticated student workflows still require isolated Firebase/Mongo/provider test fixtures before they can be automated safely.
+
 ## Production smoke boundary
 
 Use only public endpoints and a designated non-sensitive test account. Never delete, bulk edit, purchase, exhaust quota, or upload private material in production smoke tests.

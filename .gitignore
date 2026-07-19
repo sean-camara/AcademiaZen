@@ -32,4 +32,6 @@ dist-ssr
 # Local browser-audit artifacts
 .playwright-cli/
 output/
+playwright-report/
+test-results/
 public/images/study-world-hero.png
