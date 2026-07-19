@@ -93,6 +93,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false);
   const [extensionLoading, setExtensionLoading] = useState(false);
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const profileSavedTimerRef = React.useRef<number | null>(null);
 
   // ... (Hooks and effects remain largely same but simplified calls)
   useEffect(() => {
@@ -109,14 +111,26 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     }
   }, [initialTab]);
 
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (profileSavedTimerRef.current) window.clearTimeout(profileSavedTimerRef.current);
+    };
+  }, [onClose]);
+
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     setProfileSaved(false);
     updateProfile({ firstName: localFirstName, lastName: localLastName, university: localUni });
     try {
-        await new Promise(resolve => setTimeout(resolve, 800)); 
         setProfileSaved(true);
-        setTimeout(() => setProfileSaved(false), 3000);
+        if (profileSavedTimerRef.current) window.clearTimeout(profileSavedTimerRef.current);
+        profileSavedTimerRef.current = window.setTimeout(() => setProfileSaved(false), 3000);
     } catch (e) {
         console.error('Save failed', e);
     } finally {
@@ -330,7 +344,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     subscribe: subscribeToPush,
     unsubscribe: unsubscribeFromPush,
     showNotification: testNotification
-  } = usePushNotifications();
+  } = usePushNotifications(activeTab === 'notifications');
 
   const handlePushToggle = async () => {
     try {
@@ -357,26 +371,29 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-[150] flex flex-col items-center justify-end md:justify-center animate-fade-in">
+    <div className="fixed inset-0 z-[150] flex flex-col items-center justify-end md:justify-center">
         {/* Backdrop */}
         <div 
-            className="absolute inset-0 bg-[#050505]/60 backdrop-blur-xl transition-all" 
+            className="absolute inset-0 bg-black/75"
             onClick={onClose}
+            aria-hidden="true"
         />
         
         {/* Main Panel - Zen Control Center */}
-        <div className="relative w-full md:w-auto h-[92vh] md:h-auto md:max-h-[85vh] md:aspect-[1.3/1] md:min-w-[950px] flex flex-col bg-[#0D1117]/80 backdrop-blur-2xl border-t md:border border-white/5 rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up-mobile md:animate-scale-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="relative w-full md:w-[min(950px,calc(100vw-2rem))] h-[92vh] md:h-[min(780px,calc(100vh-2rem))] flex flex-col bg-[#0D1117] border-t md:border border-white/10 rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up-mobile">
             
             {/* Header & Navigation */}
             <div className="flex-none p-6 md:p-8 md:pb-6 flex flex-col gap-6 md:gap-8 z-10 border-b border-white/5 bg-[#0D1117]/50">
                 <div className="flex items-center justify-between pl-2">
-                    <h2 className="text-xl md:text-2xl font-light text-white tracking-tight flex items-center gap-3">
+                    <h2 id="settings-title" className="text-xl md:text-2xl font-semibold text-white tracking-tight flex items-center gap-3">
                         <IconSettings className="w-6 h-6 text-emerald-500" />
                         Settings
                     </h2>
                     <button 
+                        ref={closeButtonRef}
                         onClick={onClose}
-                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all transform hover:rotate-90"
+                        aria-label="Close settings"
+                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                     >
                         <IconX className="w-5 h-5" />
                     </button>
@@ -384,10 +401,13 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                 {/* Pill Navigation */}
                 <div className="flex items-center justify-center">
-                    <div className="flex items-center gap-1 p-1.5 rounded-2xl bg-[#000000]/30 border border-white/5 overflow-x-auto no-scrollbar max-w-full">
+                    <div role="tablist" aria-label="Settings sections" className="flex items-center gap-1 p-1.5 rounded-2xl bg-black/30 border border-white/5 overflow-x-auto no-scrollbar max-w-full">
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}
+                                role="tab"
+                                aria-selected={activeTab === tab.id}
+                                aria-controls={`settings-panel-${tab.id}`}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`relative px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2.5 ${
                                     activeTab === tab.id 
@@ -407,7 +427,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 bg-gradient-to-b from-transparent to-black/20">
+            <div id={`settings-panel-${activeTab}`} role="tabpanel" className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-8 bg-gradient-to-b from-transparent to-black/20">
                 <div className="max-w-4xl mx-auto space-y-8 min-h-full pb-10">
                     
                     {/* Focus Settings */}
@@ -450,6 +470,9 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         </div>
                                         <button 
                                             onClick={() => updateSettings({ autoBreak: !state.settings.autoBreak })}
+                                            role="switch"
+                                            aria-checked={state.settings.autoBreak}
+                                            aria-label="Automatically start breaks"
                                             className={`w-12 h-7 rounded-full p-1 transition-all flex-shrink-0 ${state.settings.autoBreak ? 'bg-emerald-500' : 'bg-white/10'}`}
                                         >
                                             <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${state.settings.autoBreak ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -483,7 +506,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                     {/* Notification Settings */}
                     {activeTab === 'notifications' && (
-                        <div className="animate-reveal space-y-6 max-w-2xl mx-auto">
+                        <div className="space-y-6 max-w-2xl mx-auto">
                             {!pushSupported ? (
                                 <div className="p-8 rounded-[2rem] bg-red-500/5 border border-red-500/20 text-red-400 text-center">
                                     <IconX className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -493,6 +516,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                 <button
                                     onClick={handlePushToggle}
                                     disabled={pushLoading || pushPermission === 'denied'}
+                                    role="switch"
+                                    aria-checked={isPushSubscribed}
                                     className={`w-full p-8 rounded-[2rem] border transition-all flex items-center justify-between group ${
                                         isPushSubscribed 
                                             ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.1)]' 
@@ -534,6 +559,9 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                             <button 
                                                 onClick={() => updateSettings({ [item.key]: !state.settings[item.key as keyof typeof state.settings] })}
+                                                role="switch"
+                                                aria-checked={Boolean(state.settings[item.key as keyof typeof state.settings])}
+                                                aria-label={item.label}
                                                 className={`w-10 h-6 rounded-full p-1 transition-all ${
                                                     (state.settings as any)[item.key] ? 'bg-emerald-500' : 'bg-white/10'
                                                 }`}
@@ -1055,9 +1083,9 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
             </div>
 
             {/* Footer */}
-            <div className="flex-none p-6 md:p-8 pt-0 border-t border-white/5 bg-[#0D1117]/80 backdrop-blur-xl">
+            <div className="flex-none px-6 py-4 md:px-8 border-t border-white/5 bg-[#0D1117]">
                  <div className="flex items-center justify-between max-w-4xl mx-auto w-full pt-4 opacity-50 hover:opacity-100 transition-opacity">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">AcademiaZen v2.0 // Student OS</span>
+                    <span className="text-xs text-gray-500">AcademiaZen settings</span>
                     <button 
                         onClick={() => setShowLogoutConfirm(true)}
                         className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest flex items-center gap-2"
