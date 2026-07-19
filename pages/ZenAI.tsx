@@ -1621,33 +1621,35 @@ If asked tech stack: "MERN Stack."`;
                         
                         if (!eventType || !eventData) continue;
                         
+                        let data: { text?: string; responseTimeMs?: number; message?: string };
                         try {
-                            const data = JSON.parse(eventData);
-                            
-                            switch (eventType) {
-                                case 'meta':
-                                    setThinkingContext('');
-                                    break;
-                                case 'thinking':
-                                    if (data.text) {
-                                        fullThinking += data.text;
-                                        setStreamingThinking(fullThinking);
-                                    }
-                                    break;
-                                case 'delta':
-                                    if (data.text) {
-                                        fullText += data.text;
-                                        setStreamingText(fullText);
-                                    }
-                                    break;
-                                case 'done':
-                                    responseTimeMs = data.responseTimeMs || 0;
-                                    break;
-                                case 'error':
-                                    throw new Error(data.message || 'Stream error');
-                            }
+                            data = JSON.parse(eventData);
                         } catch (parseErr) {
                             console.warn('SSE parse error:', parseErr);
+                            continue;
+                        }
+
+                        switch (eventType) {
+                            case 'meta':
+                                setThinkingContext('');
+                                break;
+                            case 'thinking':
+                                if (data.text) {
+                                    fullThinking += data.text;
+                                    setStreamingThinking(fullThinking);
+                                }
+                                break;
+                            case 'delta':
+                                if (data.text) {
+                                    fullText += data.text;
+                                    setStreamingText(fullText);
+                                }
+                                break;
+                            case 'done':
+                                responseTimeMs = data.responseTimeMs || 0;
+                                break;
+                            case 'error':
+                                throw new Error(data.message || 'Stream error');
                         }
                     }
                 }
