@@ -645,7 +645,7 @@ const Review: React.FC = () => {
         const correctPairs = q.pairs?.reduce((acc, p) => ({ ...acc, [p.left]: p.right }), {}) || {};
         const userPairs = userAnswer.reduce((acc, pair) => {
           const [l, r] = pair.split('::');
-          return { ...acc, [l]: r };
+          return l !== undefined && r !== undefined ? { ...acc, [l]: r } : acc;
         }, {} as Record<string, string>);
         
         let allCorrect = true;
@@ -879,7 +879,7 @@ const Review: React.FC = () => {
                     const correctPairs = question.pairs?.reduce((acc, p) => ({ ...acc, [p.left]: p.right }), {}) || {};
                     const userPairs = userAnswer.reduce((acc, pair) => {
                       const [l, r] = pair.split('::');
-                      return { ...acc, [l]: r };
+                      return l !== undefined && r !== undefined ? { ...acc, [l]: r } : acc;
                     }, {} as Record<string, string>);
                     isCorrect = Object.entries(correctPairs).every(([left, right]) => userPairs[left] === right);
                   }

@@ -177,7 +177,7 @@ const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, 
                                     <IconFileText className="w-5 h-5" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-sm text-zen-text-primary font-medium line-clamp-1">{pdf.fileName}</span>
+                                    <span className="text-sm text-zen-text-primary font-medium line-clamp-1">{pdf.name}</span>
                                     <span className="text-[10px] text-zen-text-secondary uppercase tracking-wider">Ready to archive</span>
                                 </div>
                             </div>

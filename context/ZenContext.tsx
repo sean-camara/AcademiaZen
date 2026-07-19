@@ -58,6 +58,7 @@ interface ZenContextType {
 
   // Hydration status
   isHydrated: boolean;
+  syncConflict: boolean;
 }
 
 const ZenContext = createContext<ZenContextType | undefined>(undefined);
@@ -73,6 +74,8 @@ const AMBIENCE_URLS: Record<string, string> = {
 export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [syncConflict, setSyncConflict] = useState(false);
+  const serverRevisionRef = useRef<number | null>(null);
 
   // Load initial state
   const [state, setState] = useState<ZenState>(() => {
@@ -238,7 +241,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                (s.subjects?.length > 0) || 
                (s.folders?.some(f => f.items?.length > 0)) ||
                (s.aiReviewers?.length > 0) ||
-               (s.profile?.firstName && s.profile.firstName !== 'Student');
+               Boolean(s.profile?.firstName && s.profile.firstName !== 'Student');
       };
 
       const remoteHasData = hasRealData(remote);
@@ -312,6 +315,8 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!response.ok) throw new Error('Failed to load state');
         const data = await response.json();
         if (!cancelled) {
+          serverRevisionRef.current = Number.isInteger(data?.revision) ? data.revision : null;
+          setSyncConflict(false);
           const remoteState = normalizeState((data?.state || null) as ZenState | null);
           const nextState = ensureUpdatedAt(pickLatestState(remoteState, localState));
           setState(nextState);
@@ -393,17 +398,31 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     isSyncingRef.current = true;
+    let conflicted = false;
     try {
       console.log('[Zen] Syncing state to database:', { tasks: stateToSync.tasks.length, subjects: stateToSync.subjects.length });
       const response = await apiFetch('/api/state', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: stateToSync }),
+        body: JSON.stringify({
+          state: stateToSync,
+          ...(serverRevisionRef.current !== null ? { baseRevision: serverRevisionRef.current } : {}),
+        }),
       });
+      if (response.status === 409) {
+        conflicted = true;
+        pendingStateRef.current = null;
+        setSyncConflict(true);
+        console.warn('[Zen] Sync paused because the state changed in another session');
+        return;
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         console.warn('[Zen] Database sync failed:', data);
       } else {
+        const data = await response.json().catch(() => ({}));
+        if (Number.isInteger(data?.revision)) serverRevisionRef.current = data.revision;
+        setSyncConflict(false);
         console.log('[Zen] State saved to database successfully');
       }
     } catch (err) {
@@ -411,7 +430,7 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       isSyncingRef.current = false;
       // If there's a pending state update, sync it now
-      if (pendingStateRef.current) {
+      if (!conflicted && pendingStateRef.current) {
         const pending = pendingStateRef.current;
         pendingStateRef.current = null;
         syncToBackend(pending);
@@ -917,7 +936,8 @@ export const ZenProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       clearData,
       hideNavbar,
       setHideNavbar,
-      isHydrated
+      isHydrated,
+      syncConflict,
     }}>
       {children}
     </ZenContext.Provider>

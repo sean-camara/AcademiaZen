@@ -92,7 +92,7 @@ const reducer = (state: ToastState, action: ToastAction): ToastState => {
       return { ...state, toasts: remainingToasts, queue: remainingQueue };
     }
     case 'UPDATE': {
-      const applyUpdates = (toast: ToastRecord) => {
+      const applyUpdates = (toast: ToastRecord): ToastRecord => {
         const nextType = (action.updates.type || toast.type) as ToastType;
         let nextDuration = action.updates.duration ?? toast.duration;
         if (toast.type === 'loading' && nextType !== 'loading' && action.updates.duration == null) {
@@ -108,16 +108,18 @@ const reducer = (state: ToastState, action: ToastAction): ToastState => {
         const shouldResetTimer = action.updates.duration !== undefined || toast.duration === 0 || toast.type === 'loading';
         const nextRemaining = nextDuration === 0 ? 0 : shouldResetTimer ? nextDuration : toast.remaining;
 
-        return {
+        const updatedToast: ToastRecord = {
           ...toast,
           type: nextType,
           duration: nextDuration,
           remaining: nextRemaining,
           message: nextMessage,
-          title: nextTitle,
           dismissible: nextDismissible,
           dedupeKey: nextDedupeKey,
         };
+        if (nextTitle !== undefined) updatedToast.title = nextTitle;
+        else delete updatedToast.title;
+        return updatedToast;
       };
 
       return {
@@ -345,7 +347,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         type: 'ADD',
         toast: {
           id,
-          title: options.title,
+          ...(options.title !== undefined ? { title: options.title } : {}),
           message,
           type,
           duration,

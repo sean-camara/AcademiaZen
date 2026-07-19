@@ -258,13 +258,16 @@ const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = 
 
   const handleTouchStartCanvas = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
-      touchStartX.current = e.touches[0].clientX;
+      const touch = e.touches[0];
+      if (touch) touchStartX.current = touch.clientX;
     }
   };
 
   const handleTouchEndCanvas = (e: React.TouchEvent) => {
     if (e.changedTouches.length === 1) {
-      const touchEndX = e.changedTouches[0].clientX;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const touchEndX = touch.clientX;
       const diff = touchStartX.current - touchEndX;
       
       if (Math.abs(diff) > 50) {
@@ -695,7 +698,7 @@ const Home: React.FC = () => {
     e.preventDefault();
     if (!newSubjectName.trim()) return;
     const colors = ['bg-zen-primary', 'bg-zen-secondary', 'bg-blue-400', 'bg-rose-400', 'bg-amber-400'];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)] ?? colors[0]!;
     addSubject({ id: generateId(), name: newSubjectName, color: randomColor });
     setNewSubjectName('');
     setShowAddSubject(false);
@@ -721,7 +724,13 @@ const Home: React.FC = () => {
 
   const handleSaveTaskEdit = (title: string, date: string, notes: string, pdf?: PdfAttachment) => {
     if (!editingTask) return;
-    updateTask({ ...editingTask, title, dueDate: date, notes: notes || undefined, pdfAttachment: pdf });
+    updateTask({
+      ...editingTask,
+      title,
+      dueDate: date,
+      ...(notes ? { notes } : {}),
+      ...(pdf ? { pdfAttachment: pdf } : {}),
+    });
     setEditingTask(null);
   };
 
@@ -755,7 +764,15 @@ const Home: React.FC = () => {
 
   const handleCreateTask = (title: string, date: string, notes: string, pdf?: PdfAttachment) => {
     if (!selectedSubjectId) return;
-    addTask({ id: generateId(), title, dueDate: date, completed: false, subjectId: selectedSubjectId, notes: notes || undefined, pdfAttachment: pdf });
+    addTask({
+      id: generateId(),
+      title,
+      dueDate: date,
+      completed: false,
+      subjectId: selectedSubjectId,
+      ...(notes ? { notes } : {}),
+      ...(pdf ? { pdfAttachment: pdf } : {}),
+    });
   };
 
   if (selectedSubjectId && selectedSubject) {
@@ -873,7 +890,7 @@ const Home: React.FC = () => {
         </div>
 
         {showAddTaskModal && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setShowAddTaskModal(false)} onSave={handleCreateTask} />}
-        {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate, notes: editingTask.notes || '', pdf: editingTask.pdfAttachment }} />}
+        {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate, notes: editingTask.notes || '', ...(editingTask.pdfAttachment ? { pdf: editingTask.pdfAttachment } : {}) }} />}
         {activeActionTask && <TaskActionModal task={activeActionTask} onClose={() => setActiveActionTask(null)} onToggleDone={() => { toggleTask(activeActionTask.id); setActiveActionTask(null); }} onViewPdf={() => { if (activeActionTask.pdfAttachment) setViewingPdf(activeActionTask.pdfAttachment); setActiveActionTask(null); }} onEdit={() => handleEditTask(activeActionTask)} onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })} />}
         {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
         {viewingPdf && <PDFViewer attachment={viewingPdf} onClose={() => setViewingPdf(null)} />}
