@@ -725,7 +725,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                             </div>
                                             <div className="flex justify-between">
                                                 <span>Zen AI</span>
-                                                <span>5 messages, then 12h cooldown</span>
+                                                <span>15/day, 150/month, 3 deep/day</span>
                                             </div>
                                         </div>
                                     </div>
@@ -917,7 +917,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                                         {aiUsage.monthlyNearLimit ? '⚠️ Monthly limit almost reached!' : '📊 High usage this month'}
                                                     </span>
                                                     {' '}You've used {aiUsage.monthlyUsagePercent}% of your monthly allowance. 
-                                                    Upgrade to Premium for 300 monthly requests and no cooldown.
+                                                    Upgrade to Premium for 300 monthly requests and higher daily limits.
                                                 </p>
                                             </div>
                                         )}
@@ -926,7 +926,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                         {billing?.effectivePlan !== 'premium' && aiUsage.dailyRemaining <= 10 && !aiUsage.monthlyWarning && (
                                             <div className="mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <p className="text-xs text-emerald-400">
-                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests, 300/month, and no cooldown.
+                                                    <span className="font-bold">Running low on AI requests?</span> Upgrade to Premium for 30 daily requests and 300/month.
                                                 </p>
                                             </div>
                                         )}
@@ -1218,4 +1218,3 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 };
 
 export default Settings;
-

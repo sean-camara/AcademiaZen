@@ -1689,7 +1689,7 @@ If asked tech stack: "MERN Stack."`;
             else if (error.message?.includes('402')) errorMessage = "### Premium Required\nUpgrade to use Zen AI.";
             else if (error.message?.startsWith('COOLDOWN:')) {
                 const timeLeft = error.message.replace('COOLDOWN:', '');
-                errorMessage = `### Free Limit Reached\nYou've used your 5 free messages. Upgrade to **Premium** for 30 daily requests with no cooldown, or wait **${timeLeft}** for your cooldown to reset.`;
+                errorMessage = `### Free Limit Reached\nYou've reached the configured free usage window. Upgrade to **Premium** for higher limits, or wait **${timeLeft}** for access to reset.`;
             }
             else if (error.message === 'DAILY_LIMIT') {
                 setQuotaExhausted({ type: 'daily', message: 'You\'ve used all 30 AI requests for today.' });
