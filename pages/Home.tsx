@@ -908,7 +908,7 @@ const Home: React.FC = () => {
       )}
 
       <div className="desktop-scroll-area no-scrollbar h-full w-full flex-1 overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24 lg:p-0 lg:pb-8">
-          <div className="mx-auto max-w-[1440px] space-y-6 lg:space-y-7">
+          <div className="home-dashboard mx-auto max-w-[1440px] space-y-6 lg:space-y-7">
              
              <header className="dashboard-hero">
                 <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -928,10 +928,10 @@ const Home: React.FC = () => {
                 </div>
              </header>
 
-             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+             <div className="home-dashboard-grid grid grid-cols-1 gap-6 lg:grid-cols-12">
                 
-                <div className="space-y-6 lg:col-span-8">
-                   <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                <div className="home-dashboard-primary space-y-6 lg:col-span-8">
+                   <div className="home-dashboard-stats grid grid-cols-3 gap-2.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={handleClearCompleted}
@@ -1063,7 +1063,7 @@ const Home: React.FC = () => {
                    </section>
                 </div>
                 
-                <div className="space-y-6 lg:col-span-4">
+                <div className="home-dashboard-subjects space-y-6 lg:col-span-4">
                     <div className="dashboard-surface h-full min-h-[400px] p-5 sm:p-6">
                        <div className="flex justify-between items-center mb-6">
                           <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zen-secondary">Study spaces</p><h3 className="text-xl font-semibold tracking-[-0.025em] text-white">Subjects</h3></div>

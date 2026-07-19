@@ -263,7 +263,10 @@ const Layout: React.FC<LayoutProps> = () => {
   const activeNavItem = navItems.find((item) => item.tab === activeTab) ?? { label: 'Home' };
 
   return (
-    <div className="app-shell flex h-screen w-full overflow-hidden font-sans text-zen-text-primary selection:bg-zen-primary/30">
+    <div
+      className="app-shell flex h-screen w-full overflow-hidden font-sans text-zen-text-primary selection:bg-zen-primary/30"
+      data-ai-open={showAI ? 'true' : 'false'}
+    >
       <a
         href="#main-content"
         className="fixed left-4 top-4 z-[200] -translate-y-24 rounded-lg bg-zen-primary px-4 py-2 font-semibold text-zen-bg transition-transform focus:translate-y-0"
@@ -287,11 +290,11 @@ const Layout: React.FC<LayoutProps> = () => {
       )}
       
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="app-sidebar z-30 hidden h-full w-[272px] flex-col lg:flex">
+      <aside className={`app-sidebar z-30 hidden h-full w-[272px] flex-col lg:flex ${showAI ? 'ai-sidebar-compact' : ''}`}>
         <div className="px-5 pb-5 pt-6">
           <div className="flex items-center gap-3">
             <div className="brand-mark" aria-hidden="true"><span>A</span></div>
-            <div className="min-w-0">
+            <div className="sidebar-brand-copy min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-bold tracking-[-0.02em] text-white">AcademiaZen</h1>
                 {isPremium && <span className="plan-chip">Pro</span>}
@@ -311,6 +314,7 @@ const Layout: React.FC<LayoutProps> = () => {
               <button
                 key={item.tab}
                 onClick={() => navigate(item.path)}
+                aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
                 className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                   isActive
@@ -321,8 +325,8 @@ const Layout: React.FC<LayoutProps> = () => {
                 <span className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${isActive ? 'border-zen-primary/20 bg-zen-primary/10 text-zen-primary' : 'border-white/5 bg-white/[0.025] group-hover:border-white/10'} ${isFocusRunning && !isActive ? 'animate-pulse text-zen-primary' : ''}`}>
                   <item.icon className="h-[18px] w-[18px]" />
                 </span>
-                <span className="text-sm font-semibold tracking-[-0.01em]">{item.label}</span>
-                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-zen-primary shadow-[0_0_12px_rgba(100,255,218,0.8)]" aria-hidden="true" />}
+                <span className="sidebar-nav-label text-sm font-semibold tracking-[-0.01em]">{item.label}</span>
+                {isActive && <span className="sidebar-active-dot ml-auto h-1.5 w-1.5 rounded-full bg-zen-primary shadow-[0_0_12px_rgba(100,255,218,0.8)]" aria-hidden="true" />}
               </button>
             );
           })}
@@ -339,16 +343,16 @@ const Layout: React.FC<LayoutProps> = () => {
                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-zen-secondary/20 bg-zen-secondary/10">
                    <IconBot className="w-5 h-5" />
                </div>
-               <div className="flex flex-col items-start">
+               <div className="sidebar-ai-copy flex flex-col items-start">
                    <span className="text-sm font-semibold text-white">Ask Zen AI</span>
                    <span className="text-[10px] text-zen-text-disabled group-hover:text-zen-text-secondary">DeepSeek V4 Flash</span>
                </div>
-               <IconChevronRight className="ml-auto h-4 w-4 text-zen-text-disabled transition-transform group-hover:translate-x-0.5" />
+               <IconChevronRight className="sidebar-ai-chevron ml-auto h-4 w-4 text-zen-text-disabled transition-transform group-hover:translate-x-0.5" />
              </button>
 
              <div className="grid grid-cols-2 gap-2">
                <button onClick={() => setShowSettings(true)} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
-               <button onClick={() => setShowLogoutConfirm(true)} className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
+               <button onClick={() => setShowLogoutConfirm(true)} aria-label="Sign out" className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
              </div>
         </div>
       </aside>

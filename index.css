@@ -14,6 +14,7 @@
         background: linear-gradient(180deg, rgba(14, 18, 25, 0.98), rgba(8, 11, 16, 0.99));
         border-right: 1px solid rgba(255, 255, 255, 0.065);
         box-shadow: 24px 0 60px rgba(0, 0, 0, 0.18);
+        transition: width 220ms ease, padding 220ms ease;
     }
 
     .brand-mark {
@@ -76,6 +77,8 @@
             linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
         background-size: 42px 42px;
+        container-name: workspace;
+        container-type: inline-size;
     }
 
     .app-route {
@@ -431,6 +434,65 @@ input[type="range"].slider-thumb::-moz-range-thumb:hover {
 }
 .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Keep the primary workspace usable when Zen AI shares the viewport. */
+@media (min-width: 1180px) and (max-width: 1799px) {
+    .app-sidebar.ai-sidebar-compact {
+        width: 80px;
+    }
+
+    .app-sidebar.ai-sidebar-compact > div:first-child {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .app-sidebar.ai-sidebar-compact .sidebar-brand-copy,
+    .app-sidebar.ai-sidebar-compact nav > p,
+    .app-sidebar.ai-sidebar-compact .sidebar-nav-label,
+    .app-sidebar.ai-sidebar-compact .sidebar-active-dot,
+    .app-sidebar.ai-sidebar-compact .sidebar-ai-copy,
+    .app-sidebar.ai-sidebar-compact .sidebar-ai-chevron,
+    .app-sidebar.ai-sidebar-compact .sidebar-utility span {
+        display: none;
+    }
+
+    .app-sidebar.ai-sidebar-compact nav {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .app-sidebar.ai-sidebar-compact nav button,
+    .app-sidebar.ai-sidebar-compact .ai-launch-card {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .app-sidebar.ai-sidebar-compact > div:last-child {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .app-sidebar.ai-sidebar-compact > div:last-child > div {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container workspace (max-width: 900px) {
+    .app-shell[data-ai-open='true'] .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .app-shell[data-ai-open='true'] .home-dashboard-primary,
+    .app-shell[data-ai-open='true'] .home-dashboard-subjects {
+        grid-column: 1 / -1;
+        min-width: 0;
+    }
+
+    .app-shell[data-ai-open='true'] .home-dashboard-subjects .dashboard-surface {
+        min-height: 0;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
