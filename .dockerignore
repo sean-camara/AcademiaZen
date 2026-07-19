@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+node_modules
+node_modules.pre-v8
+dist
+output
+.playwright-cli
+*.log
+README.md
+*.md

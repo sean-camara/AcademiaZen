@@ -29,7 +29,7 @@ describe('API Utils', () => {
       await apiFetch('/api/test');
       
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, options] = mockFetch.mock.calls[0];
+      const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toContain('/api/test');
       expect(options.headers.get('Authorization')).toBe('Bearer mock-token-123');
     });
@@ -37,7 +37,7 @@ describe('API Utils', () => {
     it('should prepend API_BASE_URL to path', async () => {
       await apiFetch('/api/test');
       
-      const [url] = mockFetch.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0]!;
       // URL contains the path (actual base URL may vary based on env)
       expect(url).toContain('/api/test');
     });
@@ -48,7 +48,7 @@ describe('API Utils', () => {
         body: JSON.stringify({ data: 'test' })
       });
       
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = mockFetch.mock.calls[0]!;
       expect(options.method).toBe('POST');
       expect(options.body).toBe(JSON.stringify({ data: 'test' }));
     });
@@ -58,7 +58,7 @@ describe('API Utils', () => {
         headers: { 'Content-Type': 'application/json' }
       });
       
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = mockFetch.mock.calls[0]!;
       expect(options.headers.get('Content-Type')).toBe('application/json');
     });
   });

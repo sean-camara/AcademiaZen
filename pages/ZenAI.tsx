@@ -92,7 +92,9 @@ const parseAnalysisSummaryBlock = (text: string): { plan_summary?: string; confi
     const match = text.match(/<analysis_summary>([\s\S]*?)<\/analysis_summary>/);
     if (!match) return null;
     try {
-        const parsed = JSON.parse(match[1]);
+        const payload = match[1];
+        if (payload === undefined) return null;
+        const parsed = JSON.parse(payload);
         const confidenceRaw = typeof parsed?.confidence === 'string' ? parsed.confidence.toLowerCase() : '';
         const confidence: AIAnalysisSummary['confidence'] =
             confidenceRaw === 'low' || confidenceRaw === 'medium' || confidenceRaw === 'high'
@@ -138,7 +140,7 @@ const FormattedAIResponse: React.FC<{
             }
 
             const language = match[1] || 'text';
-            const code = match[2].trim();
+            const code = (match[2] ?? '').trim();
             const blockId = `code-${codeBlockIndex}`;
 
             // Code block with horizontal scroll only - no page scroll
@@ -239,7 +241,7 @@ const FormattedAIResponse: React.FC<{
             if (standaloneBold) {
                 elements.push(
                     <div key={key} className="text-sm sm:text-base font-semibold text-emerald-400 mt-3 sm:mt-5 mb-1.5">
-                        {processInlines(standaloneBold[1], onCitationClick)}
+                        {processInlines(standaloneBold[1] ?? trimmed, onCitationClick)}
                     </div>
                 );
                 return;
@@ -368,11 +370,15 @@ const processInlines = (text: string, onCitationClick?: (citation: CitationPaylo
         // Citation 【Document p.X】
         const citationMatch = remaining.match(/^【([^】]+)】/);
         if (citationMatch) {
-            const rawLabel = citationMatch[1].trim();
+            const rawLabel = (citationMatch[1] ?? '').trim();
             const pageMatch = rawLabel.match(/p\.?\s*(\d+)/i);
-            const page = pageMatch ? Number(pageMatch[1]) : undefined;
+            const page = pageMatch?.[1] ? Number(pageMatch[1]) : undefined;
             const doc = rawLabel.replace(/\s*p\.?\s*\d+.*$/i, '').trim() || rawLabel;
-            const citationPayload = { raw: rawLabel, doc, page };
+            const citationPayload: CitationPayload = {
+                raw: rawLabel,
+                doc,
+                ...(page !== undefined ? { page } : {}),
+            };
             const chip = (
                 <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs rounded-full border border-emerald-500/30 whitespace-nowrap">
                     <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1125,14 +1131,22 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
             folder.items.forEach(item => {
                 if (item.type !== 'pdf') return;
                 const legacyData = item.content?.startsWith('data:') ? item.content : undefined;
-                targets.push({ title: item.title, file: item.file, dataUrl: legacyData });
+                targets.push({
+                    title: item.title,
+                    ...(item.file ? { file: item.file } : {}),
+                    ...(legacyData ? { dataUrl: legacyData } : {}),
+                });
             });
         });
         state.tasks.forEach(task => {
             if (!task.pdfAttachment) return;
             const legacyData = (task.pdfAttachment as any)?.data;
             const dataUrl = legacyData?.startsWith('data:') ? legacyData : undefined;
-            targets.push({ title: task.pdfAttachment.name, file: task.pdfAttachment, dataUrl });
+            targets.push({
+                title: task.pdfAttachment.name,
+                file: task.pdfAttachment,
+                ...(dataUrl ? { dataUrl } : {}),
+            });
         });
         return targets;
     }, [state.folders, state.tasks]);
@@ -1640,12 +1654,12 @@ If asked tech stack: "MERN Stack."`;
 
                 if (fullText) {
                     const cleanedText = stripAnalysisSummaryBlock(fullText);
-                    setMessages(prev => [...prev, { 
+                    setMessages(prev => [...prev, {
                         role: 'ai', 
                         text: cleanedText || fullText, 
                         createdAt: new Date().toISOString(),
                         id: crypto.randomUUID(),
-                        thinking: fullThinking || undefined,
+                        ...(fullThinking ? { thinking: fullThinking } : {}),
                     }]);
                 } else {
                     throw new Error('No response received');
@@ -1750,9 +1764,10 @@ If asked tech stack: "MERN Stack."`;
                         <button
                             onClick={() => {
                                 if (messages.length > 0) {
+                                    const firstMessage = messages[0];
                                     const newThread: ConversationThread = {
                                         id: Date.now().toString(),
-                                        title: messages[0]?.text.slice(0, 50) + (messages[0]?.text.length > 50 ? '...' : '') || 'New Chat',
+                                        title: firstMessage ? `${firstMessage.text.slice(0, 50)}${firstMessage.text.length > 50 ? '...' : ''}` : 'New Chat',
                                         messages,
                                         createdAt: new Date().toISOString(),
                                         updatedAt: new Date().toISOString()
@@ -2296,8 +2311,8 @@ If asked tech stack: "MERN Stack."`;
                                                     content: item.type === 'pdf' ? (item.file?.text || '') : (item.content || ''),
                                                     source: 'library',
                                                     folderId: folder.id,
-                                                    file: item.type === 'pdf' ? item.file : undefined,
-                                                    legacyData,
+                                                    ...(item.type === 'pdf' && item.file ? { file: item.file } : {}),
+                                                    ...(legacyData ? { legacyData } : {}),
                                                 };
                                                 return (
                                                     <button 

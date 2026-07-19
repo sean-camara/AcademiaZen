@@ -6,7 +6,7 @@ import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, Icon
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
 import AddKnowledgeModal from '../components/AddKnowledgeModal';
-import { PdfAttachment } from '../types';
+import { FolderItem, PdfAttachment } from '../types';
 import { uploadPdfToR2, getPdfSignedUrl } from '../utils/pdfStorage';
 
 // Helper: Splits text into readable chunks for the Zen Reader
@@ -359,12 +359,12 @@ const Library: React.FC = () => {
       }
     }
     
-    const item = {
+    const item: FolderItem = {
       id: generateId(),
       title: title.trim() + (type === 'note' ? '.txt' : '.pdf'),
       type: type,
       content: type === 'note' ? content : '',
-      file: type === 'pdf' ? (pdf || undefined) : undefined,
+      ...(type === 'pdf' && pdf ? { file: pdf } : {}),
     };
     addItemToFolder(activeFolderId, item);
     setIsAddingItem(false);

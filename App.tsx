@@ -1,11 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { ZenProvider } from './context/ZenContext';
 import { ToastProvider } from './context/ToastContext';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Auth from './pages/Auth';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationPrompt from './components/NotificationPrompt';
+
+const Auth = lazy(() => import('./pages/Auth'));
+const Landing = lazy(() => import('./pages/Landing'));
+
+const PageLoading = () => (
+  <div className="min-h-screen w-full bg-zen-bg flex items-center justify-center" role="status" aria-live="polite">
+    <span className="sr-only">Loading AcademiaZen</span>
+    <div className="w-10 h-10 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+  </div>
+);
 
 const VerifyEmail: React.FC = () => {
   const { user, resendVerification, signOut } = useAuth();
@@ -61,6 +71,7 @@ const VerifyEmail: React.FC = () => {
 
 const AppInner: React.FC = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -98,15 +109,17 @@ const AppInner: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen w-full bg-zen-bg flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-zen-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (!user) {
-    return <Auth />;
+    if (location.pathname === '/') {
+      return <Suspense fallback={<PageLoading />}><Landing /></Suspense>;
+    }
+    if (location.pathname === '/login') {
+      return <Suspense fallback={<PageLoading />}><Auth /></Suspense>;
+    }
+    return <Navigate to="/" replace />;
   }
 
   if (!user.emailVerified) {

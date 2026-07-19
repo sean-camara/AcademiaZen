@@ -41,12 +41,12 @@ describe('Constants', () => {
   describe('INITIAL_FOLDERS', () => {
     it('should have a General folder', () => {
       expect(INITIAL_FOLDERS).toHaveLength(1);
-      expect(INITIAL_FOLDERS[0].name).toBe('General');
-      expect(INITIAL_FOLDERS[0].id).toBe('general');
+      expect(INITIAL_FOLDERS[0]!.name).toBe('General');
+      expect(INITIAL_FOLDERS[0]!.id).toBe('general');
     });
 
     it('should have empty items in General folder', () => {
-      expect(INITIAL_FOLDERS[0].items).toEqual([]);
+      expect(INITIAL_FOLDERS[0]!.items).toEqual([]);
     });
   });
 

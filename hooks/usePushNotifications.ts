@@ -148,7 +148,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       const body = typeof options?.body === 'string' ? options.body : '';
       const icon = typeof options?.icon === 'string' ? options.icon : undefined;
       const url = (options as any)?.data?.url as string | undefined;
-      return sendPushNotification(title, body, { icon, url });
+      return sendPushNotification(title, body, {
+        ...(icon !== undefined ? { icon } : {}),
+        ...(url !== undefined ? { url } : {}),
+      });
     }
     return showLocalNotification(title, options);
   }, [permission, isSubscribed]);

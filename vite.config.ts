@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => {
         },
       },
       plugins: [react()],
+      build: {
+        manifest: true,
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

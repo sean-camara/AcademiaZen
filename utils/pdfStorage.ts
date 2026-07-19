@@ -61,9 +61,12 @@ export async function getPdfSignedUrl(key: string): Promise<string> {
 export async function uploadPdfDataUrlToR2(dataUrl: string, filename: string): Promise<PdfAttachment> {
   const parts = dataUrl.split(',');
   if (parts.length < 2) throw new Error('Invalid PDF data');
-  const mimeMatch = parts[0].match(/data:(.*?);base64/);
+  const header = parts[0];
+  const encoded = parts[1];
+  if (header === undefined || encoded === undefined) throw new Error('Invalid PDF data');
+  const mimeMatch = header.match(/data:(.*?);base64/);
   const mime = mimeMatch?.[1] || 'application/pdf';
-  const binary = atob(parts[1]);
+  const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);

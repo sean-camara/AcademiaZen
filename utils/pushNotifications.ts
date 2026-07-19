@@ -552,6 +552,6 @@ export async function sendZenNotification(
   // For server-triggered notifications
   return sendPushNotification(notification.title, notification.body, {
     url: notification.url,
-    data,
+    ...(data !== undefined ? { data } : {}),
   });
 }

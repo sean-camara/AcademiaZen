@@ -1,8 +1,7 @@
-const CACHE_NAME = 'zen-cache-v10';
-const STATIC_CACHE = 'zen-static-v10';
-const DYNAMIC_CACHE = 'zen-dynamic-v10';
+const STATIC_CACHE = 'zen-static-v11';
+const DYNAMIC_CACHE = 'zen-dynamic-v11';
 
-console.log('[SW] Service Worker v10 loaded');
+console.log('[SW] Service Worker v11 loaded');
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -28,12 +27,40 @@ const EXTERNAL_ASSETS = [
 // Local ambience sounds (already in STATIC_ASSETS)
 const AMBIENCE_URLS = [];
 
+async function cachePublicShellChunks(cache) {
+  try {
+    const response = await fetch('/.vite/manifest.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    const manifest = await response.json();
+    const assetUrls = new Set();
+    const visited = new Set();
+
+    const addEntry = (key) => {
+      if (!key || visited.has(key) || !manifest[key]) return;
+      visited.add(key);
+      const entry = manifest[key];
+      if (entry.file) assetUrls.add(`/${entry.file}`);
+      for (const css of entry.css || []) assetUrls.add(`/${css}`);
+      for (const asset of entry.assets || []) assetUrls.add(`/${asset}`);
+      for (const imported of entry.imports || []) addEntry(imported);
+    };
+
+    addEntry('index.html');
+    addEntry('pages/Landing.tsx');
+    addEntry('pages/Auth.tsx');
+    await Promise.all([...assetUrls].map((url) => cache.add(url)));
+  } catch (error) {
+    console.warn('[SW] Public shell chunk precache skipped:', error?.message || error);
+  }
+}
+
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
+    caches.open(STATIC_CACHE).then(async (cache) => {
       console.log('[SW] Caching static assets');
-      return cache.addAll(STATIC_ASSETS);
+      await cache.addAll(STATIC_ASSETS);
+      await cachePublicShellChunks(cache);
     })
   );
   self.skipWaiting();
@@ -41,7 +68,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker v10');
+  console.log('[SW] Activating service worker v11');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -53,7 +80,7 @@ self.addEventListener('activate', (event) => {
           })
       );
     }).then(() => {
-      console.log('[SW] Service worker v10 activated and claiming clients');
+      console.log('[SW] Service worker v11 activated and claiming clients');
       return self.clients.claim();
     })
   );
@@ -85,11 +112,10 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
+        .then(async (response) => {
           const clonedResponse = response.clone();
-          caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, clonedResponse);
-          });
+          const cache = await caches.open(DYNAMIC_CACHE);
+          await cache.put(request, clonedResponse);
           return response;
         })
         .catch(() => {
@@ -101,17 +127,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for JS/TS modules to ensure fresh code
+  // Production assets are content-hashed and immutable. Cache-first makes an
+  // already installed release deterministic offline while new hashes still
+  // fall through to the network after a deployment.
+  if (url.origin === self.location.origin && url.pathname.includes('/assets/')) {
+    event.respondWith(
+      caches.match(request).then(async (cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        const response = await fetch(request);
+        if (response?.ok) {
+          const cache = await caches.open(DYNAMIC_CACHE);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      })
+    );
+    return;
+  }
+
+  // Network-first for development JS/TS modules to ensure fresh code
   if (url.pathname.endsWith('.js') || url.pathname.endsWith('.ts') || 
       url.pathname.endsWith('.tsx') || url.pathname.endsWith('.jsx') ||
-      url.pathname.includes('/assets/') || url.pathname.includes('/@')) {
+      url.pathname.includes('/@')) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
+        .then(async (response) => {
           const clonedResponse = response.clone();
-          caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, clonedResponse);
-          });
+          const cache = await caches.open(DYNAMIC_CACHE);
+          await cache.put(request, clonedResponse);
           return response;
         })
         .catch(() => {
@@ -158,23 +201,21 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(request)
-        .then((response) => {
+        .then(async (response) => {
           // Don't cache if not a valid response
           if (!response || response.status !== 200 || response.type !== 'basic') {
             // Still cache external resources
             if (EXTERNAL_ASSETS.some(asset => request.url.includes(asset))) {
               const clonedResponse = response.clone();
-              caches.open(DYNAMIC_CACHE).then((cache) => {
-                cache.put(request, clonedResponse);
-              });
+              const cache = await caches.open(DYNAMIC_CACHE);
+              await cache.put(request, clonedResponse);
             }
             return response;
           }
 
           const clonedResponse = response.clone();
-          caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, clonedResponse);
-          });
+          const cache = await caches.open(DYNAMIC_CACHE);
+          await cache.put(request, clonedResponse);
 
           return response;
         })
