@@ -1840,25 +1840,19 @@ const Review: React.FC = () => {
   const hasReviewers = aiReviewers.length > 0;
 
   return (
-    <div className="h-full w-full flex flex-col bg-zen-bg animate-reveal overflow-y-auto no-scrollbar desktop-scroll-area p-4 md:p-6 lg:p-10 pb-24">
-      <div className="max-w-6xl mx-auto w-full">
+    <div className="workspace-page desktop-scroll-area no-scrollbar">
+      <div className="workspace-page-inner">
         {/* Header */}
-        <div className="md:hidden py-4 mb-4 border-b border-zen-surface/30">
-          <h2 className="text-3xl font-light text-zen-text-primary tracking-tight">Review</h2>
-          <p className="text-sm text-zen-text-secondary mt-1">AI-Powered Quiz Generation</p>
-        </div>
-
-        <div className="hidden md:block py-6 md:py-10 lg:py-16 space-y-2 md:space-y-4 text-left">
-          <h2 className="text-3xl md:text-5xl lg:text-6xl font-extralight text-zen-text-primary tracking-tight">AI Reviewers</h2>
-          <p className="text-zen-text-secondary font-light text-sm md:text-lg max-w-lg">
-            Generate intelligent quizzes from your PDFs using AI.
-          </p>
+        <div className="workspace-page-hero">
+          <p className="workspace-eyebrow">Active recall lab</p>
+          <h2 className="workspace-title">Review</h2>
+          <p className="workspace-subtitle">Turn your own PDFs into focused quizzes, track every attempt, and spend time on what you have not mastered yet.</p>
         </div>
 
         {/* Empty State */}
         {!hasReviewers && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-24 h-24 rounded-full bg-zen-surface flex items-center justify-center mb-6 overflow-hidden border border-zen-primary/20 shadow-lg shadow-zen-primary/10">
+          <div className="workspace-panel flex flex-col items-center justify-center px-6 py-16 text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] border border-zen-primary/20 bg-zen-primary/[0.06] shadow-lg shadow-zen-primary/10">
               <img src="/icons/icon.svg" alt="AcademiaZen" className="w-14 h-14 opacity-90" />
             </div>
             <h3 className="text-xl md:text-2xl font-light text-zen-text-primary mb-2">Create your first AI Reviewer</h3>
@@ -1923,7 +1917,7 @@ const Review: React.FC = () => {
           <>
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-4 md:mb-8">
-              <div className="bg-zen-card hover:bg-zen-surface/30 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-surface/50 transition-all">
+              <div className="workspace-stat">
                 <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] font-bold mb-2 md:mb-4">Reviewers</p>
                 <div className="flex items-end gap-1 md:gap-2">
                   <p className="text-2xl md:text-4xl text-zen-text-primary font-light leading-none">{aiReviewers.length}</p>
@@ -1931,7 +1925,7 @@ const Review: React.FC = () => {
                 </div>
               </div>
               
-              <div className="bg-zen-card hover:bg-zen-surface/30 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-surface/50 transition-all">
+              <div className="workspace-stat">
                 <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] font-bold mb-2 md:mb-4">Total Attempts</p>
                 <div className="flex items-end gap-1 md:gap-2">
                   <p className="text-2xl md:text-4xl text-zen-primary font-light leading-none">
@@ -1940,9 +1934,11 @@ const Review: React.FC = () => {
                 </div>
               </div>
 
-              <div 
+              <button
+                type="button"
                 onClick={() => hasPdfs && aiReviewers.length < (isPremium ? 10 : 3) && generationStatus?.remainingGenerations !== 0 && setIsCreating(true)}
-                className={'col-span-2 md:col-span-1 bg-gradient-to-br from-zen-primary/10 to-transparent p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-zen-primary/20 backdrop-blur-sm relative overflow-hidden group '+(hasPdfs && aiReviewers.length < (isPremium ? 10 : 3) && generationStatus?.remainingGenerations !== 0 ? 'cursor-pointer active:scale-[0.98]' : 'opacity-50')+' transition-all flex items-center justify-between md:flex-col md:items-start md:gap-8'}
+                disabled={!hasPdfs || aiReviewers.length >= (isPremium ? 10 : 3) || generationStatus?.remainingGenerations === 0}
+                className={'workspace-stat col-span-2 md:col-span-1 border-zen-primary/20 relative overflow-hidden group '+(hasPdfs && aiReviewers.length < (isPremium ? 10 : 3) && generationStatus?.remainingGenerations !== 0 ? 'cursor-pointer active:scale-[0.98]' : 'opacity-50')+' transition-all flex items-center justify-between md:flex-col md:items-start md:gap-8'}
               >
                 <div className="relative z-10 flex flex-col justify-center">
                   <p className="text-[10px] md:text-xs text-zen-primary uppercase tracking-[0.2em] font-bold mb-1 md:mb-4">Quick Action</p>
@@ -1954,7 +1950,7 @@ const Review: React.FC = () => {
                   <IconPlus className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
                 <div className="absolute inset-0 bg-zen-primary/5 group-hover:bg-zen-primary/10 transition-colors" />
-              </div>
+              </button>
             </div>
 
             {/* Generation Status Banner */}
@@ -2033,6 +2029,8 @@ const Review: React.FC = () => {
                   return (
                     <div
                       key={reviewer.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         if (reviewer.status === 'ready' && hasUnfinished) {
                           resumeQuiz(reviewer);
@@ -2040,7 +2038,16 @@ const Review: React.FC = () => {
                         }
                         setSelectedReviewerId(reviewer.id);
                       }}
-                      className={'group relative bg-zen-card hover:bg-zen-surface/40 p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-xl animate-reveal min-h-[160px] flex flex-col'}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        if (reviewer.status === 'ready' && hasUnfinished) {
+                          resumeQuiz(reviewer);
+                          return;
+                        }
+                        setSelectedReviewerId(reviewer.id);
+                      }}
+                      className="workspace-panel group relative flex min-h-[160px] cursor-pointer flex-col p-5 transition-colors hover:border-zen-primary/25 md:p-6"
                       style={{ animationDelay: idx * 0.05+'s' }}
                     >
                       {/* Status Badge */}

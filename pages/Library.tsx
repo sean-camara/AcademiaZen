@@ -766,26 +766,19 @@ const Library: React.FC = () => {
   const totalItems = folders.reduce((acc, f) => acc + f.items.length, 0);
 
   return (
-    <div className="h-full w-full flex flex-col animate-reveal pb-24 overflow-y-auto no-scrollbar desktop-scroll-area p-4 md:p-6 lg:p-10">
-       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
+    <div className="workspace-page desktop-scroll-area no-scrollbar">
+       <div className="workspace-page-inner">
            
            {/* Mobile Header (Visible only on small screens) */}
-           <div className="md:hidden py-4 mb-4 border-b border-zen-surface/30">
-               <h2 className="text-3xl font-light text-zen-text-primary tracking-tight">Library</h2>
-               <p className="text-sm text-zen-text-secondary mt-1">Resource Archive</p>
-           </div>
-
-           {/* Desktop Header */}
-           <div className="hidden md:block py-6 md:py-10 lg:py-16 space-y-2 md:space-y-4">
-                <h2 className="text-3xl md:text-5xl lg:text-6xl font-extralight text-zen-text-primary tracking-tight">Library</h2>
-                <p className="text-zen-text-secondary font-light text-sm md:text-lg max-w-lg">
-                    Your personal vault of curated knowledge and research.
-                </p>
+           <div className="workspace-page-hero">
+                <p className="workspace-eyebrow">Knowledge vault</p>
+                <h2 className="workspace-title">Library</h2>
+                <p className="workspace-subtitle">Keep every PDF, note, and study source organized so the material you need is always ready for review or AI context.</p>
            </div>
 
            {/* Stats Overview */}
-           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-16">
-               <div className="bg-zen-card hover:bg-zen-surface/30 p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-zen-surface/50 transition-all">
+           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-6">
+               <div className="workspace-stat">
                    <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] font-bold mb-2 md:mb-4">Storage</p>
                    <div className="flex items-end gap-1 md:gap-2">
                        <p className="text-2xl md:text-4xl text-zen-text-primary font-light leading-none">{totalItems}</p>
@@ -793,7 +786,7 @@ const Library: React.FC = () => {
                    </div>
                </div>
                
-               <div className="bg-zen-card hover:bg-zen-surface/30 p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-zen-surface/50 transition-all">
+               <div className="workspace-stat">
                    <p className="text-[10px] md:text-xs text-zen-text-disabled uppercase tracking-[0.2em] font-bold mb-2 md:mb-4">Folders</p>
                    <div className="flex items-end gap-1 md:gap-2">
                        <p className="text-2xl md:text-4xl text-zen-primary font-light leading-none">{folders.length}</p>
@@ -801,7 +794,7 @@ const Library: React.FC = () => {
                    </div>
                </div>
 
-               <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-zen-secondary/10 to-transparent p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-zen-secondary/20 backdrop-blur-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between md:flex-col md:items-start md:gap-8 animate-pulse-soft" onClick={() => setIsAddingFolder(true)}>
+               <button type="button" className="workspace-stat group relative col-span-2 flex cursor-pointer items-center justify-between overflow-hidden border-zen-secondary/20 text-left transition-colors hover:border-zen-secondary/35 active:scale-[0.98] md:col-span-1 md:flex-col md:items-start md:gap-8" onClick={() => setIsAddingFolder(true)}>
                    <div className="relative z-10 flex flex-col justify-center">
                        <p className="text-[10px] md:text-xs text-zen-secondary uppercase tracking-[0.2em] font-bold mb-1 md:mb-4">Quick Add</p>
                        <p className="text-base md:text-xl text-zen-text-primary font-medium tracking-tight">New Folder</p>
@@ -810,13 +803,13 @@ const Library: React.FC = () => {
                         <IconPlus className="w-5 h-5 md:w-6 md:h-6" />
                    </div>
                    <div className="absolute inset-0 bg-zen-secondary/5 group-hover:bg-zen-secondary/10 transition-colors" />
-               </div>
+               </button>
            </div>
 
            {/* Collections Grid */}
            <div className="space-y-4 md:space-y-8">
-                <div className="flex items-center justify-between border-b border-zen-surface/30 pb-2 md:pb-6">
-                    <h3 className="text-lg md:text-2xl font-light text-zen-text-primary flex items-center gap-3">
+                <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
+                    <h3 className="flex items-center gap-3 text-xl font-semibold tracking-[-0.025em] text-white md:text-2xl">
                         Collections
                         <span className="bg-zen-surface/50 px-2 py-0.5 rounded text-[10px] md:text-xs text-zen-text-disabled font-bold">{folders.length}</span>
                     </h3>
@@ -835,7 +828,7 @@ const Library: React.FC = () => {
                              setActiveFolderId(folder.id);
                            }
                          }}
-                         className="group relative bg-zen-card hover:bg-zen-surface/40 p-5 sm:p-6 md:p-10 pt-12 md:pt-10 rounded-3xl md:rounded-[3rem] flex items-center md:flex-col md:text-center gap-4 md:gap-6 border border-zen-surface hover:border-zen-primary/30 transition-all shadow-lg hover:-translate-y-1 animate-reveal min-h-[120px] md:min-h-[300px] cursor-pointer"
+                         className="workspace-panel group relative flex min-h-[120px] cursor-pointer items-center gap-4 p-5 pt-10 transition-colors hover:border-zen-primary/25 sm:p-6 md:min-h-[260px] md:flex-col md:gap-6 md:p-8 md:pt-8 md:text-center"
                          style={{ animationDelay: `${idx * 0.05}s` }}
                        >
                         <div className="w-12 h-12 md:w-24 md:h-24 bg-zen-surface rounded-2xl md:rounded-[2rem] flex items-center justify-center text-zen-primary/40 group-hover:text-zen-primary group-hover:bg-zen-primary/10 transition-all duration-500 relative shrink-0">
@@ -861,7 +854,7 @@ const Library: React.FC = () => {
 
                     <button 
                         onClick={() => setIsAddingFolder(true)}
-                        className="hidden md:flex rounded-[3rem] border-2 border-dashed border-zen-surface hover:border-zen-secondary/50 hover:bg-zen-surface/10 transition-all flex-col items-center justify-center gap-4 text-zen-text-disabled hover:text-zen-secondary h-[250px] md:h-[340px]"
+                        className="hidden min-h-[260px] flex-col items-center justify-center gap-4 rounded-[24px] border border-dashed border-white/10 text-zen-text-disabled transition-colors hover:border-zen-secondary/40 hover:bg-zen-secondary/[0.03] hover:text-zen-secondary md:flex"
                     >
                         <div className="w-16 h-16 rounded-full bg-zen-surface group-hover:bg-zen-secondary/10 flex items-center justify-center transition-colors">
                             <IconPlus className="w-8 h-8" />

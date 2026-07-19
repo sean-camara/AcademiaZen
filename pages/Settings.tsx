@@ -375,21 +375,21 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     <div className="fixed inset-0 z-[150] flex flex-col items-center justify-end md:justify-center">
         {/* Backdrop */}
         <div 
-            className="absolute inset-0 bg-black/75"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden="true"
         />
         
         {/* Main Panel - Zen Control Center */}
-        <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="relative w-full md:w-[min(950px,calc(100vw-2rem))] h-[92vh] md:h-[min(780px,calc(100vh-2rem))] flex flex-col bg-[#0D1117] border-t md:border border-white/10 rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up-mobile">
+        <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="settings-shell relative flex h-[94vh] w-full flex-col overflow-hidden rounded-t-[2rem] border-t border-white/10 md:h-[min(800px,calc(100vh-2rem))] md:w-[min(1040px,calc(100vw-2rem))] md:rounded-[2rem] md:border animate-slide-up-mobile">
             
             {/* Header & Navigation */}
-            <div className="flex-none p-6 md:p-8 md:pb-6 flex flex-col gap-6 md:gap-8 z-10 border-b border-white/5 bg-[#0D1117]/50">
+            <div className="z-10 flex flex-none flex-col gap-5 border-b border-white/[0.06] bg-black/10 p-5 md:p-7 md:pb-6">
                 <div className="flex items-center justify-between pl-2">
-                    <h2 id="settings-title" className="text-xl md:text-2xl font-semibold text-white tracking-tight flex items-center gap-3">
-                        <IconSettings className="w-6 h-6 text-emerald-500" />
-                        Settings
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10"><IconSettings className="h-5 w-5 text-emerald-400" /></div>
+                        <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-400">Control center</p><h2 id="settings-title" className="mt-0.5 text-xl font-semibold tracking-[-0.025em] text-white md:text-2xl">Settings</h2></div>
+                    </div>
                     <button 
                         ref={closeButtonRef}
                         onClick={onClose}
@@ -402,7 +402,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
 
                 {/* Pill Navigation */}
                 <div className="flex items-center justify-center">
-                    <div role="tablist" aria-label="Settings sections" className="flex items-center gap-1 p-1.5 rounded-2xl bg-black/30 border border-white/5 overflow-x-auto no-scrollbar max-w-full">
+                    <div role="tablist" aria-label="Settings sections" className="settings-tabs no-scrollbar flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl p-1.5">
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}

@@ -1726,14 +1726,14 @@ If asked tech stack: "MERN Stack."`;
 
     return (
         <div 
-            className="fixed inset-0 bg-[#0A0C0F] z-[110] flex flex-col overflow-hidden font-sans"
+            className="ai-workspace fixed inset-0 z-[110] flex flex-col overflow-hidden font-sans"
             role="dialog"
             aria-label="Zen AI Chat"
         >
             {/* ================================================================
                 HEADER - Fixed, responsive
             ================================================================ */}
-            <header className="flex-shrink-0 px-3 sm:px-4 pt-4 pb-3 border-b border-white/5 bg-[#0A0C0F]/95 backdrop-blur-xl sticky top-0 z-20 safe-area-top">
+            <header className="ai-header safe-area-top sticky top-0 z-20 flex-shrink-0 px-3 pb-3 pt-4 backdrop-blur-xl sm:px-4">
                 <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         {/* Sidebar toggle - 44px min touch */}
@@ -1748,16 +1748,16 @@ If asked tech stack: "MERN Stack."`;
                         </button>
                         
                         {/* Logo */}
-                        <div className="min-h-[44px] min-w-[44px] rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+                        <div className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.08)]">
                             <IconBot className="w-5 h-5" />
                         </div>
                         
                         {/* Title - hidden on very small screens */}
                         <div className="hidden xs:block min-w-0">
-                            <h1 className="text-base sm:text-lg font-medium text-white truncate">Zen AI</h1>
+                            <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-white sm:text-lg">Zen AI</h1>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-500/80 font-semibold">Active</span>
+                                <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-500/80 sm:text-[10px]">DeepSeek V4 Flash</span>
                             </div>
                         </div>
                     </div>
@@ -2039,16 +2039,16 @@ If asked tech stack: "MERN Stack."`;
                         EMPTY STATE
                     ============================================================ */}
                     {messages.length === 0 && !isLoading && (
-                        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 py-8">
-                            <div className="mb-6 sm:mb-8">
-                                <IconBot className="w-16 h-16 sm:w-20 sm:h-20 text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
+                        <div className="mx-auto flex min-h-[58vh] max-w-3xl flex-col items-center justify-center rounded-[28px] border border-white/[0.055] bg-white/[0.018] px-4 py-8 text-center sm:px-8">
+                            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border border-emerald-400/15 bg-emerald-400/[0.07] shadow-[0_0_50px_rgba(16,185,129,0.08)] sm:mb-8">
+                                <IconBot className="h-10 w-10 text-emerald-400" />
                             </div>
                             
                             <h2 className="text-2xl sm:text-3xl font-light text-white tracking-tight mb-3 sm:mb-4">
-                                How can I help?
+                                What are we solving?
                             </h2>
                             <p className="text-sm sm:text-base text-gray-400 max-w-md mb-8 sm:mb-12">
-                                Attach documents or ask any question.
+                                Ask directly, attach your study material, or turn today&apos;s workload into a concrete plan.
                             </p>
                             
                             {/* Suggestion cards - stack on mobile */}
@@ -2427,7 +2427,7 @@ If asked tech stack: "MERN Stack."`;
             {/* ================================================================
                 INPUT BAR - Fixed bottom, safe area padding
             ================================================================ */}
-            <footer className="flex-shrink-0 p-3 sm:p-4 bg-[#0A0C0F]/95 backdrop-blur-xl border-t border-white/5 safe-area-bottom z-10">
+            <footer className="safe-area-bottom z-10 flex-shrink-0 border-t border-white/[0.06] bg-[#090d12]/94 p-3 backdrop-blur-xl sm:p-4">
                 <div className="max-w-3xl mx-auto space-y-3">
                     
                     {/* Selected refs chips */}
@@ -2458,7 +2458,7 @@ If asked tech stack: "MERN Stack."`;
 
                     {/* Input form */}
                     <form ref={formRef} onSubmit={handleSend} className="relative">
-                        <div className="bg-[#161B22]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-3 sm:p-4 focus-within:border-emerald-500/30 transition-colors">
+                        <div className="ai-composer rounded-2xl border border-white/10 p-3 transition-colors focus-within:border-emerald-500/30 sm:p-4">
                             
                             {/* Textarea */}
                             <textarea

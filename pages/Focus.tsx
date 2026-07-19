@@ -437,7 +437,7 @@ const Focus: React.FC = () => {
   // ========== RENDER ==========
 
   return (
-    <div className="h-full flex flex-col items-center justify-between p-3 md:p-6 relative overflow-hidden bg-zen-bg">
+    <div className="focus-studio relative flex h-full flex-col items-center justify-between overflow-hidden p-3 md:p-6">
       {/* Dynamic Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-gradient-to-tr from-zen-primary/5 via-transparent to-zen-secondary/5 blur-[100px] transition-all duration-[3000ms] ${isActive && !isPaused ? 'opacity-100 rotate-180 scale-110' : isBreakTime ? 'opacity-60 rotate-90 scale-105' : 'opacity-40 rotate-0 scale-100'}`} />
@@ -445,7 +445,15 @@ const Focus: React.FC = () => {
       </div>
 
       {/* Main Layout Container */}
-      <div className="w-full h-full max-w-lg md:max-w-4xl mx-auto flex flex-col items-center justify-between md:justify-evenly z-20">
+      <div className="focus-stage z-20 mx-auto flex h-full w-full max-w-lg flex-col items-center justify-between md:max-w-4xl md:justify-evenly">
+
+        <div className="flex w-full shrink-0 items-center justify-between px-2 pb-1">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zen-primary">Focus studio</p>
+            <h2 className="mt-0.5 text-sm font-semibold tracking-[-0.02em] text-white sm:text-base">Protect the next block</h2>
+          </div>
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-zen-text-disabled">{isBreakTime ? 'Break' : isActive ? 'Live' : 'Ready'}</span>
+        </div>
 
         {/* TOP SECTION: Stats Bar (Optimized for 320px+) */}
         {!isActive && analytics && (
@@ -454,7 +462,7 @@ const Focus: React.FC = () => {
               onClick={() => setShowStatsPanel(!showStatsPanel)}
               aria-expanded={showStatsPanel}
               aria-label="Open focus statistics"
-              className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8 px-5 sm:px-6 md:px-8 py-3 sm:py-3.5 md:py-4 bg-zen-surface/20 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all active:scale-[0.98]"
+              className="workspace-panel flex items-center justify-center gap-4 px-5 py-3 transition-colors hover:border-zen-primary/25 active:scale-[0.98] sm:gap-6 sm:px-6 sm:py-3.5 md:gap-8 md:px-8 md:py-4"
             >
               <div className="text-center min-w-[52px] sm:min-w-[60px] md:min-w-[70px]">
                 <p className="text-lg sm:text-xl md:text-2xl font-bold text-zen-primary tabular-nums leading-tight">{Math.round(analytics.weekMinutes / 60)}h</p>
@@ -521,7 +529,7 @@ const Focus: React.FC = () => {
 
           {/* THE TIMER */}
           <div className="relative group flex-1 flex items-center justify-center min-h-0">
-            <div className={`relative w-[55vw] h-[55vw] max-w-[220px] max-h-[220px] md:w-80 md:h-80 md:max-w-none md:max-h-none rounded-full flex items-center justify-center transition-all duration-[1500ms] ease-out ${isActive && !isPaused ? 'scale-105' : 'scale-100'}`}>
+            <div className={`relative flex h-[55vw] max-h-[220px] w-[55vw] max-w-[220px] items-center justify-center rounded-full border border-white/[0.04] bg-black/10 shadow-[0_30px_100px_rgba(0,0,0,0.28)] transition-all duration-[1500ms] ease-out md:h-80 md:max-h-none md:w-80 md:max-w-none ${isActive && !isPaused ? 'scale-105' : 'scale-100'}`}>
               
               {/* Decorative Rings - Thicker border for visibility */}
               <div className={`absolute inset-0 border-[1.5px] rounded-full ${isBreakTime ? 'border-purple-500/30' : 'border-zen-surface/30'}`} />

@@ -66,31 +66,32 @@ const Calendar: React.FC = () => {
         : 0;
 
   return (
-    <div className="h-full w-full overflow-hidden flex flex-col animate-reveal p-4 md:p-6 lg:p-10 pb-24 lg:pb-10 no-scrollbar desktop-scroll-area overflow-y-auto">
-        <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
+    <div className="workspace-page desktop-scroll-area no-scrollbar">
+        <div className="workspace-page-inner flex min-h-full flex-col">
             
             {/* Header / Month Navigation */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 shrink-0 gap-4">
+            <div className="workspace-page-hero flex shrink-0 flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
                 <div>
-                   <h2 className="text-2xl md:text-3xl font-light text-zen-text-primary">
+                   <p className="workspace-eyebrow">Schedule command center</p>
+                   <h2 className="workspace-title">
                        {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                    </h2>
-                   <p className="hidden lg:block text-sm text-zen-text-secondary mt-1">
-                       {monthlyCompletion}% of monthly goals completed
+                   <p className="workspace-subtitle">
+                       See deadlines in context and protect space for the work that matters. {monthlyCompletion}% completed this month.
                    </p>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-zen-card/50 rounded-full p-1 border border-zen-surface self-end sm:self-auto">
+                <div className="flex items-center gap-1 self-end rounded-xl border border-white/[0.08] bg-black/20 p-1 sm:self-auto">
                    <button onClick={prevMonth} aria-label="Previous month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronLeft className="w-5 h-5" /></button>
                    <button onClick={() => setCurrentDate(new Date())} className="text-xs font-medium px-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">Today</button>
                    <button onClick={nextMonth} aria-label="Next month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronRight className="w-5 h-5" /></button>
                 </div>
             </div>
 
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden">
+            <div className="flex flex-col gap-6 lg:grid lg:h-full lg:grid-cols-12 lg:overflow-hidden">
                 
                 {/* --- CALENDAR GRID (Left) --- */}
-                <div className="lg:col-span-8 flex flex-col bg-zen-card/30 backdrop-blur-sm rounded-3xl border border-zen-surface/50 p-4 md:p-6 lg:p-8 shadow-xl overflow-hidden min-h-[360px] md:min-h-[400px]">
+                <div className="workspace-panel flex min-h-[360px] flex-col overflow-hidden p-4 md:min-h-[400px] md:p-6 lg:col-span-8 lg:p-8">
                     {/* Weekday Headers */}
                     <div className="grid grid-cols-7 mb-2 md:mb-4 shrink-0">
                         {DAYS.map(day => (
@@ -150,7 +151,7 @@ const Calendar: React.FC = () => {
 
                 {/* --- AGENDA SIDEBAR (Right) --- */}
                 <div className="lg:col-span-4 flex flex-col h-full min-h-[400px] lg:min-h-0 lg:overflow-hidden animate-slide-up lg:animate-none">
-                    <div className="bg-zen-bg rounded-3xl border border-zen-surface p-4 md:p-6 h-full flex flex-col relative overflow-hidden">
+                    <div className="workspace-panel relative flex h-full flex-col overflow-hidden p-4 md:p-6">
                         
                         <div className="mb-6 shrink-0">
                             <h3 className="text-xl font-medium text-zen-text-primary flex items-center gap-2">
@@ -170,7 +171,7 @@ const Calendar: React.FC = () => {
                                 selectedTasks.map((task, idx) => (
                                     <div 
                                         key={task.id} 
-                                        className="group flex flex-col gap-2 p-4 bg-zen-card/50 rounded-xl border border-zen-surface/50 hover:border-zen-primary/30 transition-all animate-reveal relative"
+                                        className="group relative flex flex-col gap-2 rounded-2xl border border-white/[0.06] bg-black/15 p-4 transition-colors hover:border-zen-primary/25"
                                         style={{ animationDelay: `${idx * 0.05}s` }}
                                     >
                                         {/* Subject at top */}
