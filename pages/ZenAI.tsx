@@ -50,6 +50,7 @@ interface ResolvedRef extends SelectedRef {
 
 interface ZenAIProps {
     onClose: () => void;
+    contextLabel?: string;
 }
 
 interface PdfExtractResult {
@@ -647,7 +648,7 @@ const ThinkingPanel: React.FC<ThinkingPanelProps> = ({ text, isStreaming, isOpen
 // MAIN COMPONENT
 // ============================================================================
 
-const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
+const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) => {
     const { state, updateTask, updateFolder, setAIChat, clearAIChat, isHydrated } = useZen();
     const { user } = useAuth();
     
@@ -1725,16 +1726,16 @@ If asked tech stack: "MERN Stack."`;
     // ========================================================================
 
     return (
-        <div 
-            className="ai-workspace fixed inset-0 z-[110] flex flex-col overflow-hidden font-sans"
-            role="dialog"
-            aria-label="Zen AI Chat"
+        <aside
+            id="zen-ai-panel"
+            className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full flex-col overflow-hidden font-sans sm:w-[min(520px,100vw)] xl:relative xl:inset-auto xl:z-30 xl:h-full xl:w-[440px] xl:shrink-0 2xl:w-[480px]"
+            aria-label="Zen AI assistant"
         >
             {/* ================================================================
                 HEADER - Fixed, responsive
             ================================================================ */}
             <header className="ai-header safe-area-top sticky top-0 z-20 flex-shrink-0 px-3 pb-3 pt-4 backdrop-blur-xl sm:px-4">
-                <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
+                <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         {/* Sidebar toggle - 44px min touch */}
                         <button
@@ -1753,7 +1754,7 @@ If asked tech stack: "MERN Stack."`;
                         </div>
                         
                         {/* Title - hidden on very small screens */}
-                        <div className="hidden xs:block min-w-0">
+                        <div className="hidden min-w-0 xs:block">
                             <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-white sm:text-lg">Zen AI</h1>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1806,6 +1807,11 @@ If asked tech stack: "MERN Stack."`;
                         </button>
                     </div>
                 </div>
+                <div className="mx-auto mt-2 flex w-full max-w-4xl items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] text-zen-text-disabled">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zen-secondary" aria-hidden="true" />
+                    <span className="truncate">Working beside <strong className="font-semibold text-zen-text-secondary">{contextLabel}</strong></span>
+                    <span className="ml-auto hidden text-[9px] font-semibold uppercase tracking-[0.14em] text-zen-secondary/70 sm:inline">Context stays visible</span>
+                </div>
             </header>
 
             {/* ================================================================
@@ -1814,12 +1820,12 @@ If asked tech stack: "MERN Stack."`;
             {showThreadsSidebar && (
                 <>
                     <div 
-                        className="fixed inset-0 bg-black/60 z-30 backdrop-blur-sm" 
+                        className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm"
                         onClick={() => setShowThreadsSidebar(false)} 
                         aria-hidden="true"
                     />
                     <aside 
-                        className="fixed left-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-[#0D1117] border-r border-white/10 z-40 flex flex-col animate-slide-in-left"
+                        className="absolute bottom-0 left-0 top-0 z-40 flex w-[280px] max-w-[85%] flex-col border-r border-white/10 bg-[#0D1117] animate-slide-in-left"
                         role="navigation"
                         aria-label="Conversation history"
                     >
@@ -1888,7 +1894,7 @@ If asked tech stack: "MERN Stack."`;
                 UPGRADE MODAL
             ================================================================ */}
             {showUpgradeModal && aiLocked && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                <div className="absolute inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowUpgradeModal(false)} />
                     <div className="relative w-full sm:max-w-md bg-[#0D1117] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up sm:animate-scale-in safe-area-bottom">
                         <div className="p-5 sm:p-6 border-b border-white/5">
@@ -1937,7 +1943,7 @@ If asked tech stack: "MERN Stack."`;
                 QUOTA EXHAUSTED MODAL
             ================================================================ */}
             {quotaExhausted && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                <div className="absolute inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setQuotaExhausted(null)} />
                     <div className="relative w-full sm:max-w-md bg-[#0D1117] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up sm:animate-scale-in safe-area-bottom max-h-[85vh] flex flex-col">
                         <div className="p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
@@ -2235,7 +2241,7 @@ If asked tech stack: "MERN Stack."`;
                         scrollToBottom(true);
                         setUserHasScrolledUp(false);
                     }}
-                    className="fixed bottom-28 sm:bottom-32 left-1/2 -translate-x-1/2 min-h-[44px] px-4 bg-emerald-500 text-black text-xs font-semibold rounded-full shadow-lg hover:bg-emerald-400 active:bg-emerald-600 transition-colors z-20 flex items-center gap-2"
+                    className="absolute bottom-28 left-1/2 z-20 flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-500 px-4 text-xs font-semibold text-black shadow-lg transition-colors hover:bg-emerald-400 active:bg-emerald-600 sm:bottom-32"
                     aria-label="Jump to latest message"
                 >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2250,7 +2256,7 @@ If asked tech stack: "MERN Stack."`;
             ================================================================ */}
             {showSelector && (
                 <div 
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" 
+                    className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
                     onClick={() => setShowSelector(false)}
                 >
                     <div 
@@ -2530,7 +2536,7 @@ If asked tech stack: "MERN Stack."`;
                     </form>
                 </div>
             </footer>
-        </div>
+        </aside>
     );
 };
 

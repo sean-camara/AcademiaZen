@@ -37,6 +37,23 @@ const SettingsLoading = () => (
   </div>
 );
 
+const AIPanelLoading = () => (
+  <aside
+    id="zen-ai-panel"
+    className="ai-workspace fixed inset-y-0 right-0 z-[110] flex w-full items-center justify-center sm:w-[min(520px,100vw)] xl:relative xl:inset-auto xl:z-30 xl:h-full xl:w-[440px] xl:shrink-0 2xl:w-[480px]"
+    aria-label="Opening Zen AI"
+    aria-live="polite"
+  >
+    <div className="flex flex-col items-center gap-3 text-center">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-zen-secondary border-t-transparent" aria-hidden="true" />
+      <div>
+        <p className="text-sm font-semibold text-white">Opening Zen AI</p>
+        <p className="mt-1 text-xs text-zen-text-disabled">Preparing your workspace context…</p>
+      </div>
+    </div>
+  </aside>
+);
+
 interface LayoutProps {}
 
 interface BillingUpdatedDetail {
@@ -315,6 +332,8 @@ const Layout: React.FC<LayoutProps> = () => {
              <button 
                onClick={() => setShowAI(true)}
                aria-label="Open Zen AI"
+               aria-expanded={showAI}
+               aria-controls="zen-ai-panel"
                className="ai-launch-card group flex w-full items-center gap-3 rounded-2xl p-3.5 text-left text-zen-secondary transition-colors"
              >
                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-zen-secondary/20 bg-zen-secondary/10">
@@ -351,6 +370,8 @@ const Layout: React.FC<LayoutProps> = () => {
              <button 
                onClick={() => setShowAI(true)}
                aria-label="Open Zen AI"
+               aria-expanded={showAI}
+               aria-controls="zen-ai-panel"
                className="mobile-header-action text-zen-secondary"
              >
                <IconBot className="w-6 h-6" />
@@ -429,9 +450,17 @@ const Layout: React.FC<LayoutProps> = () => {
         isDangerous
       />
       {showAI && (
-        <Suspense fallback={<RouteLoading />}>
-          <ZenAI onClose={() => setShowAI(false)} />
-        </Suspense>
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[100] hidden cursor-default bg-black/55 backdrop-blur-[2px] sm:block xl:hidden"
+            onClick={() => setShowAI(false)}
+            aria-label="Close Zen AI"
+          />
+          <Suspense fallback={<AIPanelLoading />}>
+            <ZenAI contextLabel={activeNavItem.label} onClose={() => setShowAI(false)} />
+          </Suspense>
+        </>
       )}
     </div>
   );
