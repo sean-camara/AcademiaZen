@@ -1,18 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tab, ZenState } from '../types';
 import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot, IconLogOut } from './Icons';
-import Home from '@/pages/Home';
-import Calendar from '@/pages/Calendar';
-import Review from '@/pages/Review';
-import Focus from '@/pages/Focus';
-import Library from '@/pages/Library';
-import Settings from '@/pages/Settings';
-import ZenAI from '@/pages/ZenAI';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
+
+const Home = lazy(() => import('@/pages/Home'));
+const Calendar = lazy(() => import('@/pages/Calendar'));
+const Review = lazy(() => import('@/pages/Review'));
+const Focus = lazy(() => import('@/pages/Focus'));
+const Library = lazy(() => import('@/pages/Library'));
+const Settings = lazy(() => import('@/pages/Settings'));
+const ZenAI = lazy(() => import('@/pages/ZenAI'));
+
+const RouteLoading = () => (
+  <div className="flex h-full min-h-64 items-center justify-center" role="status" aria-live="polite">
+    <div className="flex items-center gap-3 text-sm text-zen-text-secondary">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-zen-primary border-t-transparent" aria-hidden="true" />
+      Loading your study space…
+    </div>
+  </div>
+);
 
 interface LayoutProps {}
 
@@ -20,7 +30,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
-  const { focusSession, hideNavbar, setHideNavbar } = useZen();
+  const { focusSession, hideNavbar, setHideNavbar, syncConflict } = useZen();
   const { signOut, user } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
@@ -102,6 +112,7 @@ const Layout: React.FC<LayoutProps> = () => {
       window.visualViewport.addEventListener('resize', handleResize);
       return () => window.visualViewport?.removeEventListener('resize', handleResize);
     }
+    return undefined;
   }, []);
 
   // Hide navbar when modals are open
@@ -202,6 +213,21 @@ const Layout: React.FC<LayoutProps> = () => {
 
   return (
     <div className="flex h-screen w-full bg-zen-bg text-zen-text-primary overflow-hidden font-sans selection:bg-zen-primary/30">
+      {syncConflict && (
+        <div
+          role="alert"
+          className="fixed left-1/2 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 items-center justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-950 px-4 py-3 text-sm text-amber-50 shadow-2xl"
+        >
+          <span>Your study data changed in another tab or device. Saving is paused to protect both versions.</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="min-h-11 shrink-0 rounded-lg bg-amber-300 px-4 font-semibold text-amber-950 hover:bg-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100"
+          >
+            Load latest
+          </button>
+        </div>
+      )}
       
       {/* --- DESKTOP SIDEBAR --- */}
       <aside className="hidden lg:flex flex-col w-72 h-full border-r border-zen-surface bg-zen-bg z-30 transition-all duration-300">
@@ -304,14 +330,16 @@ const Layout: React.FC<LayoutProps> = () => {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative desktop-scroll-area pb-24 lg:pb-0 scroll-smooth">
-          <Routes>
-            <Route path="/" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Home /></div>} />
-            <Route path="/calendar" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Calendar /></div>} />
-            <Route path="/review" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Review /></div>} />
-            <Route path="/focus" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Focus /></div>} />
-            <Route path="/library" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Library /></div>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Home /></div>} />
+              <Route path="/calendar" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Calendar /></div>} />
+              <Route path="/review" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Review /></div>} />
+              <Route path="/focus" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Focus /></div>} />
+              <Route path="/library" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Library /></div>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
 
         {/* Mobile Bottom Navigation (Hidden on Desktop) */}
@@ -341,13 +369,15 @@ const Layout: React.FC<LayoutProps> = () => {
 
       {/* Overlays */}
       {showSettings && (
-        <Settings
-          onClose={() => {
-            setShowSettings(false);
-            setSettingsTab(null);
-          }}
-          initialTab={settingsTab || undefined}
-        />
+        <Suspense fallback={<RouteLoading />}>
+          <Settings
+            onClose={() => {
+              setShowSettings(false);
+              setSettingsTab(null);
+            }}
+            {...(settingsTab ? { initialTab: settingsTab } : {})}
+          />
+        </Suspense>
       )}
 
       <ConfirmModal
@@ -360,7 +390,11 @@ const Layout: React.FC<LayoutProps> = () => {
         cancelText="Stay"
         isDangerous
       />
-      {showAI && <ZenAI onClose={() => setShowAI(false)} />}
+      {showAI && (
+        <Suspense fallback={<RouteLoading />}>
+          <ZenAI onClose={() => setShowAI(false)} />
+        </Suspense>
+      )}
     </div>
   );
 };

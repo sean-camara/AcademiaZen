@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { IconEye, IconEyeOff, IconCheck, IconX } from '../components/Icons';
+import { Link } from 'react-router-dom';
 
 const Auth: React.FC = () => {
   const {
@@ -10,7 +11,9 @@ const Auth: React.FC = () => {
     resetPassword,
   } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>(() =>
+    new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -206,6 +209,7 @@ const Auth: React.FC = () => {
                   <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">First Name</label>
                   <input
                     type="text"
+                    autoComplete="given-name"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
@@ -216,6 +220,7 @@ const Auth: React.FC = () => {
                   <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">Last Name</label>
                   <input
                     type="text"
+                    autoComplete="family-name"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
@@ -229,6 +234,7 @@ const Auth: React.FC = () => {
               <label className="text-[10px] text-zen-text-secondary uppercase font-bold tracking-[0.15em] ml-1">Email Address</label>
               <input
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
@@ -241,6 +247,7 @@ const Auth: React.FC = () => {
               <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 pr-10 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
@@ -248,6 +255,7 @@ const Auth: React.FC = () => {
                   />
                   <button 
                     type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPassword(!showPassword)}
                     onMouseDown={(e) => e.preventDefault()}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zen-text-secondary hover:text-zen-text-primary p-1"
@@ -299,6 +307,7 @@ const Auth: React.FC = () => {
                 <div className="relative">
                     <input
                       type={showConfirm ? "text" : "password"}
+                      autoComplete="new-password"
                       value={confirm}
                       onChange={(e) => setConfirm(e.target.value)}
                       className="w-full bg-zen-surface/30 border border-zen-surface rounded-xl p-3.5 pr-10 text-zen-text-primary focus:outline-none focus:border-zen-primary transition-all text-sm"
@@ -306,6 +315,7 @@ const Auth: React.FC = () => {
                     />
                     <button 
                         type="button"
+                        aria-label={showConfirm ? 'Hide confirmed password' : 'Show confirmed password'}
                         onClick={() => setShowConfirm(!showConfirm)}
                         onMouseDown={(e) => e.preventDefault()}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zen-text-secondary hover:text-zen-text-primary p-1"
@@ -357,6 +367,9 @@ const Auth: React.FC = () => {
         </div>
         
         <div className="mt-8 text-center pb-8">
+            <Link to="/" className="mb-5 inline-flex min-h-11 items-center rounded-lg px-3 py-3 text-xs font-semibold text-zen-text-secondary hover:text-zen-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary">
+              Back to AcademiaZen
+            </Link>
             <p className="text-[9px] text-zen-text-disabled uppercase font-black tracking-[0.3em] opacity-40">
                 Zen Infrastructure &bull; v2.4
             </p>
