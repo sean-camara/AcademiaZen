@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
 import { IconChevronLeft, IconChevronRight, IconCheck, IconTrash } from '../components/Icons';
 import { isSameDay } from '../utils/helpers';
+import { useNavigate } from 'react-router-dom';
+import { EmptyState } from '../components/ui/EmptyState';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -10,6 +12,7 @@ const Calendar: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     // Initial load: ensure selected date syncs if needed, or keep today
     useEffect(() => {
@@ -78,9 +81,9 @@ const Calendar: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2 bg-zen-card/50 rounded-full p-1 border border-zen-surface self-end sm:self-auto">
-                   <button onClick={prevMonth} className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronLeft className="w-5 h-5" /></button>
+                   <button onClick={prevMonth} aria-label="Previous month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronLeft className="w-5 h-5" /></button>
                    <button onClick={() => setCurrentDate(new Date())} className="text-xs font-medium px-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">Today</button>
-                   <button onClick={nextMonth} className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronRight className="w-5 h-5" /></button>
+                   <button onClick={nextMonth} aria-label="Next month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronRight className="w-5 h-5" /></button>
                 </div>
             </div>
 
@@ -115,6 +118,8 @@ const Calendar: React.FC = () => {
                                 <button
                                     key={day.toString()}
                                     onClick={() => setSelectedDate(day)}
+                                    aria-label={`${day.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}${dayTasks.length ? `, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}` : ', no tasks'}`}
+                                    aria-pressed={isSelected}
                                     className={`
                                         relative w-full h-full min-h-[44px] md:min-h-[50px] rounded-lg md:rounded-xl flex flex-col items-center justify-start py-1 md:py-2 lg:py-3 transition-all duration-200 group
                                         ${isSelected 
@@ -177,6 +182,7 @@ const Calendar: React.FC = () => {
                                         <div className="flex items-center gap-3">
                                             <button 
                                                 onClick={() => toggleTask(task.id)}
+                                                aria-label={`${task.completed ? 'Mark incomplete' : 'Mark complete'}: ${task.title}`}
                                                 className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-zen-primary border-zen-primary' : 'border-zen-text-secondary hover:border-zen-primary'}`}
                                             >
                                                 {task.completed && <IconCheck className="w-3.5 h-3.5 text-zen-bg" />}
@@ -196,6 +202,7 @@ const Calendar: React.FC = () => {
                                                         setTimeout(() => setConfirmDelete(null), 3000);
                                                     }
                                                 }}
+                                                aria-label={confirmDelete === task.id ? `Confirm delete ${task.title}` : `Delete ${task.title}`}
                                                 className={`p-1.5 rounded-lg transition-colors shrink-0 ${confirmDelete === task.id ? 'bg-red-500 text-white' : 'text-zen-text-secondary hover:text-red-400 hover:bg-zen-surface opacity-0 group-hover:opacity-100'}`}
                                             >
                                                 <IconTrash className="w-4 h-4" />
@@ -216,13 +223,14 @@ const Calendar: React.FC = () => {
                                     </div>
                                 ))
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-40 p-4">
-                                    <div className="w-16 h-16 border-2 border-dashed border-zen-text-disabled rounded-full flex items-center justify-center mb-3">
-                                        <span className="text-2xl">🌱</span>
-                                    </div>
-                                    <p className="text-sm text-zen-text-secondary font-medium">Free Day</p>
-                                    <p className="text-xs text-zen-text-disabled mt-1">Enjoy your time off or plan ahead.</p>
-                                </div>
+                                <EmptyState
+                                  compact
+                                  icon={<span className="text-2xl" aria-hidden="true">🌱</span>}
+                                  title="No tasks scheduled"
+                                  description="Enjoy the open day, or plan a task from your dashboard."
+                                  actionLabel="Plan a task"
+                                  onAction={() => navigate('/')}
+                                />
                             )}
                         </div>
                     </div>

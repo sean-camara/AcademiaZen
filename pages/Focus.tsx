@@ -452,6 +452,8 @@ const Focus: React.FC = () => {
           <div className="w-full flex items-center justify-center shrink-0 px-2">
             <button
               onClick={() => setShowStatsPanel(!showStatsPanel)}
+              aria-expanded={showStatsPanel}
+              aria-label="Open focus statistics"
               className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8 px-5 sm:px-6 md:px-8 py-3 sm:py-3.5 md:py-4 bg-zen-surface/20 rounded-2xl border border-zen-surface/30 hover:border-zen-primary/30 transition-all active:scale-[0.98]"
             >
               <div className="text-center min-w-[52px] sm:min-w-[60px] md:min-w-[70px]">
@@ -556,7 +558,7 @@ const Focus: React.FC = () => {
 
               {/* Digital Time */}
               <div className="text-center flex flex-col items-center z-10">
-                <span className={`text-[14vw] md:text-[5rem] leading-none font-extralight tracking-tighter tabular-nums transition-colors duration-500 ${
+                <span role="timer" aria-label={`${formatTime(timeLeft)} remaining`} className={`text-[14vw] md:text-[5rem] leading-none font-extralight tracking-tighter tabular-nums transition-colors duration-500 ${
                   isBreakTime
                     ? 'text-purple-400 drop-shadow-[0_0_15px_rgba(167,139,250,0.3)]'
                     : isActive && !isPaused 
@@ -588,6 +590,7 @@ const Focus: React.FC = () => {
                 {/* Settings Button (opens duration/ambience popup) */}
                 <button 
                   onClick={() => setShowMobileSettings(true)}
+                  aria-label="Open focus timer settings"
                   className="w-12 h-12 rounded-full flex items-center justify-center bg-zen-surface/30 border border-zen-surface/50 text-zen-text-secondary hover:text-zen-primary transition-all active:scale-95"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
@@ -600,6 +603,7 @@ const Focus: React.FC = () => {
                 <button 
                   onClick={handleStartFocus}
                   disabled={durationMinutes < 5}
+                  aria-label={isBreakTime ? 'Start break timer' : 'Start focus timer'}
                   className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl group relative touch-manipulation ${
                     isBreakTime
                       ? 'bg-purple-500 text-white hover:scale-105 active:scale-95'
@@ -615,6 +619,7 @@ const Focus: React.FC = () => {
                 {/* Duration indicator (tappable, opens settings) */}
                 <button 
                   onClick={() => setShowMobileSettings(true)}
+                  aria-label={`Change focus duration, currently ${durationMinutes} minutes`}
                   className="w-12 h-12 rounded-full flex flex-col items-center justify-center bg-zen-surface/30 border border-zen-surface/50 text-zen-text-primary transition-all active:scale-95"
                 >
                   <span className="text-sm font-bold tabular-nums">{durationMinutes}</span>
@@ -633,6 +638,7 @@ const Focus: React.FC = () => {
                         setDurationMinutes(newDur);
                         resetTimer(newDur);
                       }}
+                      aria-label="Decrease focus duration by 5 minutes"
                       className="w-11 h-11 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95 touch-manipulation"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><path d="M20 12H4"/></svg>
@@ -647,6 +653,7 @@ const Focus: React.FC = () => {
                         setDurationMinutes(newDur);
                         resetTimer(newDur);
                       }}
+                      aria-label="Increase focus duration by 5 minutes"
                       className="w-11 h-11 rounded-lg hover:bg-zen-surface/30 text-zen-text-secondary hover:text-zen-primary flex items-center justify-center transition-all active:scale-95 touch-manipulation"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><path d="M12 4v16m8-8H4"/></svg>
@@ -659,6 +666,7 @@ const Focus: React.FC = () => {
                   <button 
                     onClick={handleStartFocus}
                     disabled={durationMinutes < 5}
+                    aria-label={isBreakTime ? 'Start break timer' : 'Start focus timer'}
                     className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl group relative touch-manipulation ${
                       isBreakTime
                         ? 'bg-purple-500 text-white hover:scale-105 active:scale-95'
@@ -679,6 +687,8 @@ const Focus: React.FC = () => {
                       <button 
                         key={opt.id}
                         onClick={() => setAmbience(opt.id as any)}
+                        aria-label={`${opt.label} ambience`}
+                        aria-pressed={state.settings.ambience === opt.id}
                         className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all touch-manipulation ${state.settings.ambience === opt.id ? 'bg-zen-surface/50 text-zen-primary shadow-sm' : 'text-zen-text-disabled hover:text-zen-text-primary'}`}
                         title={opt.label}
                       >
@@ -698,6 +708,7 @@ const Focus: React.FC = () => {
                           max="100"
                           value={(state.settings.ambienceVolume ?? 0.25) * 100}
                           onChange={(e) => setAmbienceVolume(parseInt(e.target.value) / 100)}
+                          aria-label="Ambience volume"
                           className="w-16 h-1.5 bg-zen-surface rounded-full appearance-none cursor-pointer accent-zen-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-zen-primary"
                           title={`Volume: ${Math.round((state.settings.ambienceVolume ?? 0.25) * 100)}%`}
                         />

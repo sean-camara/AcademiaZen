@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase';
 import { apiFetch } from '../utils/api';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
+import { openSettings } from '../utils/appNavigation';
 import { PdfAttachment, AIChatMessage, AIAnalysisSummary } from '../types';
 
 // ============================================================================
@@ -942,7 +943,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose }) => {
 
     const openBilling = () => {
         onClose();
-        window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'plans' } }));
+        openSettings('billing');
     };
 
     const clearChat = () => {
@@ -1988,7 +1989,7 @@ If asked tech stack: "MERN Stack."`;
                                 onClick={() => {
                                     setQuotaExhausted(null);
                                     onClose();
-                                    window.location.href = '/?page=settings';
+                                    openSettings('billing');
                                 }}
                                 className="min-h-[44px] w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-[#091510] font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-colors"
                             >

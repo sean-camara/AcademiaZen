@@ -5,6 +5,7 @@ import { IconCheck, IconPlus, IconChevronLeft, IconPaperclip, IconX, IconEye, Ic
 import { Subject, Task, PdfAttachment } from '../types';
 import AddTaskModal from '../components/AddTaskModal';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
+import { EmptyState } from '../components/ui/EmptyState';
 
 // PDF Viewer Modal Component
 const PDFViewer: React.FC<{ attachment: PdfAttachment; onClose: () => void }> = ({ attachment, onClose }) => {
@@ -920,10 +921,16 @@ const Home: React.FC = () => {
                 
                 <div className="lg:col-span-8 space-y-6">
                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                      <div onClick={completedCount > 0 ? handleClearCompleted : undefined} className={`bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 transition-all relative group h-20 sm:h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5' : ''}`}>
+                      <button
+                        type="button"
+                        onClick={handleClearCompleted}
+                        disabled={completedCount === 0}
+                        aria-label={completedCount > 0 ? `Clear ${completedCount} completed tasks` : 'No completed tasks'}
+                        className={`bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 transition-all relative group h-20 sm:h-32 ${completedCount > 0 ? 'cursor-pointer hover:border-zen-destructive/50 hover:bg-zen-destructive/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary' : 'cursor-default'}`}
+                      >
                           <span className="text-2xl sm:text-4xl font-light text-zen-primary group-hover:text-zen-destructive transition-colors">{completedCount}</span>
                           <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium group-hover:text-zen-destructive/70 transition-colors text-center">Completed</span>
-                      </div>
+                      </button>
                       <div className="bg-zen-card p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface/30 flex flex-col items-center justify-center space-y-1 sm:space-y-2 h-20 sm:h-32">
                           <span className="text-2xl sm:text-4xl font-light text-zen-text-secondary">{pendingCount}</span>
                           <span className="text-[8px] sm:text-xs text-zen-text-disabled uppercase tracking-wider sm:tracking-widest font-medium text-center">Pending</span>
@@ -976,7 +983,17 @@ const Home: React.FC = () => {
                             })}
                             </div>
                         ) : (
-                            <div className="py-8 text-center"><p className="text-zen-text-secondary">All caught up. Breathe.</p></div>
+                            <EmptyState
+                              compact
+                              icon={<IconCheck className="h-6 w-6" />}
+                              title={subjects.length === 0 ? 'Build your first study space' : 'Your schedule is clear'}
+                              description={subjects.length === 0
+                                ? 'Create a subject first, then add tasks, notes, and review material in one place.'
+                                : 'Add a task when you are ready, or start a focus session from the Focus tab.'}
+                              {...(subjects.length === 0
+                                ? { actionLabel: 'Create first subject', onAction: () => setShowAddSubject(true) }
+                                : {})}
+                            />
                         )}
 
                         {pastDueTasks.length > 0 && (
@@ -1027,7 +1044,7 @@ const Home: React.FC = () => {
                     <div className="bg-zen-card/50 backdrop-blur-sm rounded-3xl p-6 border border-zen-surface h-full min-h-[400px]">
                        <div className="flex justify-between items-center mb-6">
                           <h3 className="text-xl font-bold text-zen-text-primary tracking-tight">Subjects</h3>
-                          <button onClick={() => setShowAddSubject(true)} className="p-2 hover:bg-zen-surface rounded-full text-zen-primary transition-colors hover:rotate-90 duration-300"><IconPlus className="w-5 h-5" /></button>
+                          <button onClick={() => setShowAddSubject(true)} aria-label="Create subject" className="p-2 hover:bg-zen-surface rounded-full text-zen-primary transition-colors"><IconPlus className="w-5 h-5" /></button>
                        </div>
                        
                        {showAddSubject && (
@@ -1053,14 +1070,26 @@ const Home: React.FC = () => {
                                             {unchecked}
                                         </span>
                                     )}
-                                    <div onClick={() => handleSubjectClick(subject.id)} className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative">
+                                    <div
+                                      onClick={() => handleSubjectClick(subject.id)}
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-label={`Open ${subject.name}`}
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                          event.preventDefault();
+                                          handleSubjectClick(subject.id);
+                                        }
+                                      }}
+                                      className="p-4 rounded-2xl bg-zen-bg hover:bg-zen-surface/60 border border-transparent hover:border-zen-surface transition-all cursor-pointer relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-zen-primary"
+                                    >
                                         <div className="flex justify-between items-center mb-2 z-10 relative">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-8 rounded-full ${subject.color}`} />
                                                 <h4 className="font-medium text-zen-text-primary pr-6">{subject.name}</h4>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <button onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
+                                                <button aria-label={`More options for ${subject.name}`} aria-expanded={showActions} onClick={(e) => { e.stopPropagation(); setShowSubjectActions(showActions ? null : subject.id); }} className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 text-zen-text-secondary hover:text-zen-primary"><IconMoreVertical className="w-4 h-4" /></button>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 mt-3">
@@ -1077,7 +1106,16 @@ const Home: React.FC = () => {
                                 </div>
                             );
                           })}
-                          {subjects.length === 0 && !showAddSubject && <div className="py-8 text-center opacity-50"><p className="text-sm text-zen-text-disabled">Nothing here yet</p></div>}
+                          {subjects.length === 0 && !showAddSubject && (
+                            <EmptyState
+                              compact
+                              icon={<IconPlus className="h-6 w-6" />}
+                              title="Create your first subject"
+                              description="Subjects keep tasks, deadlines, notes, and review material organized."
+                              actionLabel="Create subject"
+                              onAction={() => setShowAddSubject(true)}
+                            />
+                          )}
                        </div>
                     </div>
                 </div>

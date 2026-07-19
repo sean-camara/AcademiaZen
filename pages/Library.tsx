@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import AddKnowledgeModal from '../components/AddKnowledgeModal';
 import { FolderItem, PdfAttachment } from '../types';
 import { uploadPdfToR2, getPdfSignedUrl } from '../utils/pdfStorage';
+import { openSettings } from '../utils/appNavigation';
 
 // Helper: Splits text into readable chunks for the Zen Reader
 const paginateText = (text: string, charsPerPage: number = 1400) => {
@@ -935,7 +936,7 @@ const Library: React.FC = () => {
               <button
                 onClick={() => {
                   setShowUpgradeModal(false);
-                  window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'plans' } }));
+                  openSettings('billing');
                 }}
                 className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
               >

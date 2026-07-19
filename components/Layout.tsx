@@ -6,6 +6,7 @@ import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
+import type { OpenSettingsDetail, SettingsTab } from '../utils/appNavigation';
 
 const Home = lazy(() => import('@/pages/Home'));
 const Calendar = lazy(() => import('@/pages/Calendar'));
@@ -38,10 +39,20 @@ const SettingsLoading = () => (
 
 interface LayoutProps {}
 
+interface BillingUpdatedDetail {
+  plan?: string;
+  billing?: {
+    plan?: string;
+    effectivePlan?: string;
+    isActive?: boolean;
+    status?: string;
+  };
+}
+
 const Layout: React.FC<LayoutProps> = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAI, setShowAI] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data' | null>(null);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const { focusSession, hideNavbar, setHideNavbar, syncConflict } = useZen();
   const { signOut, user } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -110,7 +121,7 @@ const Layout: React.FC<LayoutProps> = () => {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail || {};
+      const detail = (event as CustomEvent<BillingUpdatedDetail>).detail || {};
       const billing = detail?.billing;
       const plan = billing?.plan || detail?.plan || billing?.effectivePlan || 'free';
       const isActive = !!billing?.isActive;
@@ -144,7 +155,7 @@ const Layout: React.FC<LayoutProps> = () => {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail || {};
+      const detail = (event as CustomEvent<OpenSettingsDetail>).detail || {};
       if (detail?.tab) {
         setSettingsTab(detail.tab);
       } else {
@@ -235,6 +246,12 @@ const Layout: React.FC<LayoutProps> = () => {
 
   return (
     <div className="flex h-screen w-full bg-zen-bg text-zen-text-primary overflow-hidden font-sans selection:bg-zen-primary/30">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-4 z-[200] -translate-y-24 rounded-lg bg-zen-primary px-4 py-2 font-semibold text-zen-bg transition-transform focus:translate-y-0"
+      >
+        Skip to content
+      </a>
       {syncConflict && (
         <div
           role="alert"
@@ -272,6 +289,7 @@ const Layout: React.FC<LayoutProps> = () => {
               <button
                 key={item.tab}
                 onClick={() => navigate(item.path)}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-4 px-4 py-3.5 w-full rounded-xl transition-all duration-200 group relative overflow-hidden ${
                   isActive 
                     ? 'bg-zen-surface text-zen-primary shadow-lg shadow-black/20' 
@@ -359,7 +377,7 @@ const Layout: React.FC<LayoutProps> = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative desktop-scroll-area pb-24 lg:pb-0 scroll-smooth">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative desktop-scroll-area pb-24 lg:pb-0 scroll-smooth">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<div className="h-full w-full mx-auto max-w-7xl lg:px-8 lg:py-8 animate-reveal"><Home /></div>} />
@@ -382,6 +400,8 @@ const Layout: React.FC<LayoutProps> = () => {
               <button
                 key={item.tab}
                 onClick={() => navigate(item.path)}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
                 className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 relative ${
                   isActive ? 'text-zen-primary transform -translate-y-1' : 'text-zen-text-disabled hover:text-zen-text-secondary'
                 }`}

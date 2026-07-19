@@ -7,10 +7,11 @@ import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import { auth } from '../firebase';
 import ConfirmModal from '../components/ConfirmModal';
+import type { SettingsTab } from '../utils/appNavigation';
 
 interface SettingsProps {
     onClose: () => void;
-    initialTab?: 'focus' | 'profile' | 'notifications' | 'billing' | 'data';
+    initialTab?: SettingsTab;
 }
 
 interface BillingIntervalPlan {
@@ -65,7 +66,7 @@ interface AIUsageInfo {
 const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
   const { state, updateSettings, updateProfile, clearData } = useZen();
   const { signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'focus' | 'profile' | 'notifications' | 'billing' | 'data'>(initialTab || 'focus');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'focus');
   
   // Local state for profile form
   const [localFirstName, setLocalFirstName] = useState(state.profile.firstName || '');
@@ -362,7 +363,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     }
   };
 
-  const tabs = [
+  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
       { id: 'focus', label: 'Focus', icon: IconFocus },
       { id: 'notifications', label: 'Alerts', icon: IconBot },
       { id: 'billing', label: 'Plans', icon: IconCreditCard },
@@ -408,7 +409,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                 role="tab"
                                 aria-selected={activeTab === tab.id}
                                 aria-controls={`settings-panel-${tab.id}`}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                onClick={() => setActiveTab(tab.id)}
                                 className={`relative px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2.5 ${
                                     activeTab === tab.id 
                                         ? 'bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 

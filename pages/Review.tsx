@@ -8,6 +8,8 @@ import { apiFetch } from '../utils/api';
 import { showLocalNotification } from '../utils/pushNotifications';
 import { getPdfSignedUrl } from '../utils/pdfStorage';
 import { useToast } from '../context/ToastContext';
+import { openSettings } from '../utils/appNavigation';
+import { Link } from 'react-router-dom';
 
 // Loading messages for generation
 const LOADING_MESSAGES = [
@@ -1905,12 +1907,12 @@ const Review: React.FC = () => {
             ) : (
               <div className="text-center">
                 <p className="text-zen-text-disabled mb-4">You need to upload PDFs to your Library first.</p>
-                <a 
-                  href="/?page=library"
+                <Link
+                  to="/library"
                   className="px-6 py-3 bg-zen-surface text-zen-text-primary rounded-xl font-medium hover:bg-zen-surface/80 transition-all inline-block"
                 >
                   Go to Library
-                </a>
+                </Link>
               </div>
             )}
           </div>
@@ -2193,7 +2195,7 @@ const Review: React.FC = () => {
               <button
                 onClick={() => {
                   setShowUpgradeModal(false);
-                  window.location.href = '/?page=settings';
+                  openSettings('billing');
                 }}
                 className="w-full py-4 bg-gradient-to-r from-zen-primary via-emerald-400 to-zen-primary text-zen-bg rounded-2xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-zen-primary/30 hover:shadow-zen-primary/50 active:scale-95 transition-all"
               >
