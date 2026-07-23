@@ -6,7 +6,7 @@ import { IconPlus, IconChevronRight, IconChevronLeft, IconPaperclip, IconX, Icon
 import { generateId } from '../utils/helpers';
 import ConfirmModal from '../components/ConfirmModal';
 import AddKnowledgeModal from '../components/AddKnowledgeModal';
-import { FolderItem, PdfAttachment } from '../types';
+import { Folder, FolderItem, PdfAttachment } from '../types';
 import { uploadPdfToR2, getPdfSignedUrl } from '../utils/pdfStorage';
 import { openSettings } from '../utils/appNavigation';
 
@@ -343,6 +343,25 @@ const Library: React.FC = () => {
     setEditingFolderName('');
   };
 
+  const handleDeleteFolder = (folder: Folder) => {
+    const performDelete = () => {
+      deleteFolder(folder.id);
+      if (activeFolderId === folder.id) setActiveFolderId(null);
+    };
+
+    if (folder.items.length === 0) {
+      performDelete();
+      return;
+    }
+
+    setConfirmState({
+      isOpen: true,
+      title: 'Delete Collection',
+      message: `Are you sure you want to permanently delete "${folder.name}" and all ${folder.items.length} ${folder.items.length === 1 ? 'item' : 'items'} inside it? This cannot be undone.`,
+      action: performDelete,
+    });
+  };
+
   const handleSaveItem = (title: string, type: 'note' | 'pdf', content: string, pdf?: PdfAttachment) => {
     if (!activeFolderId) return;
     
@@ -470,12 +489,9 @@ const Library: React.FC = () => {
                             <IconEdit className="w-5 h-5" />
                         </button>
                         <button 
-                            onClick={() => setConfirmState({
-                                isOpen: true,
-                                title: 'Delete Collection',
-                                message: `Permanently delete "${activeFolder.name}" and all ${activeFolder.items.length} documents?`,
-                                action: () => deleteFolder(activeFolder.id)
-                            })}
+                            onClick={() => handleDeleteFolder(activeFolder)}
+                            aria-label={`Delete ${activeFolder.name} collection`}
+                            title="Delete collection"
                             className="px-4 py-3 bg-zen-card border border-zen-surface text-zen-text-disabled hover:text-red-400 hover:border-red-400/30 rounded-xl transition-all active:scale-95"
                         >
                             <IconTrash className="w-5 h-5" />
@@ -831,6 +847,20 @@ const Library: React.FC = () => {
                          className="workspace-panel group relative flex min-h-[120px] cursor-pointer items-center gap-4 p-5 pt-10 transition-colors hover:border-zen-primary/25 sm:p-6 md:min-h-[260px] md:flex-col md:gap-6 md:p-8 md:pt-8 md:text-center"
                          style={{ animationDelay: `${idx * 0.05}s` }}
                        >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFolder(folder);
+                          }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          aria-label={`Delete ${folder.name} collection`}
+                          title="Delete collection"
+                          className="absolute right-3 top-3 z-10 rounded-xl border border-white/[0.06] bg-zen-bg/70 p-2 text-zen-text-disabled opacity-100 backdrop-blur-md transition-all hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                        >
+                          <IconTrash className="h-4 w-4" />
+                        </button>
+
                         <div className="w-12 h-12 md:w-24 md:h-24 bg-zen-surface rounded-2xl md:rounded-[2rem] flex items-center justify-center text-zen-primary/40 group-hover:text-zen-primary group-hover:bg-zen-primary/10 transition-all duration-500 relative shrink-0">
                             <IconFolder className="w-6 h-6 md:w-10 md:h-10" />
                             <div className="absolute -top-2 -right-2 bg-zen-primary text-zen-bg text-[10px] font-bold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full shadow-lg opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -944,7 +974,17 @@ const Library: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+       )}
+
+       <ConfirmModal
+         isOpen={confirmState.isOpen}
+         onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+         onConfirm={confirmState.action}
+         title={confirmState.title}
+         message={confirmState.message}
+         confirmText="Delete"
+         isDangerous
+       />
     </div>
   );
 };

@@ -1,24 +1,145 @@
 import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
-import { IconChevronLeft, IconChevronRight, IconCheck, IconTrash } from '../components/Icons';
-import { isSameDay } from '../utils/helpers';
-import { useNavigate } from 'react-router-dom';
+import { IconChevronLeft, IconChevronRight, IconCheck, IconTrash, IconPlus, IconX } from '../components/Icons';
+import { generateId, isSameDay } from '../utils/helpers';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Subject, Task } from '../types';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+type ScheduleCategory = NonNullable<Task['category']>;
+
+const CATEGORY_OPTIONS: Array<{ value: ScheduleCategory; label: string }> = [
+    { value: 'task', label: 'Task' },
+    { value: 'exam', label: 'Exam' },
+    { value: 'project', label: 'Project' },
+    { value: 'study', label: 'Study session' },
+    { value: 'event', label: 'School event' },
+];
+
+const formatDateInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const toLocalIsoString = (date: string, time: string) => {
+    const value = new Date(`${date}T${time}:00`);
+    const offset = -value.getTimezoneOffset();
+    const sign = offset >= 0 ? '+' : '-';
+    const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+    const minutes = String(Math.abs(offset) % 60).padStart(2, '0');
+    return `${date}T${time}:00${sign}${hours}:${minutes}`;
+};
+
+interface CalendarPlanModalProps {
+    selectedDate: Date;
+    subjects: Subject[];
+    onClose: () => void;
+    onSave: (plan: { title: string; dueDate: string; category: ScheduleCategory; subjectId?: string; notes?: string }) => void;
+}
+
+const CalendarPlanModal: React.FC<CalendarPlanModalProps> = ({ selectedDate, subjects, onClose, onSave }) => {
+    const [title, setTitle] = useState('');
+    const [category, setCategory] = useState<ScheduleCategory>('task');
+    const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
+    const [date, setDate] = useState(formatDateInput(selectedDate));
+    const [time, setTime] = useState('09:00');
+    const [notes, setNotes] = useState('');
+
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!title.trim()) return;
+        onSave({
+            title: title.trim(),
+            dueDate: toLocalIsoString(date, time),
+            category,
+            ...(subjectId ? { subjectId } : {}),
+            ...(notes.trim() ? { notes: notes.trim() } : {}),
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-6">
+            <button type="button" aria-label="Close planner" className="absolute inset-0 h-full w-full bg-black/70 backdrop-blur-xl" onClick={onClose} />
+            <div className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-white/10 bg-zen-bg shadow-2xl sm:max-w-2xl sm:rounded-[2rem]">
+                <div className="relative overflow-hidden border-b border-white/[0.06] p-6 sm:p-8">
+                    <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zen-primary/10 blur-3xl" aria-hidden="true" />
+                    <div className="relative flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zen-primary">Calendar planner</p>
+                            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Schedule your next move</h2>
+                            <p className="mt-2 text-sm text-zen-text-secondary">Plan an exam, project, study session, event, or regular task.</p>
+                        </div>
+                        <button type="button" onClick={onClose} aria-label="Close planner" className="rounded-xl bg-white/[0.04] p-2.5 text-zen-text-secondary transition-colors hover:bg-white/[0.08] hover:text-white">
+                            <IconX className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="custom-scrollbar space-y-5 overflow-y-auto p-6 sm:p-8">
+                    <div className="space-y-2">
+                        <label htmlFor="plan-title" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Title</label>
+                        <input id="plan-title" autoFocus required value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g., Midterm exam or Submit capstone" className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-base text-white outline-none transition-colors placeholder:text-zen-text-disabled/50 focus:border-zen-primary/50" />
+                    </div>
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <label htmlFor="plan-category" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Plan type</label>
+                            <select id="plan-category" value={category} onChange={event => setCategory(event.target.value as ScheduleCategory)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface px-4 py-3.5 text-sm text-white outline-none focus:border-zen-primary/50">
+                                {CATEGORY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="plan-subject" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Subject</label>
+                            <select id="plan-subject" value={subjectId} onChange={event => setSubjectId(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface px-4 py-3.5 text-sm text-white outline-none focus:border-zen-primary/50">
+                                <option value="">No subject</option>
+                                {subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <label htmlFor="plan-date" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Date</label>
+                            <input id="plan-date" type="date" required value={date} onChange={event => setDate(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none [color-scheme:dark] focus:border-zen-primary/50" />
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="plan-time" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Time</label>
+                            <input id="plan-time" type="time" required value={time} onChange={event => setTime(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none [color-scheme:dark] focus:border-zen-primary/50" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="plan-notes" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Notes <span className="normal-case tracking-normal">(optional)</span></label>
+                        <textarea id="plan-notes" rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Room, coverage, preparation steps, or reminders…" className="w-full resize-none rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none transition-colors placeholder:text-zen-text-disabled/50 focus:border-zen-primary/50" />
+                    </div>
+
+                    <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col-reverse gap-3 border-t border-white/[0.06] bg-zen-bg/95 px-6 pb-6 pt-4 backdrop-blur-xl sm:-bottom-8 sm:-mx-8 sm:-mb-8 sm:flex-row sm:justify-end sm:px-8 sm:pb-8">
+                        <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-5 text-xs font-bold uppercase tracking-wider text-zen-text-secondary transition-colors hover:bg-white/[0.04] hover:text-white">Cancel</button>
+                        <button type="submit" disabled={!title.trim()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-zen-primary px-6 text-xs font-bold uppercase tracking-wider text-zen-bg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40">
+                            <IconPlus className="h-4 w-4" />
+                            Add to schedule
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 const Calendar: React.FC = () => {
-    const { state, toggleTask, deleteTask, setHideNavbar } = useZen();
+    const { state, addTask, toggleTask, deleteTask, setHideNavbar } = useZen();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-    const navigate = useNavigate();
+    const [isPlanning, setIsPlanning] = useState(false);
 
     // Initial load: ensure selected date syncs if needed, or keep today
     useEffect(() => {
-        // Reset selected date to match current view if switched month drastically? 
-        // Actually, keeping selected date independent is better UX usually.
-    }, []);
+        setHideNavbar(isPlanning);
+        return () => setHideNavbar(false);
+    }, [isPlanning, setHideNavbar]);
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -65,6 +186,22 @@ const Calendar: React.FC = () => {
         ? Math.round((currentMonthTasks.filter(t => t.completed).length / currentMonthTasks.length) * 100) 
         : 0;
 
+    const handleSavePlan = (plan: { title: string; dueDate: string; category: ScheduleCategory; subjectId?: string; notes?: string }) => {
+        addTask({
+            id: generateId(),
+            title: plan.title,
+            dueDate: plan.dueDate,
+            completed: false,
+            category: plan.category,
+            ...(plan.subjectId ? { subjectId: plan.subjectId } : {}),
+            ...(plan.notes ? { notes: plan.notes } : {}),
+        });
+        const scheduledDate = new Date(plan.dueDate);
+        setSelectedDate(scheduledDate);
+        setCurrentDate(new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), 1));
+        setIsPlanning(false);
+    };
+
   return (
     <div className="workspace-page desktop-scroll-area no-scrollbar">
         <div className="workspace-page-inner flex min-h-full flex-col">
@@ -81,10 +218,15 @@ const Calendar: React.FC = () => {
                    </p>
                 </div>
                 
-                <div className="flex items-center gap-1 self-end rounded-xl border border-white/[0.08] bg-black/20 p-1 sm:self-auto">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                   <button onClick={() => setIsPlanning(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-zen-primary px-4 text-xs font-bold uppercase tracking-wider text-zen-bg transition-all hover:-translate-y-0.5">
+                       <IconPlus className="h-4 w-4" /> Plan
+                   </button>
+                   <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-black/20 p-1">
                    <button onClick={prevMonth} aria-label="Previous month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronLeft className="w-5 h-5" /></button>
                    <button onClick={() => setCurrentDate(new Date())} className="text-xs font-medium px-2 text-zen-text-secondary hover:text-zen-text-primary transition-colors">Today</button>
                    <button onClick={nextMonth} aria-label="Next month" className="p-2 hover:bg-zen-surface rounded-full text-zen-text-secondary hover:text-zen-primary transition-colors"><IconChevronRight className="w-5 h-5" /></button>
+                   </div>
                 </div>
             </div>
 
@@ -176,7 +318,7 @@ const Calendar: React.FC = () => {
                                     >
                                         {/* Subject at top */}
                                         <span className="text-[10px] uppercase tracking-[0.2em] text-zen-text-disabled font-bold">
-                                            {(state.subjects.find(subject => subject.id === task.subjectId)?.name || 'Unassigned')}
+                                            {task.category || 'task'} · {(state.subjects.find(subject => subject.id === task.subjectId)?.name || 'Unassigned')}
                                         </span>
                                         
                                         {/* Title and Checkbox Row */}
@@ -227,10 +369,10 @@ const Calendar: React.FC = () => {
                                 <EmptyState
                                   compact
                                   icon={<span className="text-2xl" aria-hidden="true">🌱</span>}
-                                  title="No tasks scheduled"
-                                  description="Enjoy the open day, or plan a task from your dashboard."
+                                  title="Nothing planned yet"
+                                  description="Schedule an exam, project, study session, event, or task for this day."
                                   actionLabel="Plan a task"
-                                  onAction={() => navigate('/')}
+                                  onAction={() => setIsPlanning(true)}
                                 />
                             )}
                         </div>
@@ -238,6 +380,14 @@ const Calendar: React.FC = () => {
                 </div>
             </div>
         </div>
+        {isPlanning && (
+            <CalendarPlanModal
+                selectedDate={selectedDate}
+                subjects={state.subjects}
+                onClose={() => setIsPlanning(false)}
+                onSave={handleSavePlan}
+            />
+        )}
     </div>
   );
 };

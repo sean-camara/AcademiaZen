@@ -512,12 +512,12 @@ const MessageActions: React.FC<MessageActionsProps> = ({
 
     // Desktop: hover toolbar
     return (
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="mt-3 flex w-full flex-wrap items-center gap-1 border-t border-white/5 pt-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" aria-label="Response actions">
             {actions.map((action, i) => (
                 <button
                     key={i}
                     onClick={action.onClick}
-                    className="min-h-[36px] px-2.5 py-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all text-xs flex items-center gap-1.5"
+                    className="flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-gray-500 transition-all hover:bg-white/10 hover:text-white"
                     title={action.label}
                 >
                     <span>{action.icon}</span>
@@ -1429,7 +1429,8 @@ If asked tech stack: "MERN Stack."`;
                     const dueDate = new Date(task.dueDate);
                     const isPastDue = !task.completed && dueDate < now;
                     const status = task.completed ? 'Completed' : isPastDue ? 'Past Due' : 'Pending';
-                    let line = `- "${task.title}" | Subject: ${subjectName || 'None'} | Due: ${dueDate.toLocaleString()} | Status: ${status}`;
+                    const category = task.category || 'task';
+                    let line = `- "${task.title}" | Type: ${category} | Subject: ${subjectName || 'None'} | Scheduled: ${dueDate.toLocaleString()} | Status: ${status}`;
                     if (task.notes) line += ` | Notes: ${task.notes}`;
                     if (task.pdfAttachment?.name) {
                         line += ` | PDF Attached: "${task.pdfAttachment.name}"`;
@@ -1440,8 +1441,8 @@ If asked tech stack: "MERN Stack."`;
             }
 
             const taskContext = taskContextLines.length > 0
-                ? `\nUSER'S TASKS/CALENDAR (current date: ${now.toLocaleDateString()}):\n${taskContextLines.join('\n')}\n`
-                : `\nUSER'S TASKS/CALENDAR: The user has no tasks.\n`;
+                ? `\nUSER'S TASKS AND SCHEDULED CALENDAR PLANS (current date: ${now.toLocaleDateString()}):\n${taskContextLines.join('\n')}\nTreat entries typed as exam, project, study, or event as intentional calendar plans. Use their exact scheduled date/time, subject, completion status, and notes when answering planning, workload, deadline, or calendar questions.\n`
+                : `\nUSER'S TASKS AND SCHEDULED CALENDAR PLANS: The user has nothing scheduled.\n`;
 
             // Add PDF instruction to system prompt if any tasks have PDFs
             if (tasksWithPdfs.length > 0) {
@@ -2018,12 +2019,12 @@ If asked tech stack: "MERN Stack."`;
             <main 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain custom-scrollbar"
                 role="log"
                 aria-label="Chat messages"
                 aria-live="polite"
             >
-                <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
+                <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col space-y-4 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-4">
                     
                     {/* Free Model Mode Banner */}
                     {forceFreeModel && (
@@ -2044,51 +2045,50 @@ If asked tech stack: "MERN Stack."`;
                         EMPTY STATE
                     ============================================================ */}
                     {messages.length === 0 && !isLoading && (
-                        <div className="mx-auto flex min-h-[58vh] max-w-3xl flex-col items-center justify-center rounded-[28px] border border-white/[0.055] bg-white/[0.018] px-4 py-8 text-center sm:px-8">
-                            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border border-emerald-400/15 bg-emerald-400/[0.07] shadow-[0_0_50px_rgba(16,185,129,0.08)] sm:mb-8">
-                                <IconBot className="h-10 w-10 text-emerald-400" />
+                        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col items-center justify-center rounded-[24px] border border-white/[0.055] bg-white/[0.018] px-4 py-5 text-center sm:px-5 sm:py-6">
+                            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.07] shadow-[0_0_40px_rgba(16,185,129,0.08)]">
+                                <IconBot className="h-7 w-7 text-emerald-400" />
                             </div>
                             
-                            <h2 className="text-2xl sm:text-3xl font-light text-white tracking-tight mb-3 sm:mb-4">
+                            <h2 className="mb-2 text-xl font-medium tracking-tight text-white sm:text-2xl">
                                 What are we solving?
                             </h2>
-                            <p className="text-sm sm:text-base text-gray-400 max-w-md mb-8 sm:mb-12">
-                                Ask directly, attach your study material, or turn today&apos;s workload into a concrete plan.
+                            <p className="mb-5 max-w-sm text-xs leading-relaxed text-gray-400 sm:text-sm">
+                                Ask directly, attach study material, or turn tasks and calendar plans into a clear next step.
                             </p>
                             
-                            {/* Suggestion cards - stack on mobile */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
+                            <div className="grid w-full max-w-2xl grid-cols-3 gap-2">
                                 <button
                                     disabled={aiLocked}
-                                    onClick={() => setInput("What tasks are due this week and how should I prioritize them?")}
-                                    className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
+                                    onClick={() => setInput("What tasks, exams, projects, and study sessions are scheduled this week, and how should I prioritize them?")}
+                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
                                         aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 active:bg-emerald-500/10'
                                     }`}
                                 >
-                                    <p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-2">Plan</p>
-                                    <p className="text-sm sm:text-base text-white">"What's due this week and how should I prioritize?"</p>
+                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-emerald-500">Plan</p>
+                                    <p className="text-xs leading-snug text-white sm:text-sm">Prioritize this week</p>
                                 </button>
 
                                 <button
                                     disabled={aiLocked}
                                     onClick={() => setInput("Help me break down my upcoming tasks into smaller steps")}
-                                    className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
+                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
                                         aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-purple-500/30 hover:bg-purple-500/5 active:bg-purple-500/10'
                                     }`}
                                 >
-                                    <p className="text-[10px] text-purple-400 uppercase font-bold tracking-wider mb-2">Organize</p>
-                                    <p className="text-sm sm:text-base text-white">"Break down my tasks into smaller steps"</p>
+                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-purple-400">Organize</p>
+                                    <p className="text-xs leading-snug text-white sm:text-sm">Break down tasks</p>
                                 </button>
 
                                 <button
                                     disabled={aiLocked}
-                                    onClick={() => setInput("Create a study schedule for my past due and upcoming deadlines")}
-                                    className={`p-4 sm:p-5 rounded-xl border text-left transition-all ${
+                                    onClick={() => setInput("Create a study schedule around my scheduled exams, projects, study sessions, events, and unfinished tasks")}
+                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
                                         aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-amber-500/30 hover:bg-amber-500/5 active:bg-amber-500/10'
                                     }`}
                                 >
-                                    <p className="text-[10px] text-amber-400 uppercase font-bold tracking-wider mb-2">Schedule</p>
-                                    <p className="text-sm sm:text-base text-white">"Create a study schedule for my deadlines"</p>
+                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">Schedule</p>
+                                    <p className="text-xs leading-snug text-white sm:text-sm">Build a study plan</p>
                                 </button>
                             </div>
                         </div>

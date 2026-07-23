@@ -537,9 +537,11 @@ const TaskActionModal: React.FC<{
 const ConfirmDeleteModal: React.FC<{
     type: 'subject' | 'task';
     name: string;
+    taskCount?: number | undefined;
+    flashcardCount?: number | undefined;
     onConfirm: () => void;
     onCancel: () => void;
-}> = ({ type, name, onConfirm, onCancel }) => {
+}> = ({ type, name, taskCount = 0, flashcardCount = 0, onConfirm, onCancel }) => {
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6 animate-reveal" onClick={onCancel}>
             <div 
@@ -554,7 +556,13 @@ const ConfirmDeleteModal: React.FC<{
                     <p className="text-sm text-zen-text-secondary">
                         Are you sure you want to delete "<span className="text-zen-text-primary font-medium">{name}</span>"?
                         {type === 'subject' && (
-                            <span className="block mt-1 text-red-400 text-xs">This will also delete all tasks and flashcards in this subject.</span>
+                            <span className="block mt-2 text-red-400 text-xs">
+                                This will also permanently delete{' '}
+                                {[
+                                  taskCount > 0 ? `${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}` : '',
+                                  flashcardCount > 0 ? `${flashcardCount} ${flashcardCount === 1 ? 'flashcard' : 'flashcards'}` : '',
+                                ].filter(Boolean).join(' and ')} in this subject. This cannot be undone.
+                            </span>
                         )}
                     </p>
                 </div>
@@ -651,7 +659,7 @@ const EditSubjectModal: React.FC<{
 
 const Home: React.FC = () => {
   const { state, toggleTask, addTask, addSubject, updateSubject, deleteSubject, updateTask, deleteTask, setHideNavbar } = useZen();
-  const { profile, tasks, subjects } = state;
+  const { profile, tasks, subjects, flashcards } = state;
   
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
@@ -664,7 +672,13 @@ const Home: React.FC = () => {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<PdfAttachment | null>(null);
   const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<{ type: 'subject' | 'task'; id: string; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    type: 'subject' | 'task';
+    id: string;
+    name: string;
+    taskCount?: number;
+    flashcardCount?: number;
+  } | null>(null);
 
   useEffect(() => {
     const hasModal = showAddTaskModal || viewingPdf !== null || confirmDelete !== null || editingSubject !== null || editingTask !== null;
@@ -716,6 +730,25 @@ const Home: React.FC = () => {
     setConfirmDelete(null);
     setShowSubjectActions(null);
     if (selectedSubjectId === id) setSelectedSubjectId(null);
+  };
+
+  const requestDeleteSubject = (subject: Subject) => {
+    const taskCount = tasks.filter(task => task.subjectId === subject.id).length;
+    const flashcardCount = flashcards.filter(card => card.subjectId === subject.id).length;
+
+    if (taskCount === 0 && flashcardCount === 0) {
+      handleDeleteSubject(subject.id);
+      return;
+    }
+
+    setConfirmDelete({
+      type: 'subject',
+      id: subject.id,
+      name: subject.name,
+      taskCount,
+      flashcardCount,
+    });
+    setShowSubjectActions(null);
   };
 
   const handleEditTask = (task: Task) => {
@@ -780,120 +813,151 @@ const Home: React.FC = () => {
     const subjectTasks = tasks.filter(t => t.subjectId === selectedSubject.id);
     const pendingSubjectTasks = subjectTasks.filter(t => !t.completed);
     const completedSubjectTasks = subjectTasks.filter(t => t.completed);
+    const completionRate = subjectTasks.length === 0 ? 0 : Math.round((completedSubjectTasks.length / subjectTasks.length) * 100);
 
     return (
-      <div className="h-full flex flex-col relative bg-zen-bg animate-reveal">
-        
-        {/* Mobile Header (Sticky) */}
-        <div className="pt-6 px-4 md:px-10 pb-4 sticky top-0 bg-zen-bg/95 backdrop-blur-xl z-20 flex flex-col gap-6 border-b border-zen-surface/20 md:border-none">
-          <div className="max-w-4xl mx-auto w-full">
-            <button 
-                onClick={() => setSelectedSubjectId(null)} 
-                className="flex items-center gap-2 text-zen-text-secondary hover:text-zen-text-primary transition-all w-fit group active:scale-95 py-1 px-3 -ml-3 rounded-lg hover:bg-zen-surface/50 mb-2"
-            >
-                <IconChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="text-sm font-medium">Dashboard</span>
-            </button>
-            
-            <div className="flex items-center gap-5">
-                <div className="relative">
-                    <div className={`w-2.5 h-10 rounded-full ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`} style={selectedSubject.color.startsWith('#') ? {backgroundColor: selectedSubject.color} : {}} />
-                    <div className={`absolute -right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-[3px] border-zen-bg shadow-lg ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`} style={selectedSubject.color.startsWith('#') ? {backgroundColor: selectedSubject.color} : {}} />
+      <div className="workspace-page desktop-scroll-area no-scrollbar animate-reveal">
+        <div className="workspace-page-inner max-w-[1120px]">
+          <button
+            onClick={() => setSelectedSubjectId(null)}
+            className="group -ml-2 flex w-fit items-center gap-2 rounded-xl px-2 py-2 text-sm font-medium text-zen-text-secondary transition-colors hover:bg-white/[0.04] hover:text-white"
+          >
+            <IconChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            Back to dashboard
+          </button>
+
+          <section className="workspace-panel relative overflow-hidden p-5 sm:p-7 md:p-9">
+            <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-zen-primary/[0.07] blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
+              <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+                <div
+                  className={`mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg sm:h-14 sm:w-14 ${selectedSubject.color.startsWith('#') ? '' : selectedSubject.color}`}
+                  style={selectedSubject.color.startsWith('#') ? { backgroundColor: selectedSubject.color } : {}}
+                >
+                  <span className="h-3 w-3 rounded-full bg-zen-bg/80 ring-4 ring-zen-bg/20" />
                 </div>
                 <div className="min-w-0">
-                    <h2 className="text-2xl md:text-5xl font-light text-zen-text-primary leading-tight tracking-tight truncate">{selectedSubject.name}</h2>
-                    <p className="text-[10px] md:text-xs text-zen-text-disabled font-black uppercase tracking-[0.2em] mt-1">{pendingSubjectTasks.length} Pending Actions</p>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-zen-primary">Subject workspace</p>
+                  <h2 className="max-w-3xl break-words pb-1 text-3xl font-semibold leading-[1.12] tracking-[-0.035em] text-white sm:text-4xl md:text-5xl">
+                    {selectedSubject.name}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zen-text-secondary">
+                    Keep assignments, deadlines, and reference files moving in one focused workspace.
+                  </p>
                 </div>
+              </div>
+
+              <button
+                onClick={() => setShowAddTaskModal(true)}
+                className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-zen-primary px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-zen-bg shadow-lg shadow-zen-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-zen-primary/25 active:translate-y-0"
+              >
+                <IconPlus className="h-4 w-4" />
+                New task
+              </button>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar pb-32">
-            <div className="max-w-4xl mx-auto w-full px-4 md:px-10">
-                {/* Stats Row */}
-                <div className="grid grid-cols-2 gap-4 py-8">
-                    <div className="bg-zen-card p-6 rounded-[2rem] border border-zen-surface hover:border-zen-primary/30 transition-all flex flex-col items-center justify-center gap-2 shadow-sm">
-                        <span className="text-3xl font-light text-zen-text-primary">{pendingSubjectTasks.length}</span>
-                        <span className="text-[9px] text-zen-text-disabled uppercase tracking-[0.2em] font-black">Active</span>
-                    </div>
-                    <div className="bg-zen-card p-6 rounded-[2rem] border border-zen-surface transition-all flex flex-col items-center justify-center gap-2 shadow-sm opacity-50">
-                        <span className="text-3xl font-light text-zen-text-disabled">{completedSubjectTasks.length}</span>
-                        <span className="text-[9px] text-zen-text-disabled uppercase tracking-[0.2em] font-black">Resolved</span>
-                    </div>
-                </div>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5" aria-label="Subject progress">
+            <div className="workspace-stat">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zen-text-disabled">Active</p>
+              <div className="mt-3 flex items-end gap-2">
+                <strong className="text-3xl font-light leading-none text-white md:text-4xl">{pendingSubjectTasks.length}</strong>
+                <span className="pb-1 text-xs text-zen-text-secondary">tasks</span>
+              </div>
+            </div>
+            <div className="workspace-stat">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zen-text-disabled">Completed</p>
+              <div className="mt-3 flex items-end gap-2">
+                <strong className="text-3xl font-light leading-none text-zen-primary md:text-4xl">{completedSubjectTasks.length}</strong>
+                <span className="pb-1 text-xs text-zen-text-secondary">tasks</span>
+              </div>
+            </div>
+            <div className="workspace-stat col-span-2 md:col-span-1">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zen-text-disabled">Progress</p>
+                <span className="text-sm font-semibold text-zen-primary">{completionRate}%</span>
+              </div>
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-zen-surface">
+                <div className="h-full rounded-full bg-zen-primary transition-all duration-500" style={{ width: `${completionRate}%` }} />
+              </div>
+            </div>
+          </section>
 
-                {/* Tasks List */}
-                <div className="space-y-10">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-black text-zen-text-disabled uppercase tracking-[0.25em]">Registry</h3>
-                        <div className="h-[1px] flex-1 bg-zen-surface ml-6 opacity-20"></div>
-                    </div>
+          <section className="space-y-4 pb-20">
+            <div className="flex items-end justify-between border-b border-white/[0.06] pb-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zen-text-disabled">Task registry</p>
+                <h3 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-white sm:text-2xl">Your work</h3>
+              </div>
+              <span className="rounded-full bg-zen-surface/70 px-3 py-1 text-xs font-semibold text-zen-text-secondary">
+                {subjectTasks.length} {subjectTasks.length === 1 ? 'task' : 'tasks'}
+              </span>
+            </div>
 
-                    {subjectTasks.length > 0 ? (
-                    <ul className="space-y-4 pb-10">
-                        {subjectTasks.map((task, idx) => (
-                        <li 
-                            key={task.id} 
-                            onClick={() => setActiveActionTask(task)} 
-                            className="group bg-zen-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-zen-surface hover:border-zen-primary/30 transition-all cursor-pointer active:scale-[0.98] animate-reveal" 
-                            style={{ animationDelay: `${idx * 0.05}s` }}
+            {subjectTasks.length > 0 ? (
+              <ul className="space-y-3">
+                {subjectTasks.map((task, idx) => {
+                  const isOverdue = new Date(task.dueDate) < new Date() && !task.completed;
+                  return (
+                    <li
+                      key={task.id}
+                      onClick={() => setActiveActionTask(task)}
+                      className="workspace-panel group cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:border-zen-primary/25 active:translate-y-0 sm:p-5"
+                      style={{ animationDelay: `${idx * 0.05}s` }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+                          aria-label={task.completed ? `Mark ${task.title} active` : `Mark ${task.title} complete`}
+                          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 transition-all ${task.completed ? 'border-zen-primary bg-zen-primary shadow-glow' : 'border-zen-surface-brighter hover:border-zen-primary'}`}
                         >
-                            <div className="flex items-start gap-4 sm:gap-5">
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} 
-                                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all mt-0.5 ${task.completed ? 'bg-zen-primary border-zen-primary shadow-glow' : 'border-zen-surface-brighter hover:border-zen-primary'}`}
-                                >
-                                {task.completed && <IconCheck className="w-4 h-4 text-zen-bg stroke-[4]" />}
-                                </button>
-                                
-                                <div className="flex-1 min-w-0">
-                                    <h4 className={`text-base sm:text-lg font-medium leading-tight transition-all line-clamp-2 sm:line-clamp-1 ${task.completed ? 'text-zen-text-disabled line-through opacity-50' : 'text-zen-text-primary'}`}>
-                                        {task.title}
-                                    </h4>
-                                    
-                                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-400' : 'text-zen-text-disabled'}`}>
-                                            {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                        {task.pdfAttachment && (
-                                            <span className="flex items-center gap-1.5 text-zen-primary font-black text-[9px] uppercase tracking-[0.15em]">
-                                                <IconPaperclip className="w-3 h-3" />
-                                                Data Attached
-                                            </span>
-                                        )}
-                                    </div>
-                                    
-                                </div>
-                            </div>
-                        </li>
-                        ))}
-                    </ul>
-                    ) : (
-                    <div className="py-24 flex flex-col items-center justify-center gap-6 opacity-60 animate-reveal">
-                        <div className="w-24 h-24 bg-zen-surface/50 rounded-[2.5rem] flex items-center justify-center rotate-3 border border-zen-surface">
-                            <IconCheck className="w-10 h-10 text-zen-primary/40" />
-                        </div>
-                        <p className="text-zen-text-disabled font-light text-lg tracking-tight">No actions logged in memory.</p>
-                    </div>
-                    )}
-                </div>
-            </div>
-        </div>
+                          {task.completed && <IconCheck className="h-4 w-4 text-zen-bg stroke-[4]" />}
+                        </button>
 
-        {/* Floating Action Button (FAB) */}
-        <div className="fixed bottom-[110px] right-6 md:right-10 z-30">
-            <button 
-                onClick={() => setShowAddTaskModal(true)} 
-                className="w-16 h-16 bg-zen-primary text-zen-bg rounded-[1.5rem] shadow-[0_15px_30px_-5px_rgba(var(--zen-primary-rgb),0.3)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all group"
-            >
-                <IconPlus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-500" />
-            </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <h4 className={`break-words text-base font-semibold leading-snug sm:text-lg ${task.completed ? 'text-zen-text-disabled line-through' : 'text-zen-text-primary'}`}>
+                              {task.title}
+                            </h4>
+                            <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${task.completed ? 'bg-zen-primary/10 text-zen-primary' : isOverdue ? 'bg-red-400/10 text-red-400' : 'bg-zen-secondary/10 text-zen-secondary'}`}>
+                              {task.completed ? 'Completed' : isOverdue ? 'Overdue' : 'Active'}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-bold uppercase tracking-[0.12em] text-zen-text-disabled">
+                            <span className={isOverdue ? 'text-red-400' : ''}>
+                              Due {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {task.pdfAttachment && (
+                              <span className="flex items-center gap-1.5 text-zen-primary">
+                                <IconPaperclip className="h-3 w-3" />
+                                Attachment
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <IconChevronRight className="mt-1 h-5 w-5 shrink-0 text-zen-text-disabled transition-transform group-hover:translate-x-0.5 group-hover:text-zen-primary" />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="workspace-panel flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zen-primary/10 text-zen-primary">
+                  <IconCheck className="h-7 w-7" />
+                </div>
+                <h4 className="mt-5 text-lg font-semibold text-white">A clear workspace</h4>
+                <p className="mt-2 max-w-sm text-sm leading-relaxed text-zen-text-secondary">Add the first task for this subject and turn your next deadline into a concrete action.</p>
+                <button onClick={() => setShowAddTaskModal(true)} className="mt-6 rounded-xl bg-zen-primary px-5 py-3 text-xs font-bold uppercase tracking-wider text-zen-bg">Add first task</button>
+              </div>
+            )}
+          </section>
         </div>
 
         {showAddTaskModal && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setShowAddTaskModal(false)} onSave={handleCreateTask} />}
         {editingTask && <AddTaskModal subjectName={selectedSubject.name} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} editMode={true} initialData={{ title: editingTask.title, date: editingTask.dueDate, notes: editingTask.notes || '', ...(editingTask.pdfAttachment ? { pdf: editingTask.pdfAttachment } : {}) }} />}
         {activeActionTask && <TaskActionModal task={activeActionTask} onClose={() => setActiveActionTask(null)} onToggleDone={() => { toggleTask(activeActionTask.id); setActiveActionTask(null); }} onViewPdf={() => { if (activeActionTask.pdfAttachment) setViewingPdf(activeActionTask.pdfAttachment); setActiveActionTask(null); }} onEdit={() => handleEditTask(activeActionTask)} onDelete={() => setConfirmDelete({ type: 'task', id: activeActionTask.id, name: activeActionTask.title })} />}
-        {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
+        {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} taskCount={confirmDelete.taskCount} flashcardCount={confirmDelete.flashcardCount} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
         {viewingPdf && <PDFViewer attachment={viewingPdf} onClose={() => setViewingPdf(null)} />}
       </div>
     );
@@ -1123,7 +1187,7 @@ const Home: React.FC = () => {
                                     {showActions && (
                                         <div className="absolute right-2 top-10 bg-zen-surface border border-zen-text-disabled/20 rounded-xl shadow-2xl z-20 overflow-hidden animate-scale-in w-32">
                                             <button onClick={(e) => { e.stopPropagation(); handleEditSubject(subject); }} className="w-full px-4 py-2 text-xs text-zen-text-primary hover:bg-white/5 flex items-center gap-2 text-left">Edit</button>
-                                            <button onClick={(e) => { e.stopPropagation(); setConfirmDelete({ type: 'subject', id: subject.id, name: subject.name }); setShowSubjectActions(null); }} className="w-full px-4 py-2 text-xs text-red-400 hover:bg-white/5 flex items-center gap-2 text-left">Delete</button>
+                                            <button onClick={(e) => { e.stopPropagation(); requestDeleteSubject(subject); }} className="w-full px-4 py-2 text-xs text-red-400 hover:bg-white/5 flex items-center gap-2 text-left">Delete</button>
                                         </div>
                                     )}
                                 </div>
@@ -1164,7 +1228,7 @@ const Home: React.FC = () => {
           }}
         />
       )}
-      {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
+      {confirmDelete && <ConfirmDeleteModal type={confirmDelete.type} name={confirmDelete.name} taskCount={confirmDelete.taskCount} flashcardCount={confirmDelete.flashcardCount} onConfirm={() => { if (confirmDelete.type === 'task') handleDeleteTask(confirmDelete.id); else handleDeleteSubject(confirmDelete.id); }} onCancel={() => setConfirmDelete(null)} />}
     </div>
   );
 };

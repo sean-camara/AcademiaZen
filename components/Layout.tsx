@@ -293,7 +293,7 @@ const Layout: React.FC<LayoutProps> = () => {
       <aside className={`app-sidebar z-30 hidden h-full w-[272px] flex-col lg:flex ${showAI ? 'ai-sidebar-compact' : ''}`}>
         <div className="px-5 pb-5 pt-6">
           <div className="flex items-center gap-3">
-            <div className="brand-mark" aria-hidden="true"><span>A</span></div>
+            <div className="brand-mark" aria-hidden="true"><img className="brand-mark-image" src="/icons/academiazen-mark.svg" alt="" /></div>
             <div className="sidebar-brand-copy min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-bold tracking-[-0.02em] text-white">AcademiaZen</h1>
@@ -363,7 +363,7 @@ const Layout: React.FC<LayoutProps> = () => {
         {/* Mobile Header (Hidden on Desktop) */}
         <header className="mobile-app-header sticky top-0 z-10 flex items-center justify-between px-4 py-3 lg:hidden">
           <div className="flex min-w-0 items-center gap-3">
-             <div className="brand-mark brand-mark-small" aria-hidden="true"><span>A</span></div>
+             <div className="brand-mark brand-mark-small" aria-hidden="true"><img className="brand-mark-image" src="/icons/academiazen-mark.svg" alt="" /></div>
              <div className="min-w-0 leading-tight">
                 <p className="truncate text-sm font-bold text-white">{activeNavItem.label}</p>
                 <p className="truncate text-[10px] text-zen-text-disabled">AcademiaZen{isPremium ? ' · Pro' : ''}</p>

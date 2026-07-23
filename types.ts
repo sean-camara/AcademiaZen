@@ -36,6 +36,7 @@ export interface Task {
   dueDate: string; // ISO Date string
   completed: boolean;
   subjectId?: string;
+  category?: 'task' | 'exam' | 'project' | 'study' | 'event';
   notes?: string;
   pdfAttachment?: PdfAttachment;
 }
