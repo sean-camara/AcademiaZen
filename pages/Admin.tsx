@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
@@ -113,6 +113,81 @@ interface AuditLogItem {
   details?: Record<string, any>;
   createdAt: string;
 }
+
+interface CustomSelectOption {
+  value: string;
+  label: string;
+  icon?: string;
+}
+
+interface CustomSelectProps {
+  value: string;
+  options: CustomSelectOption[];
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={dropdownRef} className={`relative inline-block ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b121c] border border-white/10 hover:border-emerald-400/40 text-xs font-semibold text-slate-200 flex items-center justify-between gap-3 transition-all focus:outline-none focus:border-emerald-400 shadow-sm"
+      >
+        <span className="flex items-center gap-2 truncate">
+          {selectedOption?.icon && <span className="text-sm">{selectedOption.icon}</span>}
+          <span>{selectedOption?.label}</span>
+        </span>
+        <span className={`text-[10px] text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-400' : ''}`}>
+          ▼
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-2 z-50 py-1.5 bg-[#0b121c] border border-white/15 rounded-xl shadow-2xl backdrop-blur-xl animate-in fade-in duration-100 font-sans min-w-[160px]">
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3.5 py-2 text-left text-xs font-medium flex items-center justify-between transition-colors ${
+                  isSelected ? 'bg-emerald-400/15 text-emerald-300 font-bold' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  {opt.icon && <span className="text-sm">{opt.icon}</span>}
+                  <span>{opt.label}</span>
+                </span>
+                {isSelected && <span className="text-emerald-400 font-bold text-xs">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Admin: React.FC = () => {
   const { signOut } = useAuth();
@@ -409,6 +484,36 @@ const Admin: React.FC = () => {
     { id: 'audit', label: 'Admin Audit Trail', icon: '🛡️' },
   ];
 
+  const roleOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Roles', icon: '👥' },
+    { value: 'user', label: 'Users Only', icon: '👤' },
+    { value: 'admin', label: 'Admins Only', icon: '👑' },
+  ];
+
+  const planOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Plans', icon: '💳' },
+    { value: 'free', label: 'Free Tier', icon: '🌱' },
+    { value: 'premium', label: 'Premium Pro', icon: '💎' },
+  ];
+
+  const statusOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Statuses', icon: '⚡' },
+    { value: 'active', label: 'Active Only', icon: '✅' },
+    { value: 'suspended', label: 'Suspended Only', icon: '🚫' },
+  ];
+
+  const aiStatusOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Request Statuses', icon: '🤖' },
+    { value: 'success', label: 'Success Only', icon: '✅' },
+    { value: 'failed', label: 'Failed Only', icon: '❌' },
+  ];
+
+  const annTypeOptions: CustomSelectOption[] = [
+    { value: 'info', label: 'Info (Blue)', icon: 'ℹ️' },
+    { value: 'warning', label: 'Warning (Amber)', icon: '⚠️' },
+    { value: 'success', label: 'Success (Green)', icon: '✅' },
+  ];
+
   return (
     <div className="min-h-screen bg-[#070b10] text-slate-100 flex flex-col md:flex-row font-sans">
       
@@ -683,32 +788,32 @@ const Admin: React.FC = () => {
             {/* TAB 2: USER DIRECTORY & BATCH ACTIONS */}
             {activeTab === 'users' && (
               <div>
-                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-4">
+                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-4 items-center">
                   <input
                     type="text"
                     placeholder="Search by email, name, or UID..."
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                    className="flex-1 w-full px-4 py-2.5 rounded-xl bg-[#0b121c] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
                   />
-                  <div className="flex gap-2">
-                    <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); fetchUsers(userSearch, 1, e.target.value, planFilter, statusFilter); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
-                      <option value="all">All Roles</option>
-                      <option value="user">Users Only</option>
-                      <option value="admin">Admins Only</option>
-                    </select>
+                  <div className="flex gap-2.5 w-full sm:w-auto">
+                    <CustomSelect
+                      value={roleFilter}
+                      options={roleOptions}
+                      onChange={(val) => { setRoleFilter(val); fetchUsers(userSearch, 1, val, planFilter, statusFilter); }}
+                    />
 
-                    <select value={planFilter} onChange={(e) => { setPlanFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, e.target.value, statusFilter); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
-                      <option value="all">All Plans</option>
-                      <option value="free">Free Tier</option>
-                      <option value="premium">Premium Pro</option>
-                    </select>
+                    <CustomSelect
+                      value={planFilter}
+                      options={planOptions}
+                      onChange={(val) => { setPlanFilter(val); fetchUsers(userSearch, 1, roleFilter, val, statusFilter); }}
+                    />
 
-                    <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, planFilter, e.target.value); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
-                      <option value="all">All Statuses</option>
-                      <option value="active">Active Only</option>
-                      <option value="suspended">Suspended Only</option>
-                    </select>
+                    <CustomSelect
+                      value={statusFilter}
+                      options={statusOptions}
+                      onChange={(val) => { setStatusFilter(val); fetchUsers(userSearch, 1, roleFilter, planFilter, val); }}
+                    />
 
                     <button type="submit" className="px-4 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
                       Filter
@@ -880,15 +985,11 @@ const Admin: React.FC = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <select
+                  <CustomSelect
                     value={aiStatusFilter}
-                    onChange={(e) => { setAiStatusFilter(e.target.value); fetchAiLogs(e.target.value); }}
-                    className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                  >
-                    <option value="all">All Request Statuses</option>
-                    <option value="success">Success Only</option>
-                    <option value="failed">Failed Only</option>
-                  </select>
+                    options={aiStatusOptions}
+                    onChange={(val) => { setAiStatusFilter(val); fetchAiLogs(val); }}
+                  />
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -924,7 +1025,6 @@ const Admin: React.FC = () => {
                   </table>
                 </div>
 
-                {/* AI Log Inspector Modal */}
                 {selectedAiLog && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -988,7 +1088,6 @@ const Admin: React.FC = () => {
             {/* TAB 5: BILLING & FINANCIAL COMMAND CENTER */}
             {activeTab === 'billing' && (
               <div className="space-y-6">
-                {/* Financial KPI Header */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Monthly Recurring Revenue</p>
@@ -1047,7 +1146,6 @@ const Admin: React.FC = () => {
                 <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Broadcast Platform Announcement</h3>
                   
-                  {/* Live Student Preview Card */}
                   {(newAnnTitle || newAnnMessage) && (
                     <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 via-violet-500/20 to-emerald-500/20 border border-emerald-500/40 text-center text-xs font-medium text-emerald-200">
                       <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">📢 Live Student Banner Preview</span>
@@ -1077,11 +1175,11 @@ const Admin: React.FC = () => {
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <select value={newAnnType} onChange={(e) => setNewAnnType(e.target.value as any)} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
-                        <option value="info">Info (Blue)</option>
-                        <option value="warning">Warning (Amber)</option>
-                        <option value="success">Success (Green)</option>
-                      </select>
+                      <CustomSelect
+                        value={newAnnType}
+                        options={annTypeOptions}
+                        onChange={(val) => setNewAnnType(val as any)}
+                      />
                       <button type="submit" className="px-5 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
                         Broadcast Now
                       </button>
@@ -1167,7 +1265,6 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Database Collection Document Counts */}
                 {dbStats && (
                   <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">MongoDB Collection Telemetry</h4>
@@ -1225,7 +1322,7 @@ const Admin: React.FC = () => {
                   placeholder="Filter audit log by action or admin email..."
                   value={auditSearch}
                   onChange={(e) => setAuditSearch(e.target.value)}
-                  className="w-full max-w-md px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  className="w-full max-w-md px-4 py-2 rounded-xl bg-[#0b121c] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none"
                 />
 
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
