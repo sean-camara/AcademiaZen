@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { IconX, IconPaperclip, IconTrash, IconChevronRight } from './Icons';
 import { PdfAttachment } from '../types';
 import { uploadPdfToR2 } from '../utils/pdfStorage';
+import { CustomDatePicker } from './ui/CustomDatePicker';
+import { CustomTimePicker } from './ui/CustomTimePicker';
 
 interface AddTaskModalProps {
   onClose: () => void;
@@ -114,16 +116,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity animate-in fade-in duration-500" 
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
         onClick={onClose}
       />
       
       {/* Modal Content */}
-      <div className="relative w-full sm:max-w-xl bg-zen-bg/95 backdrop-blur-3xl rounded-t-[2.5rem] sm:rounded-[3rem] border border-white/5 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom duration-500 zoom-in-95">
+      <div className="relative w-full sm:max-w-xl bg-zen-bg rounded-t-[2.5rem] sm:rounded-[3rem] border border-white/5 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom duration-300 zoom-in-95 transform-gpu">
         
         {/* Decorative Ambient Background */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-zen-primary/5 blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-zen-secondary/5 blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-zen-primary/5 blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-zen-secondary/5 blur-2xl pointer-events-none" />
 
         {/* Header */}
         <div className="flex justify-between items-center p-8 sm:p-10 border-b border-white/5">
@@ -168,23 +170,11 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
                     <label className="text-[10px] text-zen-text-disabled uppercase font-black tracking-[0.2em] ml-1">Deadline Date</label>
-                    <div className="relative group">
-                        <input 
-                            type="date" 
-                            value={date}
-                            onChange={e => setDate(e.target.value)}
-                            className="w-full bg-zen-surface/30 border border-white/5 rounded-2xl px-6 py-4 text-zen-text-primary focus:outline-none focus:border-zen-primary/50 transition-all [color-scheme:dark]"
-                        />
-                    </div>
+                    <CustomDatePicker value={date} onChange={setDate} />
                 </div>
                 <div className="space-y-3">
                     <label className="text-[10px] text-zen-text-disabled uppercase font-black tracking-[0.2em] ml-1">Target Time</label>
-                    <input 
-                        type="time" 
-                        value={time}
-                        onChange={e => setTime(e.target.value)}
-                        className="w-full bg-zen-surface/30 border border-white/5 rounded-2xl px-6 py-4 text-zen-text-primary focus:outline-none focus:border-zen-primary/50 transition-all [color-scheme:dark]"
-                    />
+                    <CustomTimePicker value={time} onChange={setTime} />
                 </div>
             </div>
 
@@ -262,9 +252,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ onClose, onSave, subjectNam
             <button 
                 onClick={handleSave}
                 disabled={isUploadingPdf || !title.trim()}
-                className="flex-[2] py-5 rounded-[2rem] bg-white text-black font-black uppercase tracking-[0.3em] text-[10px] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group shadow-2xl shadow-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-[2] py-5 rounded-[2rem] bg-zen-primary text-zen-bg font-black uppercase tracking-[0.3em] text-[10px] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group shadow-2xl shadow-zen-primary/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-                {editMode ? 'Update Objective' : 'Commit to Sync'}
+                {editMode ? 'Update Objective' : 'Done'}
                 <IconChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
         </div>

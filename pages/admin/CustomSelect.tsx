@@ -64,7 +64,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onCh
       case 'Enter':
       case ' ':
         e.preventDefault();
-        if (isOpen && focusedIndex >= 0) {
+        if (isOpen && focusedIndex >= 0 && options[focusedIndex]) {
           onChange(options[focusedIndex].value);
           setIsOpen(false);
         } else {

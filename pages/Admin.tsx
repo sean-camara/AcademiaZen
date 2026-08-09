@@ -336,9 +336,9 @@ const Admin: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070b12] text-slate-200 flex flex-col md:flex-row font-sans selection:bg-emerald-500/30">
+    <div className="h-screen w-full bg-[#070b12] text-slate-200 flex flex-col md:flex-row overflow-hidden font-sans selection:bg-emerald-500/30">
       {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-[#090d16]">
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-[#090d16] flex-shrink-0">
         <div className="flex items-center gap-3">
           <img src="/icons/academiazen-mark.svg" alt="Logo" className="w-8 h-8 rounded-xl shadow-md" />
           <div>
@@ -353,12 +353,12 @@ const Admin: React.FC = () => {
 
       {/* Left Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 lg:w-72 bg-[#090d16] border-r border-slate-800/80 flex flex-col justify-between p-5 transition-transform duration-300 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 lg:w-72 bg-[#090d16] border-r border-slate-800/80 flex flex-col justify-between p-5 transition-transform duration-300 md:static md:h-full md:translate-x-0 flex-shrink-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div>
-          <div className="flex items-center justify-between pb-5 border-b border-slate-800/80">
+        <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
+          <div className="flex items-center justify-between pb-5 border-b border-slate-800/80 flex-shrink-0">
             <div className="flex items-center gap-3">
               <img src="/icons/academiazen-mark.svg" alt="AcademiaZen Logo" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 ring-1 ring-white/10" />
               <div>
@@ -371,7 +371,7 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          <nav className="mt-6 space-y-6" aria-label="Admin Navigation">
+          <nav className="mt-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar pr-1" aria-label="Admin Navigation">
             {navGroups.map((group) => (
               <div key={group.title} className="space-y-1">
                 <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-mono">{group.title}</p>
@@ -404,7 +404,7 @@ const Admin: React.FC = () => {
           </nav>
         </div>
 
-        <div className="pt-5 border-t border-slate-800/80 space-y-2">
+        <div className="pt-5 border-t border-slate-800/80 space-y-2 flex-shrink-0 mt-auto">
           <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/60 mb-3 text-xs font-mono">
             <div className="flex justify-between items-center text-[11px] text-slate-400 mb-1">
               <span>Database Sync</span>
@@ -433,7 +433,7 @@ const Admin: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-5 sm:p-8 min-w-0 bg-[#070b12]">
+      <main className="flex-1 h-full overflow-y-auto p-5 sm:p-8 min-w-0 bg-[#070b12] custom-scrollbar">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-800/80">
           <div>
             <div className="flex items-center gap-2">
@@ -463,10 +463,14 @@ const Admin: React.FC = () => {
               </button>
             )}
             <button
-              onClick={() => fetchTabData(activeTab)}
-              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium flex items-center gap-2 transition active:scale-95"
+              disabled={loading}
+              onClick={async () => {
+                await fetchTabData(activeTab);
+                setStatusMessage({ type: 'success', text: 'Refreshed telemetry & overview metrics' });
+              }}
+              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>

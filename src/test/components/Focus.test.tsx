@@ -61,7 +61,7 @@ describe('Focus Pomodoro Timer', () => {
 
   it('renders timer controls and remaining time display', () => {
     useZenMock.mockReturnValue(createZenContext());
-    render(<Focus openSettings={vi.fn()} />);
+    render(<Focus />);
 
     expect(screen.getByRole('timer')).toHaveTextContent('25:00');
     expect(screen.getAllByRole('button', { name: /Start focus timer/i }).length).toBeGreaterThan(0);
@@ -72,10 +72,12 @@ describe('Focus Pomodoro Timer', () => {
     useZenMock.mockReturnValue(context);
 
     const user = userEvent.setup();
-    render(<Focus openSettings={vi.fn()} />);
+    render(<Focus />);
 
     const startButtons = screen.getAllByRole('button', { name: /Start focus timer/i });
-    await user.click(startButtons[0]);
+    if (startButtons[0]) {
+      await user.click(startButtons[0]);
+    }
 
     // HandleStartFocus calls apiFetch and reset/start
     expect(context.setIsOnFocusPage).toHaveBeenCalledWith(true);

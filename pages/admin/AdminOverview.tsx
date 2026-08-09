@@ -118,27 +118,39 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           </div>
 
           {overview.dailyStats && overview.dailyStats.length > 0 ? (
-            <div className="flex items-end justify-between gap-3 h-52 pt-6 px-2">
+            <div className="flex items-end justify-between gap-3 h-56 pt-6 px-2">
               {overview.dailyStats.map((day) => {
                 const val = day[chartMetric];
                 const maxVal = Math.max(...overview.dailyStats!.map(d => d[chartMetric]), 1);
-                const heightPct = Math.max(14, Math.round((val / maxVal) * 100));
+                const heightPct = val > 0 ? Math.max(20, Math.round((val / maxVal) * 100)) : 0;
 
                 return (
-                  <div key={day.date} className="flex-1 flex flex-col items-center gap-2 group relative">
+                  <div key={day.date} className="flex-1 h-full flex flex-col items-center justify-end gap-2 group relative">
                     <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-white text-[10px] font-mono px-2.5 py-1 rounded-md shadow-2xl pointer-events-none whitespace-nowrap z-20">
                       {day.dayName} ({day.date}): {val} {chartMetric === 'activeUsers' ? 'active' : 'prompts'}
                     </div>
 
-                    <div className="w-full bg-slate-900/60 rounded-t-lg overflow-hidden h-full flex items-end">
+                    {val > 0 && (
+                      <span className={`text-[10px] font-mono font-bold ${
+                        chartMetric === 'activeUsers' ? 'text-emerald-400' : 'text-violet-400'
+                      }`}>
+                        {val}
+                      </span>
+                    )}
+
+                    <div className="w-full bg-slate-900/60 rounded-t-lg overflow-hidden flex-1 max-h-[160px] flex items-end">
                       <div
                         className={`w-full rounded-t-lg transition-all duration-500 group-hover:brightness-125 ${
-                          chartMetric === 'activeUsers' ? 'bg-gradient-to-t from-emerald-500/30 to-emerald-400' : 'bg-gradient-to-t from-violet-500/30 to-violet-400'
+                          val > 0
+                            ? chartMetric === 'activeUsers'
+                              ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-lg shadow-emerald-500/20'
+                              : 'bg-gradient-to-t from-violet-600 to-violet-400 shadow-lg shadow-violet-500/20'
+                            : 'bg-slate-800/40'
                         }`}
-                        style={{ height: `${heightPct}%` }}
+                        style={{ height: val > 0 ? `${heightPct}%` : '4px' }}
                       />
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400 uppercase">{day.dayName}</span>
+                    <span className="text-[10px] font-mono text-slate-400 uppercase font-semibold">{day.dayName}</span>
                   </div>
                 );
               })}

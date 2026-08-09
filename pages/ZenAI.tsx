@@ -119,8 +119,120 @@ const getCitationKeys = (title: string) => {
 };
 
 // ============================================================================
-// FORMATTED AI RESPONSE - Clean markdown rendering
+// FORMATTED AI RESPONSE - Clean markdown rendering & syntax highlighting
 // ============================================================================
+
+const SyntaxHighlightedCode: React.FC<{ code: string; language: string }> = ({ code, language }) => {
+    const lang = (language || 'text').toLowerCase();
+    const lines = code.split('\n');
+
+    return (
+        <div className="table w-full border-collapse font-mono text-xs sm:text-sm leading-relaxed">
+            {lines.map((line, lineIdx) => {
+                const tokens: { type: 'comment' | 'string' | 'keyword' | 'number' | 'function' | 'operator' | 'property' | 'text'; text: string }[] = [];
+                let i = 0;
+
+                while (i < line.length) {
+                    const rest = line.slice(i);
+
+                    // 1. Comments
+                    if (rest.startsWith('//') || (lang === 'python' && line[i] === '#') || (lang === 'bash' && line[i] === '#') || (lang === 'sh' && line[i] === '#')) {
+                        tokens.push({ type: 'comment', text: rest });
+                        break;
+                    }
+
+                    // 2. Strings
+                    const char = line[i];
+                    if (char === '"' || char === "'" || char === '`') {
+                        const quote = char;
+                        let end = i + 1;
+                        while (end < line.length && line[end] !== quote) {
+                            if (line[end] === '\\') end++;
+                            end++;
+                        }
+                        if (end < line.length) end++;
+                        tokens.push({ type: 'string', text: line.slice(i, end) });
+                        i = end;
+                        continue;
+                    }
+
+                    // 3. Numbers
+                    const numMatch = rest.match(/^(?:0x[0-9a-fA-F]+|\d+(?:\.\d+)?)/);
+                    if (numMatch) {
+                        tokens.push({ type: 'number', text: numMatch[0] });
+                        i += numMatch[0].length;
+                        continue;
+                    }
+
+                    // 4. Identifiers & Keywords
+                    const identMatch = rest.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/);
+                    if (identMatch) {
+                        const word = identMatch[0];
+                        const isKeyword = /^(function|const|let|var|return|if|else|for|while|do|switch|case|break|continue|default|class|import|export|from|async|await|try|catch|finally|throw|new|this|typeof|instanceof|void|yield|def|lambda|elif|print|public|private|protected|static|final|abstract|interface|extends|implements|package|struct|enum|union|typedef|include|using|namespace|true|false|null|undefined|None|True|False|boolean|string|number|any|object)$/.test(word);
+                        
+                        const afterIdent = rest.slice(word.length);
+                        const isFuncCall = !isKeyword && /^\s*\(/.test(afterIdent);
+                        const isProp = !isKeyword && line[i - 1] === '.';
+
+                        if (isKeyword) {
+                            tokens.push({ type: 'keyword', text: word });
+                        } else if (isFuncCall) {
+                            tokens.push({ type: 'function', text: word });
+                        } else if (isProp) {
+                            tokens.push({ type: 'property', text: word });
+                        } else {
+                            tokens.push({ type: 'text', text: word });
+                        }
+                        i += word.length;
+                        continue;
+                    }
+
+                    // 5. Operators
+                    const opMatch = rest.match(/^(=>|===|==|!==|!=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|<=|>=|=>|\+|-|\*|\/|%|=|<|>|!|\?|:)/);
+                    if (opMatch) {
+                        tokens.push({ type: 'operator', text: opMatch[0] });
+                        i += opMatch[0].length;
+                        continue;
+                    }
+
+                    // Whitespace or punctuation
+                    tokens.push({ type: 'text', text: line[i] || '' });
+                    i++;
+                }
+
+                return (
+                    <div key={lineIdx} className="table-row hover:bg-white/[0.03]">
+                        <span className="table-cell select-none pr-3.5 text-right text-[11px] text-gray-500 font-mono opacity-40 w-7 align-top py-0.5">
+                            {lineIdx + 1}
+                        </span>
+                        <span className="table-cell whitespace-pre align-top py-0.5">
+                            {tokens.map((token, tIdx) => {
+                                switch (token.type) {
+                                    case 'comment':
+                                        return <span key={tIdx} className="text-gray-400 italic font-mono">{token.text}</span>;
+                                    case 'string':
+                                        return <span key={tIdx} className="text-emerald-400 font-mono">{token.text}</span>;
+                                    case 'keyword':
+                                        return <span key={tIdx} className="text-purple-400 font-semibold font-mono">{token.text}</span>;
+                                    case 'number':
+                                        return <span key={tIdx} className="text-amber-400 font-mono">{token.text}</span>;
+                                    case 'function':
+                                        return <span key={tIdx} className="text-cyan-400 font-mono">{token.text}</span>;
+                                    case 'property':
+                                        return <span key={tIdx} className="text-sky-300 font-mono">{token.text}</span>;
+                                    case 'operator':
+                                        return <span key={tIdx} className="text-pink-400 font-mono">{token.text}</span>;
+                                    default:
+                                        return <span key={tIdx} className="text-gray-200 font-mono">{token.text}</span>;
+                                }
+                            })}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
 
 const FormattedAIResponse: React.FC<{ 
     text: string; 
@@ -145,40 +257,39 @@ const FormattedAIResponse: React.FC<{
             const code = (match[2] ?? '').trim();
             const blockId = `code-${codeBlockIndex}`;
 
-            // Code block with horizontal scroll only - no page scroll
+            // Code block container with VS Code / GitHub dark theme
             elements.push(
-                <div key={blockId} className="my-3 sm:my-4">
-                    <div className="bg-[#1e1e1e] rounded-lg overflow-hidden border border-white/5">
-                        <div className="flex items-center justify-between px-3 py-2 bg-[#2d2d2d] border-b border-white/5">
-                            <span className="text-[10px] sm:text-xs text-gray-400 font-mono">{language}</span>
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(code);
-                                    setCopiedIndex(blockId);
-                                    setTimeout(() => setCopiedIndex(null), 2000);
-                                }}
-                                className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-400 hover:text-white transition-colors min-h-[44px] px-2 -mr-2"
-                                aria-label={copiedIndex === blockId ? 'Copied' : 'Copy code'}
-                            >
-                                {copiedIndex === blockId ? (
-                                    <IconCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                                ) : (
-                                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div key={blockId} className="my-3 sm:my-4 rounded-xl overflow-hidden border border-white/10 bg-[#0d1117] shadow-xl">
+                    <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-white/10">
+                        <span className="text-xs text-emerald-400 font-mono font-semibold tracking-wide uppercase">{language}</span>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(code);
+                                setCopiedIndex(blockId);
+                                setTimeout(() => setCopiedIndex(null), 2000);
+                            }}
+                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors min-h-[32px] px-2.5 rounded-lg hover:bg-white/10"
+                            aria-label={copiedIndex === blockId ? 'Copied' : 'Copy code'}
+                        >
+                            {copiedIndex === blockId ? (
+                                <>
+                                    <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span className="text-emerald-400 font-medium">Copied!</span>
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                     </svg>
-                                )}
-                                <span className="hidden sm:inline">{copiedIndex === blockId ? 'Copied!' : 'Copy'}</span>
-                            </button>
-                        </div>
-                        
-                        {/* Code content with internal horizontal scroll */}
-                        <div className="overflow-x-auto">
-                            <pre className="p-3 sm:p-4 min-w-0">
-                                <code className="text-xs sm:text-sm text-gray-300 font-mono leading-relaxed whitespace-pre">
-                                    {code}
-                                </code>
-                            </pre>
-                        </div>
+                                    <span>Copy</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    
+                    {/* Code content with internal horizontal scroll & rich syntax highlighting */}
+                    <div className="overflow-x-auto p-3 sm:p-4 custom-scrollbar">
+                        <SyntaxHighlightedCode code={code} language={language} />
                     </div>
                 </div>
             );
@@ -430,7 +541,6 @@ interface MessageActionsProps {
     onRegenerate: () => void;
     onContinue: () => void;
     onRewrite: (style: 'shorter' | 'simpler') => void;
-    isMobile: boolean;
 }
 
 const MessageActions: React.FC<MessageActionsProps> = ({ 
@@ -438,7 +548,6 @@ const MessageActions: React.FC<MessageActionsProps> = ({
     onRegenerate, 
     onContinue, 
     onRewrite,
-    isMobile
 }) => {
     const [copied, setCopied] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
@@ -462,68 +571,76 @@ const MessageActions: React.FC<MessageActionsProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showMenu]);
 
-    const actions = useMemo(() => [
-        { icon: '↻', label: 'Regenerate', onClick: onRegenerate },
-        { icon: '→', label: 'Continue', onClick: onContinue },
-        { icon: '−', label: 'Shorter', onClick: () => onRewrite('shorter') },
-        { icon: '◯', label: 'Simpler', onClick: () => onRewrite('simpler') },
-        { icon: copied ? '✓' : '⎘', label: copied ? 'Copied!' : 'Copy', onClick: handleCopy },
-    ], [onRegenerate, onContinue, onRewrite, copied, handleCopy]);
+    return (
+        <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 relative" ref={menuRef}>
+            {/* Copy Button */}
+            <button
+                onClick={handleCopy}
+                title={copied ? "Copied to clipboard!" : "Copy message"}
+                aria-label={copied ? "Copied to clipboard!" : "Copy message"}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+            >
+                {copied ? (
+                    <IconCheck className="w-4 h-4 text-emerald-400" />
+                ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                )}
+            </button>
 
-    // Mobile: overflow menu with 44px min tap targets
-    if (isMobile) {
-        return (
-            <div className="relative" ref={menuRef}>
+            {/* Regenerate Button */}
+            <button
+                onClick={onRegenerate}
+                title="Regenerate response"
+                aria-label="Regenerate response"
+                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+            >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+
+            {/* 3 Dots Overflow Button */}
+            <div className="relative">
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-500 active:text-white transition-colors rounded-lg"
-                    aria-label="Message options"
+                    title="More actions"
+                    aria-label="More actions"
                     aria-expanded={showMenu}
+                    className={`p-1.5 rounded-lg transition-colors ${showMenu ? 'text-white bg-white/10' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}
                 >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="5" r="2" />
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="5" cy="12" r="2" />
                         <circle cx="12" cy="12" r="2" />
-                        <circle cx="12" cy="19" r="2" />
+                        <circle cx="19" cy="12" r="2" />
                     </svg>
                 </button>
+
+                {/* Dropdown Menu */}
                 {showMenu && (
-                    <>
-                        <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                        <div className="absolute right-0 bottom-full mb-2 bg-[#1C2128] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 min-w-[160px] animate-scale-in">
-                            {actions.map((action, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => {
-                                        action.onClick();
-                                        if (action.label !== 'Copy' && action.label !== 'Copied!') setShowMenu(false);
-                                    }}
-                                    className="w-full min-h-[48px] px-4 text-left text-sm text-gray-300 hover:bg-white/5 active:bg-white/10 flex items-center gap-3 transition-colors"
-                                >
-                                    <span className="text-base w-5 text-center">{action.icon}</span>
-                                    {action.label}
-                                </button>
-                            ))}
-                        </div>
-                    </>
+                    <div className="absolute left-0 bottom-full mb-2 bg-[#161B22] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 min-w-[150px] animate-scale-in py-1">
+                        <button
+                            onClick={() => { onContinue(); setShowMenu(false); }}
+                            className="w-full px-3.5 py-2 text-left text-xs text-gray-300 hover:bg-white/5 active:bg-white/10 flex items-center gap-2.5 transition-colors"
+                        >
+                            <span className="text-emerald-400 font-bold">→</span> Continue response
+                        </button>
+                        <button
+                            onClick={() => { onRewrite('shorter'); setShowMenu(false); }}
+                            className="w-full px-3.5 py-2 text-left text-xs text-gray-300 hover:bg-white/5 active:bg-white/10 flex items-center gap-2.5 transition-colors"
+                        >
+                            <span className="font-bold">−</span> Make shorter
+                        </button>
+                        <button
+                            onClick={() => { onRewrite('simpler'); setShowMenu(false); }}
+                            className="w-full px-3.5 py-2 text-left text-xs text-gray-300 hover:bg-white/5 active:bg-white/10 flex items-center gap-2.5 transition-colors"
+                        >
+                            <span className="font-bold">◯</span> Make simpler
+                        </button>
+                    </div>
                 )}
             </div>
-        );
-    }
-
-    // Desktop: hover toolbar
-    return (
-        <div className="mt-3 flex w-full flex-wrap items-center gap-1 border-t border-white/5 pt-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" aria-label="Response actions">
-            {actions.map((action, i) => (
-                <button
-                    key={i}
-                    onClick={action.onClick}
-                    className="flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-gray-500 transition-all hover:bg-white/10 hover:text-white"
-                    title={action.label}
-                >
-                    <span>{action.icon}</span>
-                    <span className="hidden lg:inline">{action.label}</span>
-                </button>
-            ))}
         </div>
     );
 };
@@ -1348,115 +1465,23 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
             const isSummaryIntent = /\b(summarize|summary|analyze|analysis|key points|overview|explain)\b/i.test(userQuery);
             let useStudentMode = isAcademicTask && isAnswerRequest && !isSummaryIntent;
 
-            // Build system prompt
-            let systemPrompt = '';
-            const FORMATTING_RULES = `
-FORMATTING & STRUCTURE RULES (strictly follow):
-
-Headings & Hierarchy:
-- Use ## for major section headings.
-- Use ### for sub-section headings.
-- Use #### for smaller sub-headings within a sub-section.
-- NEVER use **bold** as a heading substitute. Always use ## / ### / #### for headings.
-- Use **bold** ONLY for inline emphasis within a sentence.
-
-Lists:
-- Use - for bullet points. Keep each bullet on ONE line.
-- For numbered lists, keep the number and text on the SAME line (e.g., "1. Content here").
-- Before a bullet cluster, add a brief summary sentence introducing what the bullets cover.
-- Limit bullet clusters to 5-7 items. If more are needed, break into sub-sections.
-
-Spacing & Separation:
-- Use --- between major sections to create visual separation.
-- Do NOT output raw markdown symbols that won't render (no stray # or * at line starts unless they are proper headers or bullets).
-
-Transitions:
-- Between every major section, write 1-2 bridge sentences that explain why the analysis is shifting focus. Never jump from one ## section to the next without a transition.
-
-Completeness:
-- NEVER truncate mid-sentence or mid-section. If approaching length limits, prioritize finishing all sections at reduced depth rather than going deep on early sections and cutting off later ones.
-- ALWAYS end with a clear concluding section (## Conclusion or ## Summary) that synthesizes the key takeaways in 3-5 sentences.
-- At the end of every response, add a brief helpful tip, suggestion, or recommendation related to the topic.
-
-Depth Balance:
-- Distribute analytical depth evenly across all sections. Do not front-load the outline; keep structural mapping concise so that deeper analysis and review material get adequate coverage.
-
-Ambiguity Handling:
-- When the source material is vague, incomplete, or contradictory, explicitly state it (e.g., "The document does not specify..." or "This claim is unresolved in the text.").
-- Do NOT fill gaps with speculation. If you infer beyond the source, label it clearly as an inference.
-
-Academic Review:
-- When a user asks for "review" content, include a review section with key terms, concept checks, and sample questions organized by difficulty (easy, medium, hard).
-
-Conversational Memory:
-- You have access to the recent conversation history. ALWAYS read it before responding.
-- When the user says "summarize it", "shorten it", "explain it", "simplify it", or similar, "it" ALWAYS refers to YOUR immediately previous response, not to any attached document or earlier topic.
-- When the user uses pronouns like "it", "that", "this", or references like "the above", they refer to your last message unless they explicitly name something else.
-- NEVER ignore your previous response. NEVER switch topics unless the user clearly introduces a new subject.
-- If the user's intent is truly ambiguous, ask for clarification instead of guessing.`;
-
-            if (useStudentMode && isProgrammingTask) {
-                systemPrompt = `You are Zen, an AI academic assistant in PROGRAMMING ANSWER MODE.
-Output submission-ready code. No explanations inside code blocks.
-${FORMATTING_RULES}
-If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
+            // Clean, intelligent system prompt — acting just like ChatGPT, Gemini, and Claude
+            const systemPrompt = `You are Zen, an intelligent AI study assistant.
+Be direct, helpful, clear, and conversational (just like ChatGPT, Gemini, and Claude).
+Answer questions naturally using your own knowledge first.
+If a user asks for a study plan, schedule, or recommendation, and you need more details (like their specific subjects, target exam dates, or study hours), answer with a clear, helpful template or guide using your knowledge, and politely ask them to provide any specific details or attach relevant notes/files using the 📎 button if needed.
+If asked who created you: "Sean John Camara from STI College Fairview, BSCS."
 If asked tech stack: "MERN Stack."`;
-            } else if (useStudentMode) {
-                systemPrompt = `You are Zen, an AI academic assistant in STUDENT ANSWER MODE.
-Produce submission-ready work. No restating requirements. Be concrete.
-${FORMATTING_RULES}
-If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
-If asked tech stack: "MERN Stack."`;
-            } else {
-                systemPrompt = `You are Zen, an educational AI. Be direct, minimal, accurate.
-Lead with the answer. Use plain language.
-${FORMATTING_RULES}
-If asked who made you: "Sean John Camara from STI College Fairview, BSCS."
-If asked tech stack: "MERN Stack."`;
-            }
 
             const redact = (value: string) => value
                 .replace(/sk-[A-Za-z0-9_-]{10,}/g, 'sk-***')
                 .replace(/mongodb\+srv:\/\/[^@\s]+@/g, 'mongodb+srv://***@');
 
-            // Build task/calendar context so AI knows about user's tasks
-            const now = new Date();
-            const taskContextLines: string[] = [];
-            const tasksWithPdfs: string[] = [];
-            if (state.tasks.length > 0) {
-                state.tasks.forEach(task => {
-                    const subjectName = task.subjectId ? state.subjects.find(s => s.id === task.subjectId)?.name : null;
-                    const dueDate = new Date(task.dueDate);
-                    const isPastDue = !task.completed && dueDate < now;
-                    const status = task.completed ? 'Completed' : isPastDue ? 'Past Due' : 'Pending';
-                    const category = task.category || 'task';
-                    let line = `- "${task.title}" | Type: ${category} | Subject: ${subjectName || 'None'} | Scheduled: ${dueDate.toLocaleString()} | Status: ${status}`;
-                    if (task.notes) line += ` | Notes: ${task.notes}`;
-                    if (task.pdfAttachment?.name) {
-                        line += ` | PDF Attached: "${task.pdfAttachment.name}"`;
-                        tasksWithPdfs.push(task.title);
-                    }
-                    taskContextLines.push(line);
-                });
-            }
-
-            const taskContext = taskContextLines.length > 0
-                ? `\nUSER'S TASKS AND SCHEDULED CALENDAR PLANS (current date: ${now.toLocaleDateString()}):\n${taskContextLines.join('\n')}\nTreat entries typed as exam, project, study, or event as intentional calendar plans. Use their exact scheduled date/time, subject, completion status, and notes when answering planning, workload, deadline, or calendar questions.\n`
-                : `\nUSER'S TASKS AND SCHEDULED CALENDAR PLANS: The user has nothing scheduled.\n`;
-
-            // Add PDF instruction to system prompt if any tasks have PDFs
-            if (tasksWithPdfs.length > 0) {
-                systemPrompt += `\n\nIMPORTANT: Some tasks have PDF attachments. You can see which tasks have PDFs in the task list above. However, you CANNOT read or scan PDF contents on your own. If the user asks about a PDF's contents, tell them: "To read that PDF, tap the 📎 attach button below, select the PDF from your Library or Tasks, and I'll be able to read its contents." Do NOT claim you can scan or read the PDF without the user attaching it first. Do NOT repeatedly ask "Would you like me to scan it?" — you cannot initiate scans.`;
-            }
-
             let userMessage = '';
             let resolvedRefs: ResolvedRef[] = [];
 
             if (currentRefs.length > 0) {
-                userMessage += `CITATION RULES:\n- Cite document claims with 【Document Name p.X】\n- Place citations at the END of the bullet point or paragraph, never mid-sentence.\n- After the first mention, use the short form 【p.X】 instead of repeating the full document name.\n\n`;
-            }
-
-            if (currentRefs.length > 0) {
+                userMessage += `CITATION RULES:\n- Cite document claims with 【Document Name p.X】\n- Place citations at the END of the bullet point or paragraph.\n\n`;
                 resolvedRefs = await Promise.all(currentRefs.map(async (ref) => {
                     if (ref.type !== 'pdf') {
                         const content = (ref.content || '').trim();
@@ -1494,7 +1519,7 @@ If asked tech stack: "MERN Stack."`;
                 }));
 
                 const perDocLimit = Math.max(MIN_CONTEXT_CHARS_PER_DOC, Math.floor(MAX_CONTEXT_CHARS / Math.max(resolvedRefs.length, 1)));
-                userMessage += `CONTEXT:\n\n`;
+                userMessage += `ATTACHED DOCUMENTS:\n\n`;
                 
                 resolvedRefs.forEach(ref => {
                     let content = (ref.markedContent || ref.content || '').trim();
@@ -1528,9 +1553,14 @@ If asked tech stack: "MERN Stack."`;
             }
             
             setThinkingContext('Connecting...');
-            userMessage += taskContext;
-            userMessage += `\nQUESTION:\n${redact(userQuery)}`;
-            const prompt = `${systemPrompt}\n\n${userMessage}`;
+            userMessage += redact(userQuery);
+            let prompt = `${systemPrompt}\n\n${userMessage}`;
+
+            const safeMaxPromptLength = isPremium ? 60000 : 30000;
+            if (prompt.length > safeMaxPromptLength) {
+                prompt = prompt.slice(0, safeMaxPromptLength - 100) + '\n\n[Context truncated to fit AI capacity]';
+            }
+
             const recentHistory = messages.slice(-12).map(msg => ({ role: msg.role, text: msg.text }));
 
             setIsStreaming(true);
@@ -1708,6 +1738,14 @@ If asked tech stack: "MERN Stack."`;
             }
             else if (error.message?.includes('429')) {
                 errorMessage = "### Rate Limited\nToo many requests. Please wait a moment and try again.";
+            }
+            else if (error.message?.includes('Prompt is too long') || error.message?.includes('PROMPT_TOO_LONG') || error.message?.includes('413') || error.message?.includes('too long')) {
+                const hasAttachedDocs = currentRefs.length > 0;
+                if (hasAttachedDocs) {
+                    errorMessage = "### Document Context Too Large\nThe attached document is too large to process at once. Try removing the file or using a shorter PDF, and I'll be happy to help!";
+                } else {
+                    errorMessage = "### Question Too Long\nYour question contains too much detail for one request. Try asking a slightly more specific question, and I'll be happy to help!";
+                }
             }
             else if (error instanceof TypeError && error.message?.toLowerCase().includes('fetch')) {
                 errorMessage = "### Connection Issue\nZen AI couldn't reach the service. Check your connection and try again.";
@@ -2024,7 +2062,7 @@ If asked tech stack: "MERN Stack."`;
                 aria-label="Chat messages"
                 aria-live="polite"
             >
-                <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col space-y-4 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-4">
+                <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col space-y-4 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-4">
                     
                     {/* Free Model Mode Banner */}
                     {forceFreeModel && (
@@ -2105,7 +2143,7 @@ If asked tech stack: "MERN Stack."`;
                         return (
                             <div 
                                 key={messageKey} 
-                                className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                                className={`group flex flex-col ${isUser ? 'items-end' : 'items-start w-full'}`}
                             >
                                 {/* Document refs */}
                                 {msg.refs && msg.refs.length > 0 && (
@@ -2127,12 +2165,12 @@ If asked tech stack: "MERN Stack."`;
                                     />
                                 )}
                                 
-                                {/* Message bubble - readable width, full mobile */}
+                                {/* Message bubble - full width for AI, right bubble for user */}
                                 <div 
                                     className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base leading-relaxed min-w-0 ${
                                         isUser 
-                                            ? 'max-w-[85%] sm:max-w-[75%] bg-white/10 text-white rounded-br-md' 
-                                            : 'w-full sm:max-w-[85%] lg:max-w-[75%] bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-md'
+                                            ? 'max-w-[85%] sm:max-w-[75%] bg-white/10 text-white rounded-br-md ml-auto' 
+                                            : 'w-full bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-md'
                                     }`}
                                 >
                                     {isUser ? (
@@ -2149,7 +2187,6 @@ If asked tech stack: "MERN Stack."`;
                                             onRegenerate={() => handleRegenerate(idx)}
                                             onContinue={handleContinue}
                                             onRewrite={(style) => handleRewrite(idx, style)}
-                                            isMobile={isMobile}
                                         />
                                     )}
                                 </div>
@@ -2184,7 +2221,7 @@ If asked tech stack: "MERN Stack."`;
                             )}
                             
                             {streamingText ? (
-                                <div className="w-full sm:max-w-[85%] lg:max-w-[75%] p-3 sm:p-4 rounded-2xl rounded-bl-md text-sm sm:text-base leading-relaxed bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 min-w-0">
+                                <div className="w-full p-3 sm:p-4 rounded-2xl rounded-bl-md text-sm sm:text-base leading-relaxed bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 min-w-0">
                                     <FormattedAIResponse text={stripAnalysisSummaryBlock(streamingText)} onCitationClick={handleCitationClick} />
                                     <span className="inline-block w-2 h-4 bg-emerald-400 animate-pulse ml-0.5 align-middle" aria-hidden="true" />
                                 </div>
@@ -2198,17 +2235,6 @@ If asked tech stack: "MERN Stack."`;
                                     <span className="text-xs text-emerald-500 font-medium">{thinkingContext || 'Generating...'}</span>
                                 </div>
                             )}
-                            
-                            {/* Stop button */}
-                            <button
-                                onClick={stopStreaming}
-                                className="mt-3 min-h-[44px] px-4 text-xs text-gray-400 hover:text-white active:text-white bg-white/5 hover:bg-white/10 active:bg-white/15 rounded-xl border border-white/10 transition-colors flex items-center gap-2"
-                            >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                                </svg>
-                                Stop
-                            </button>
                         </div>
                     )}
 
@@ -2433,7 +2459,7 @@ If asked tech stack: "MERN Stack."`;
                 INPUT BAR - Fixed bottom, safe area padding
             ================================================================ */}
             <footer className="safe-area-bottom z-10 flex-shrink-0 border-t border-white/[0.06] bg-[#090d12]/94 p-3 backdrop-blur-xl sm:p-4">
-                <div className="max-w-3xl mx-auto space-y-3">
+                <div className="max-w-4xl mx-auto space-y-3">
                     
                     {/* Selected refs chips */}
                     {selectedRefs.length > 0 && (
@@ -2513,23 +2539,33 @@ If asked tech stack: "MERN Stack."`;
                                     <ModeToggle mode={analysisMode} onChange={setAnalysisMode} quota={modeQuota} />
                                 </div>
 
-                                {/* Send button */}
-                                <button 
-                                    type="submit"
-                                    disabled={!input.trim() || isLoading || aiLocked} 
-                                    className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-all ${
-                                        !input.trim() || isLoading || aiLocked 
-                                            ? 'bg-white/5 text-gray-600' 
-                                            : 'bg-emerald-500 text-[#091510] hover:bg-emerald-400 active:bg-emerald-600'
-                                    }`}
-                                    aria-label="Send message"
-                                >
-                                    {isLoading ? (
-                                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                    ) : (
+                                {/* Send / Stop button */}
+                                {isLoading || isStreaming ? (
+                                    <button 
+                                        type="button"
+                                        onClick={stopStreaming}
+                                        className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-all bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/10 hover:border-red-500/30 active:scale-95"
+                                        aria-label="Stop generation"
+                                        title="Stop generation"
+                                    >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <rect x="6" y="6" width="12" height="12" rx="2" />
+                                        </svg>
+                                    </button>
+                                ) : (
+                                    <button 
+                                        type="submit"
+                                        disabled={!input.trim() || aiLocked} 
+                                        className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-all ${
+                                            !input.trim() || aiLocked 
+                                                ? 'bg-white/5 text-gray-600' 
+                                                : 'bg-emerald-500 text-[#091510] hover:bg-emerald-400 active:bg-emerald-600'
+                                        }`}
+                                        aria-label="Send message"
+                                    >
                                         <IconChevronRight className="w-5 h-5" />
-                                    )}
-                                </button>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </form>
