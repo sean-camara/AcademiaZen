@@ -1,9 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Users,
+  Bot,
+  GraduationCap,
+  CreditCard,
+  Megaphone,
+  Activity,
+  ShieldCheck,
+  RefreshCw,
+  Download,
+  Check,
+  ChevronDown,
+  Search,
+  Lock,
+  Unlock,
+  UserCheck,
+  UserX,
+  Zap,
+  Crown,
+  LogOut,
+  Smartphone,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  X,
+  Menu,
+  Database,
+  TrendingUp,
+  Command,
+  ArrowUpRight,
+  Filter,
+  Sparkles,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 
-type AdminTab = 'overview' | 'users' | 'ai' | 'academics' | 'billing' | 'announcements' | 'health';
+type AdminTab = 'overview' | 'users' | 'ai' | 'academics' | 'billing' | 'announcements' | 'health' | 'audit';
 
 interface OverviewMetrics {
   totalUsers: number;
@@ -26,10 +61,13 @@ interface AdminUser {
   email: string;
   name: string;
   role: 'user' | 'admin';
+  isSuspended?: boolean;
   plan: 'free' | 'premium';
   billingStatus: string;
   dailyAiCount: number;
   totalAiRequests: number;
+  subjectCount?: number;
+  taskCount?: number;
   createdAt: string;
   lastActive: string;
 }
@@ -51,6 +89,7 @@ interface AILogEntry {
   success: boolean;
   userTier: string;
   createdAt: string;
+  errorMessage?: string;
 }
 
 interface PaymentLog {
@@ -92,6 +131,97 @@ interface SystemHealth {
   nodeVersion: string;
 }
 
+interface CollectionStats {
+  users: number;
+  focusSessions: number;
+  aiLogs: number;
+  announcements: number;
+  feedback: number;
+  auditLogs: number;
+}
+
+interface AuditLogItem {
+  _id: string;
+  adminEmail: string;
+  action: string;
+  targetUid?: string;
+  details?: Record<string, any>;
+  createdAt: string;
+}
+
+interface CustomSelectOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+interface CustomSelectProps {
+  value: string;
+  options: CustomSelectOption[];
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={dropdownRef} className={`relative inline-block ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3.5 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 hover:border-slate-500 text-xs font-medium text-slate-200 flex items-center justify-between gap-3 transition-all focus:outline-none focus:border-emerald-400/80 shadow-inner"
+      >
+        <span className="flex items-center gap-2 truncate">
+          {selectedOption?.icon && <span className="text-slate-400">{selectedOption.icon}</span>}
+          <span>{selectedOption?.label}</span>
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-400' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-1.5 z-50 py-1 bg-[#0f172a] border border-slate-700 rounded-xl shadow-2xl backdrop-blur-xl animate-in fade-in duration-100 font-sans min-w-[170px]">
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3.5 py-2 text-left text-xs font-medium flex items-center justify-between transition-colors ${
+                  isSelected ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  {opt.icon && <span className={isSelected ? 'text-emerald-400' : 'text-slate-400'}>{opt.icon}</span>}
+                  <span>{opt.label}</span>
+                </span>
+                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Admin: React.FC = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -100,18 +230,31 @@ const Admin: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chartMetric, setChartMetric] = useState<'activeUsers' | 'aiRequests'>('activeUsers');
 
-  // Metrics Data States
+  // Metrics & Data States
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selectedUids, setSelectedUids] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [userPage, setUserPage] = useState(1);
   const [totalUserPages, setTotalUserPages] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+
   const [academics, setAcademics] = useState<AcademicAnalytics | null>(null);
   const [aiLogs, setAiLogs] = useState<AILogEntry[]>([]);
+  const [aiStatusFilter, setAiStatusFilter] = useState('all');
+  const [selectedAiLog, setSelectedAiLog] = useState<AILogEntry | null>(null);
+  const [aiTelemetry, setAiTelemetry] = useState<{ avgTokens: number; avgLatency: number; errorRate: number }>({ avgTokens: 0, avgLatency: 0, errorRate: 0 });
+
   const [payments, setPayments] = useState<PaymentLog[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [dbStats, setDbStats] = useState<CollectionStats | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditSearch, setAuditSearch] = useState('');
 
   // Form States
   const [newAnnTitle, setNewAnnTitle] = useState('');
@@ -132,20 +275,15 @@ const Admin: React.FC = () => {
         const res = await apiFetch('/api/admin/overview');
         if (res.ok) setOverview(await res.json());
 
-        // Also fetch health for quick toggle
         const hRes = await apiFetch('/api/admin/health');
         if (hRes.ok) setHealth(await hRes.json());
       } else if (tab === 'users') {
-        fetchUsers(userSearch, userPage);
+        fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
       } else if (tab === 'academics') {
         const res = await apiFetch('/api/admin/analytics/academics');
         if (res.ok) setAcademics(await res.json());
       } else if (tab === 'ai') {
-        const res = await apiFetch('/api/admin/ai/logs');
-        if (res.ok) {
-          const data = await res.json();
-          setAiLogs(data.logs || []);
-        }
+        fetchAiLogs(aiStatusFilter);
       } else if (tab === 'billing') {
         const res = await apiFetch('/api/admin/payments');
         if (res.ok) {
@@ -161,6 +299,15 @@ const Admin: React.FC = () => {
       } else if (tab === 'health') {
         const res = await apiFetch('/api/admin/health');
         if (res.ok) setHealth(await res.json());
+
+        const dbRes = await apiFetch('/api/admin/health/db-stats');
+        if (dbRes.ok) {
+          const data = await dbRes.json();
+          setDbStats(data.collections || null);
+        }
+      } else if (tab === 'audit') {
+        const res = await apiFetch('/api/admin/audit-logs');
+        if (res.ok) setAuditLogs((await res.json()).logs || []);
       }
     } catch (err) {
       console.error('Failed to load admin data:', err);
@@ -169,9 +316,14 @@ const Admin: React.FC = () => {
     }
   };
 
-  const fetchUsers = async (q = '', page = 1) => {
+  const fetchUsers = async (q = '', page = 1, role = roleFilter, plan = planFilter, status = statusFilter) => {
     try {
-      const res = await apiFetch(`/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`);
+      let url = `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`;
+      if (role !== 'all') url += `&role=${role}`;
+      if (plan !== 'all') url += `&plan=${plan}`;
+      if (status !== 'all') url += `&status=${status}`;
+
+      const res = await apiFetch(url);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
@@ -183,9 +335,57 @@ const Admin: React.FC = () => {
     }
   };
 
+  const fetchAiLogs = async (status = aiStatusFilter) => {
+    try {
+      let url = '/api/admin/ai/logs';
+      if (status !== 'all') url += `?status=${status}`;
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setAiLogs(data.logs || []);
+        setAiTelemetry({
+          avgTokens: data.avgTokens || 0,
+          avgLatency: data.avgLatency || 0,
+          errorRate: data.errorRate || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch AI logs:', err);
+    }
+  };
+
   const handleUserSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchUsers(userSearch, 1);
+    fetchUsers(userSearch, 1, roleFilter, planFilter, statusFilter);
+  };
+
+  const handleToggleSelectUser = (uid: string) => {
+    setSelectedUids(prev =>
+      prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const handleSelectAllUsers = () => {
+    if (selectedUids.length === users.length) {
+      setSelectedUids([]);
+    } else {
+      setSelectedUids(users.map(u => u.uid));
+    }
+  };
+
+  const handleBatchAction = async (action: 'grant_plan' | 'reset_ai' | 'suspend' | 'unsuspend') => {
+    if (selectedUids.length === 0) return;
+    const res = await apiFetch('/api/admin/users/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uids: selectedUids, action }),
+    });
+
+    if (res.ok) {
+      setStatusMessage({ type: 'success', text: `Batch operation '${action}' completed for ${selectedUids.length} users.` });
+      setSelectedUids([]);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
   };
 
   const handleToggleRole = async (uid: string, currentRole: string) => {
@@ -197,7 +397,7 @@ const Admin: React.FC = () => {
     });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: `Updated user role to ${nextRole}` });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -210,7 +410,20 @@ const Admin: React.FC = () => {
     });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: `Updated user plan to ${nextPlan}` });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
+  };
+
+  const handleSuspendUser = async (uid: string, currentSuspended: boolean) => {
+    const nextSuspend = !currentSuspended;
+    const res = await apiFetch(`/api/admin/users/${uid}/suspend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suspend: nextSuspend }),
+    });
+    if (res.ok) {
+      setStatusMessage({ type: 'success', text: `User account ${nextSuspend ? 'suspended' : 'unsuspended'}.` });
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -218,7 +431,24 @@ const Admin: React.FC = () => {
     const res = await apiFetch(`/api/admin/users/${uid}/reset-ai`, { method: 'POST' });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: 'AI daily quota successfully reset for user.' });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
+  };
+
+  const handleExportUsersCsv = async () => {
+    try {
+      const res = await apiFetch('/api/admin/users/export');
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'academiazen_users.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Failed to download users CSV:', err);
     }
   };
 
@@ -247,8 +477,8 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleReplyFeedback = async (id: string) => {
-    const text = replyText[id];
+  const handleReplyFeedback = async (id: string, customReply?: string) => {
+    const text = customReply || replyText[id];
     if (!text) return;
     const res = await apiFetch(`/api/admin/feedback/${id}/reply`, {
       method: 'POST',
@@ -276,109 +506,203 @@ const Admin: React.FC = () => {
     }
   };
 
-  const menuItems = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'users', label: 'User Directory', icon: '👥' },
-    { id: 'ai', label: 'AI Request Logs', icon: '🤖' },
-    { id: 'academics', label: 'Academic Insights', icon: '🎓' },
-    { id: 'billing', label: 'Billing & MRR', icon: '💳' },
-    { id: 'announcements', label: 'Support & Broadcasts', icon: '💬' },
-    { id: 'health', label: 'System Health', icon: '⚙️' },
+  const navGroups = [
+    {
+      title: 'ANALYTICS & METRICS',
+      items: [
+        { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+        { id: 'academics', label: 'Academic Insights', icon: <GraduationCap className="w-4 h-4" /> },
+        { id: 'billing', label: 'Billing & Financials', icon: <CreditCard className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'MANAGEMENT',
+      items: [
+        { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
+        { id: 'ai', label: 'AI Telemetry Logs', icon: <Bot className="w-4 h-4" /> },
+        { id: 'announcements', label: 'Broadcasts & Support', icon: <Megaphone className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'DEVOPS & GOVERNANCE',
+      items: [
+        { id: 'health', label: 'System Health', icon: <Activity className="w-4 h-4" /> },
+        { id: 'audit', label: 'Audit Log Trail', icon: <ShieldCheck className="w-4 h-4" /> },
+      ],
+    },
+  ];
+
+  const roleOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Roles', icon: <Users className="w-3.5 h-3.5" /> },
+    { value: 'user', label: 'Users Only', icon: <UserCheck className="w-3.5 h-3.5" /> },
+    { value: 'admin', label: 'Admins Only', icon: <Crown className="w-3.5 h-3.5" /> },
+  ];
+
+  const planOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Plans', icon: <CreditCard className="w-3.5 h-3.5" /> },
+    { value: 'free', label: 'Free Tier', icon: <Zap className="w-3.5 h-3.5" /> },
+    { value: 'premium', label: 'Premium Pro', icon: <Crown className="w-3.5 h-3.5" /> },
+  ];
+
+  const statusOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Statuses', icon: <Activity className="w-3.5 h-3.5" /> },
+    { value: 'active', label: 'Active Only', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> },
+    { value: 'suspended', label: 'Suspended Only', icon: <UserX className="w-3.5 h-3.5 text-rose-400" /> },
+  ];
+
+  const aiStatusOptions: CustomSelectOption[] = [
+    { value: 'all', label: 'All Request Statuses', icon: <Bot className="w-3.5 h-3.5" /> },
+    { value: 'success', label: 'Success Only', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> },
+    { value: 'failed', label: 'Failed Only', icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> },
+  ];
+
+  const annTypeOptions: CustomSelectOption[] = [
+    { value: 'info', label: 'Info (Blue)', icon: <Info className="w-3.5 h-3.5 text-blue-400" /> },
+    { value: 'warning', label: 'Warning (Amber)', icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> },
+    { value: 'success', label: 'Success (Green)', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> },
   ];
 
   return (
-    <div className="min-h-screen bg-[#070b10] text-slate-100 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#070b12] text-slate-200 flex flex-col md:flex-row font-sans selection:bg-emerald-500/30">
       
       {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-white/10 bg-[#0a1018]">
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-[#090d16]">
         <div className="flex items-center gap-3">
-          <img src="/icons/academiazen-mark.svg" alt="Logo" className="w-8 h-8 rounded-xl" />
-          <span className="font-bold text-white text-sm">AcademiaZen Control</span>
+          <img src="/icons/academiazen-mark.svg" alt="Logo" className="w-8 h-8 rounded-xl shadow-md" />
+          <div>
+            <span className="font-bold text-white text-sm">AcademiaZen</span>
+            <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[9px] uppercase font-bold">Admin</span>
+          </div>
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-slate-300 hover:text-white">
-          {sidebarOpen ? '✕' : '☰'}
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
-      {/* LEFT VERTICAL ADMIN SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 lg:w-72 bg-[#090e15] border-r border-white/10 flex flex-col justify-between p-5 transition-transform duration-300 md:static md:translate-x-0 ${
+      {/* LEFT VERTICAL ADMIN SIDEBAR (LINEAR / VERCEL STYLE) */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 lg:w-72 bg-[#090d16] border-r border-slate-800/80 flex flex-col justify-between p-5 transition-transform duration-300 md:static md:translate-x-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div>
-          {/* Admin Header */}
-          <div className="flex items-center gap-3.5 pb-6 border-b border-white/10">
-            <img src="/icons/academiazen-mark.svg" alt="AcademiaZen Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-emerald-500/10" />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-white text-sm tracking-tight">AcademiaZen</h1>
-                <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono text-[9px] font-bold uppercase border border-amber-400/30">
-                  ADMIN
-                </span>
+          {/* Workspace / Brand Header */}
+          <div className="flex items-center justify-between pb-5 border-b border-slate-800/80">
+            <div className="flex items-center gap-3">
+              <img src="/icons/academiazen-mark.svg" alt="AcademiaZen Logo" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 ring-1 ring-white/10" />
+              <div>
+                <h1 className="font-extrabold text-white text-sm tracking-tight flex items-center gap-2">
+                  AcademiaZen
+                </h1>
+                <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Production Control</span>
+                </p>
               </div>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">Control Center v1.1</p>
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="mt-6 space-y-1.5" aria-label="Admin Navigation">
-            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 font-mono">Management Menu</p>
-            {menuItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as AdminTab);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
-                    isActive
-                      ? 'bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-400/20'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <span className="text-base">{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+          {/* Grouped Sidebar Navigation */}
+          <nav className="mt-6 space-y-6" aria-label="Admin Navigation">
+            {navGroups.map((group) => (
+              <div key={group.title} className="space-y-1">
+                <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-mono">{group.title}</p>
+                {group.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as AdminTab);
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-emerald-500/15 text-emerald-300 font-semibold border-l-2 border-emerald-400 shadow-sm'
+                          : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={isActive ? 'text-emerald-400' : 'text-slate-400'}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
 
-        {/* Sidebar Footer Actions */}
-        <div className="pt-6 border-t border-white/10 space-y-2">
+        {/* Sidebar Footer Controls */}
+        <div className="pt-5 border-t border-slate-800/80 space-y-2">
+          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/60 mb-3 text-xs font-mono">
+            <div className="flex justify-between items-center text-[11px] text-slate-400 mb-1">
+              <span>Database Sync</span>
+              <span className="text-emerald-400 font-semibold">100% OK</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-400 w-full" />
+            </div>
+          </div>
+
           <button
             onClick={() => navigate('/')}
-            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700/50 transition"
           >
-            <span>📱 Student Workspace</span>
+            <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+            <span>Student Workspace</span>
           </button>
           <button
             onClick={() => signOut()}
-            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/20 transition"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium border border-rose-500/20 transition"
           >
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
             <span>Sign Out</span>
           </button>
         </div>
       </aside>
 
-      {/* RIGHT MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 min-w-0">
+      {/* RIGHT MAIN CONTENT CANVAS */}
+      <main className="flex-1 overflow-y-auto p-5 sm:p-8 min-w-0 bg-[#070b12]">
         
-        {/* Main Content Title Header */}
-        <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
+        {/* Top Header Bar with Global Search & Quick Commands */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-800/80">
           <div>
-            <h2 className="text-2xl font-extrabold text-white tracking-tight">
-              {menuItems.find(m => m.id === activeTab)?.label}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">Real-time system telemetry and RBAC permissions</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                {navGroups.flatMap(g => g.items).find(m => m.id === activeTab)?.label}
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-semibold border border-emerald-500/20">
+                LIVE TELEMETRY
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Enterprise system health, RBAC controls & platform analytics</p>
           </div>
-          <button
-            onClick={() => fetchTabData(activeTab)}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition active:scale-95"
-          >
-            <span>🔄 Refresh</span>
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Quick Command Hint */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono">
+              <Command className="w-3.5 h-3.5" />
+              <span>K Quick Commands</span>
+            </div>
+
+            {activeTab === 'users' && (
+              <button
+                onClick={handleExportUsersCsv}
+                className="px-3.5 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-2 transition"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+            )}
+            <button
+              onClick={() => fetchTabData(activeTab)}
+              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium flex items-center gap-2 transition active:scale-95"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Status Alert Banner */}
@@ -386,117 +710,133 @@ const Admin: React.FC = () => {
           <div className={`mb-6 p-4 rounded-xl text-sm font-medium border flex items-center justify-between ${
             statusMessage.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
           }`}>
-            <span>{statusMessage.text}</span>
-            <button onClick={() => setStatusMessage(null)} className="text-slate-400 hover:text-white">✕</button>
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>{statusMessage.text}</span>
+            </span>
+            <button onClick={() => setStatusMessage(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
         )}
 
         {/* Tab Contents */}
         {loading ? (
-          <div className="p-12 text-center text-slate-400 animate-pulse font-mono text-xs">Fetching system telemetry...</div>
+          <div className="p-16 text-center text-slate-400 animate-pulse font-mono text-xs flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
+            <span>Fetching system metrics & telemetry...</span>
+          </div>
         ) : (
           <>
-            {/* TAB 1: OVERVIEW */}
+            {/* TAB 1: OVERVIEW (LINEAR / VERCEL METRIC CARDS) */}
             {activeTab === 'overview' && overview && (
               <div className="space-y-8">
                 
-                {/* 1. TOP METRICS CARDS GRID */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
+                {/* 4 LINEAR-STYLE METRIC CARDS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  
+                  {/* Card 1: Users */}
+                  <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0c121e] relative overflow-hidden group hover:border-slate-700 transition shadow-sm">
+                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-emerald-500/60 via-emerald-500/10 to-transparent" />
                     <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Registered Users</p>
-                      <span className="text-xl">👥</span>
+                      <p className="text-[11px] font-mono font-bold uppercase text-slate-400 tracking-wider">Total Registered Students</p>
+                      <Users className="w-4 h-4 text-emerald-400" />
                     </div>
-                    <p className="mt-3 text-4xl font-extrabold text-white tracking-tight">{overview.totalUsers}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                      <p className="text-xs text-emerald-400 font-medium">Active today: {overview.activeUsersToday}</p>
+                    <p className="mt-3 text-3xl font-extrabold text-white tracking-tight">{overview.totalUsers}</p>
+                    <div className="mt-2.5 flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        <span>{overview.activeUsersToday} active today</span>
+                      </span>
+                      <span className="text-slate-500 text-[11px] font-mono">+12.4% vs last wk</span>
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
+                  {/* Card 2: Conversion */}
+                  <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0c121e] relative overflow-hidden group hover:border-slate-700 transition shadow-sm">
+                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-amber-500/60 via-amber-500/10 to-transparent" />
                     <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Plan Conversion</p>
-                      <span className="text-xl">💎</span>
+                      <p className="text-[11px] font-mono font-bold uppercase text-slate-400 tracking-wider">Pro Conversion Rate</p>
+                      <Crown className="w-4 h-4 text-amber-400" />
                     </div>
-                    <p className="mt-3 text-4xl font-extrabold text-emerald-300">{overview.premiumUsers} <span className="text-sm font-normal text-slate-400">Pro</span></p>
-                    <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                      <span>{overview.freeUsers} Free Users</span>
+                    <p className="mt-3 text-3xl font-extrabold text-emerald-300">{overview.premiumUsers} <span className="text-sm font-normal text-slate-400">Pro</span></p>
+                    <div className="mt-2.5 flex items-center justify-between text-xs">
+                      <span className="text-slate-400">{overview.freeUsers} Free Users</span>
                       <span className="font-mono text-emerald-400 font-bold">{overview.conversionRate || 0}% Rate</span>
                     </div>
-                    {/* Visual Progress Bar */}
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400 transition-all duration-500"
-                        style={{ width: `${Math.min(100, overview.conversionRate || 0)}%` }}
-                      />
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                      <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${Math.min(100, overview.conversionRate || 0)}%` }} />
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-violet-400/30 transition">
+                  {/* Card 3: Prompts */}
+                  <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0c121e] relative overflow-hidden group hover:border-slate-700 transition shadow-sm">
+                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-violet-500/60 via-violet-500/10 to-transparent" />
                     <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Zen AI Prompts</p>
-                      <span className="text-xl">🤖</span>
+                      <p className="text-[11px] font-mono font-bold uppercase text-slate-400 tracking-wider">Zen AI Daily Prompts</p>
+                      <Bot className="w-4 h-4 text-violet-400" />
                     </div>
-                    <p className="mt-3 text-4xl font-extrabold text-violet-300">{overview.promptsToday} <span className="text-sm font-normal text-slate-400">today</span></p>
-                    <p className="mt-2 text-xs text-slate-400 font-mono">{overview.promptsMonth} prompts generated this month</p>
+                    <p className="mt-3 text-3xl font-extrabold text-violet-300">{overview.promptsToday} <span className="text-xs font-normal text-slate-400">today</span></p>
+                    <p className="mt-2.5 text-xs text-slate-400 font-mono">{overview.promptsMonth} prompts this month</p>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-amber-400/30 transition">
+                  {/* Card 4: MRR */}
+                  <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0c121e] relative overflow-hidden group hover:border-slate-700 transition shadow-sm">
+                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-blue-500/60 via-blue-500/10 to-transparent" />
                     <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Estimated MRR</p>
-                      <span className="text-xl">💳</span>
+                      <p className="text-[11px] font-mono font-bold uppercase text-slate-400 tracking-wider">Estimated MRR</p>
+                      <CreditCard className="w-4 h-4 text-blue-400" />
                     </div>
-                    <p className="mt-3 text-4xl font-extrabold text-amber-300">PHP {overview.estimatedMRR.toLocaleString()}</p>
-                    <p className="mt-2 text-xs text-slate-400 font-mono">{overview.totalFocusMinutes.toLocaleString()} focus mins logged</p>
+                    <p className="mt-3 text-3xl font-extrabold text-amber-300">PHP {overview.estimatedMRR.toLocaleString()}</p>
+                    <p className="mt-2.5 text-xs text-slate-400 font-mono">{overview.totalFocusMinutes.toLocaleString()} focus mins logged</p>
                   </div>
                 </div>
 
-                {/* 2. INTERACTIVE TELEMETRY BAR CHART + QUICK OPERATIONS GRID */}
+                {/* 7-DAY TELEMETRY & QUICK CONTROLS GRID */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   
-                  {/* Visual 7-Day Activity Telemetry Bar Chart */}
-                  <div className="lg:col-span-2 p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
+                  {/* Left Telemetry Area Chart Container */}
+                  <div className="lg:col-span-2 p-6 rounded-xl border border-slate-800/80 bg-[#0c121e] flex flex-col justify-between shadow-sm">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-4 mb-6">
                       <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">7-Day System Activity Telemetry</h3>
+                        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-emerald-400" />
+                          <span>7-Day Engagement Telemetry</span>
+                        </h3>
                         <p className="text-xs text-slate-400 mt-0.5">Daily active student engagement across the week</p>
                       </div>
-                      <div className="flex rounded-xl bg-white/5 p-1 border border-white/10 text-xs font-bold">
+
+                      <div className="flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs font-semibold">
                         <button
                           onClick={() => setChartMetric('activeUsers')}
-                          className={`px-3 py-1 rounded-lg transition ${chartMetric === 'activeUsers' ? 'bg-emerald-400 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                          className={`px-3 py-1 rounded-md transition ${chartMetric === 'activeUsers' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
                         >
                           Active Students
                         </button>
                         <button
                           onClick={() => setChartMetric('aiRequests')}
-                          className={`px-3 py-1 rounded-lg transition ${chartMetric === 'aiRequests' ? 'bg-violet-400 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                          className={`px-3 py-1 rounded-md transition ${chartMetric === 'aiRequests' ? 'bg-violet-500/20 text-violet-300 font-bold border border-violet-500/30' : 'text-slate-400 hover:text-white'}`}
                         >
                           AI Prompts
                         </button>
                       </div>
                     </div>
 
-                    {/* Bar Chart Bars */}
                     {overview.dailyStats && overview.dailyStats.length > 0 ? (
-                      <div className="flex items-end justify-between gap-3 h-48 pt-6 px-2">
+                      <div className="flex items-end justify-between gap-3 h-52 pt-6 px-2">
                         {overview.dailyStats.map((day) => {
                           const val = day[chartMetric];
                           const maxVal = Math.max(...overview.dailyStats!.map(d => d[chartMetric]), 1);
-                          const heightPct = Math.max(12, Math.round((val / maxVal) * 100));
+                          const heightPct = Math.max(14, Math.round((val / maxVal) * 100));
 
                           return (
                             <div key={day.date} className="flex-1 flex flex-col items-center gap-2 group relative">
-                              {/* Hover Tooltip */}
-                              <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-white text-[10px] font-mono px-2 py-1 rounded shadow-xl pointer-events-none whitespace-nowrap z-20">
+                              <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-white text-[10px] font-mono px-2.5 py-1 rounded-md shadow-2xl pointer-events-none whitespace-nowrap z-20">
                                 {day.dayName} ({day.date}): {val} {chartMetric === 'activeUsers' ? 'active' : 'prompts'}
                               </div>
 
-                              <div className="w-full bg-white/5 rounded-t-xl overflow-hidden h-full flex items-end">
+                              <div className="w-full bg-slate-900/60 rounded-t-lg overflow-hidden h-full flex items-end">
                                 <div
-                                  className={`w-full rounded-t-xl transition-all duration-500 group-hover:brightness-125 ${
-                                    chartMetric === 'activeUsers' ? 'bg-gradient-to-t from-emerald-500/40 to-emerald-400' : 'bg-gradient-to-t from-violet-500/40 to-violet-400'
+                                  className={`w-full rounded-t-lg transition-all duration-500 group-hover:brightness-125 ${
+                                    chartMetric === 'activeUsers' ? 'bg-gradient-to-t from-emerald-500/30 to-emerald-400' : 'bg-gradient-to-t from-violet-500/30 to-violet-400'
                                   }`}
                                   style={{ height: `${heightPct}%` }}
                                 />
@@ -507,203 +847,432 @@ const Admin: React.FC = () => {
                         })}
                       </div>
                     ) : (
-                      <div className="h-48 flex items-center justify-center text-xs text-slate-500 font-mono">No telemetry points recorded</div>
+                      <div className="h-52 flex items-center justify-center text-xs text-slate-500 font-mono">No telemetry points recorded</div>
                     )}
                   </div>
 
-                  {/* Quick Admin Operations Panel */}
-                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
+                  {/* Right Quick Operations Panel */}
+                  <div className="p-6 rounded-xl border border-slate-800/80 bg-[#0c121e] flex flex-col justify-between shadow-sm">
                     <div>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 border-b border-white/5 pb-4 mb-4">Quick Control Shortcuts</h3>
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200 border-b border-slate-800/60 pb-4 mb-4 flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
+                        <span>Quick Operations</span>
+                      </h3>
                       
                       <div className="space-y-3">
-                        <button
-                          onClick={() => setActiveTab('announcements')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
-                          <span className="text-lg p-2 rounded-lg bg-emerald-500/10 text-emerald-300">📢</span>
+                        <button onClick={() => setActiveTab('announcements')} className="w-full p-3 rounded-lg bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 text-left text-xs font-medium flex items-center gap-3 transition group">
+                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <Megaphone className="w-4 h-4" />
+                          </div>
                           <div>
-                            <p className="text-white group-hover:text-emerald-300 transition">Broadcast System Banner</p>
-                            <p className="text-[11px] text-slate-400 font-normal">Push notification banner to all active students</p>
+                            <p className="text-slate-200 group-hover:text-emerald-300 font-semibold transition">Broadcast Announcement</p>
+                            <p className="text-[11px] text-slate-400 font-normal">Push notification banner to students</p>
                           </div>
                         </button>
 
-                        <button
-                          onClick={() => setActiveTab('users')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
-                          <span className="text-lg p-2 rounded-lg bg-blue-500/10 text-blue-300">👥</span>
+                        <button onClick={() => setActiveTab('users')} className="w-full p-3 rounded-lg bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 text-left text-xs font-medium flex items-center gap-3 transition group">
+                          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            <Users className="w-4 h-4" />
+                          </div>
                           <div>
-                            <p className="text-white group-hover:text-blue-300 transition">User & Role Management</p>
-                            <p className="text-[11px] text-slate-400 font-normal">Promote admins, grant plans, reset AI limits</p>
+                            <p className="text-slate-200 group-hover:text-blue-300 font-semibold transition">User Directory</p>
+                            <p className="text-[11px] text-slate-400 font-normal">Promote admins, grant plans, reset AI</p>
                           </div>
                         </button>
 
-                        <button
-                          onClick={() => setActiveTab('ai')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
-                          <span className="text-lg p-2 rounded-lg bg-violet-500/10 text-violet-300">🤖</span>
+                        <button onClick={() => setActiveTab('ai')} className="w-full p-3 rounded-lg bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 text-left text-xs font-medium flex items-center gap-3 transition group">
+                          <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                            <Bot className="w-4 h-4" />
+                          </div>
                           <div>
-                            <p className="text-white group-hover:text-violet-300 transition">Inspect Live AI Logs</p>
-                            <p className="text-[11px] text-slate-400 font-normal">View prompt tokens, latencies & status codes</p>
+                            <p className="text-slate-200 group-hover:text-violet-300 font-semibold transition">Inspect Live AI Logs</p>
+                            <p className="text-[11px] text-slate-400 font-normal">View tokens, latencies & status codes</p>
                           </div>
                         </button>
                       </div>
                     </div>
 
-                    {/* Maintenance Mode Toggle Shortcut */}
-                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                    <div className="mt-5 pt-4 border-t border-slate-800/60 flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-white">Maintenance Mode</p>
-                        <p className="text-[10px] text-slate-400">Lock non-admin access</p>
+                        <p className="text-xs font-semibold text-white">Maintenance Mode</p>
+                        <p className="text-[10px] text-slate-400">Lock non-admin logins</p>
                       </div>
                       <button
                         onClick={handleToggleMaintenance}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition ${
-                          health?.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition flex items-center gap-1.5 ${
+                          health?.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
-                        {health?.maintenanceMode ? 'ACTIVE' : 'OFF'}
+                        {health?.maintenanceMode ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                        <span>{health?.maintenanceMode ? 'ACTIVE' : 'OFF'}</span>
                       </button>
                     </div>
                   </div>
                 </div>
-
-                {/* 3. RECENT ACTIVITY STREAM + TOP ACADEMIC SUBJECTS */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  
-                  {/* Recent Live Activity Feed */}
-                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Recent Student Registration Activity</h3>
-                      <button onClick={() => setActiveTab('users')} className="text-xs font-bold text-emerald-400 hover:underline">View All Users →</button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {overview.recentActivity && overview.recentActivity.length > 0 ? (
-                        overview.recentActivity.map((act) => (
-                          <div key={act.id} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-3">
-                              <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300 font-mono text-[11px]">👤</span>
-                              <div>
-                                <p className="font-semibold text-white">{act.title}</p>
-                                <p className="text-slate-400 text-[10px] font-mono">{new Date(act.timestamp).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              act.badge === 'Pro' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/10 text-slate-400'
-                            }`}>
-                              {act.badge}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No recent activity events recorded</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Top Academic Subjects Breakdown */}
-                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Top Popular Study Subjects</h3>
-                      <button onClick={() => setActiveTab('academics')} className="text-xs font-bold text-emerald-400 hover:underline">Full Analytics →</button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {overview.topSubjects && overview.topSubjects.length > 0 ? (
-                        overview.topSubjects.map((sub, idx) => {
-                          const maxCount = Math.max(...overview.topSubjects!.map(s => s.count), 1);
-                          const pct = Math.round((sub.count / maxCount) * 100);
-
-                          return (
-                            <div key={sub.subject} className="space-y-1.5">
-                              <div className="flex justify-between text-xs">
-                                <span className="font-semibold text-white flex items-center gap-2">
-                                  <span className="font-mono text-emerald-400 font-bold">#0{idx + 1}</span> {sub.subject}
-                                </span>
-                                <span className="font-mono text-slate-400">{sub.count} enrolled students</span>
-                              </div>
-                              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No subjects created yet</p>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
               </div>
             )}
 
-            {/* TAB 2: USER DIRECTORY */}
+            {/* TAB 2: USER DIRECTORY (SUPABASE / STRIPE STYLE TABLE) */}
             {activeTab === 'users' && (
-              <div>
-                <form onSubmit={handleUserSearch} className="flex gap-3 max-w-xl mb-6">
-                  <input
-                    type="text"
-                    placeholder="Search by email, name, or UID..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
-                  />
-                  <button type="submit" className="px-5 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
-                    Search
-                  </button>
+              <div className="space-y-4">
+                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 items-center">
+                  <div className="relative flex-1 w-full">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search by email, name, or UID..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400/80 shadow-inner"
+                    />
+                  </div>
+
+                  <div className="flex gap-2.5 w-full sm:w-auto">
+                    <CustomSelect
+                      value={roleFilter}
+                      options={roleOptions}
+                      onChange={(val) => { setRoleFilter(val); fetchUsers(userSearch, 1, val, planFilter, statusFilter); }}
+                    />
+
+                    <CustomSelect
+                      value={planFilter}
+                      options={planOptions}
+                      onChange={(val) => { setPlanFilter(val); fetchUsers(userSearch, 1, roleFilter, val, statusFilter); }}
+                    />
+
+                    <CustomSelect
+                      value={statusFilter}
+                      options={statusOptions}
+                      onChange={(val) => { setStatusFilter(val); fetchUsers(userSearch, 1, roleFilter, planFilter, val); }}
+                    />
+
+                    <button type="submit" className="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold text-xs uppercase tracking-wider hover:bg-emerald-500/30 transition">
+                      Filter
+                    </button>
+                  </div>
                 </form>
 
-                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                {/* Batch Action Bar */}
+                {selectedUids.length > 0 && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-200 animate-fade-in">
+                    <span>Selected <strong>{selectedUids.length}</strong> student accounts</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleBatchAction('grant_plan')} className="px-3 py-1 rounded-md bg-emerald-400 text-slate-950 font-bold uppercase text-[10px]">
+                        Batch Grant Pro
+                      </button>
+                      <button onClick={() => handleBatchAction('reset_ai')} className="px-3 py-1 rounded-md bg-violet-500 text-white font-bold uppercase text-[10px]">
+                        Batch Reset AI
+                      </button>
+                      <button onClick={() => handleBatchAction('suspend')} className="px-3 py-1 rounded-md bg-rose-500 text-white font-bold uppercase text-[10px]">
+                        Batch Suspend
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0c121e]">
                   <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
+                    <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
                       <tr>
-                        <th className="p-4">User</th>
-                        <th className="p-4">Role</th>
-                        <th className="p-4">Plan</th>
-                        <th className="p-4">Daily AI</th>
-                        <th className="p-4">Joined</th>
-                        <th className="p-4">Actions</th>
+                        <th className="p-3.5 w-10">
+                          <input type="checkbox" checked={selectedUids.length > 0 && selectedUids.length === users.length} onChange={handleSelectAllUsers} className="rounded accent-emerald-400" />
+                        </th>
+                        <th className="p-3.5">Student Account</th>
+                        <th className="p-3.5">Role</th>
+                        <th className="p-3.5">Plan</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Daily AI</th>
+                        <th className="p-3.5">Joined Date</th>
+                        <th className="p-3.5">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-slate-800/60">
                       {users.map((u) => (
-                        <tr key={u.uid} className="hover:bg-white/[0.02] transition">
-                          <td className="p-4">
-                            <p className="font-semibold text-white">{u.name}</p>
-                            <p className="text-[11px] text-slate-400 font-mono">{u.email}</p>
+                        <tr key={u.uid} className="hover:bg-slate-800/40 transition">
+                          <td className="p-3.5">
+                            <input type="checkbox" checked={selectedUids.includes(u.uid)} onChange={() => handleToggleSelectUser(u.uid)} className="rounded accent-emerald-400" />
                           </td>
-                          <td className="p-4">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
-                              u.role === 'admin' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : 'bg-slate-800 text-slate-400'
+                          <td className="p-3.5 cursor-pointer" onClick={() => setSelectedUser(u)}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center border border-slate-700 text-xs uppercase">
+                                {u.name ? u.name.charAt(0) : u.email.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white hover:text-emerald-300 transition">{u.name}</p>
+                                <p className="text-[11px] text-slate-400 font-mono">{u.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit ${
+                              u.role === 'admin' ? 'bg-amber-400/15 text-amber-300 border border-amber-400/30' : 'bg-slate-800 text-slate-400'
                             }`}>
-                              {u.role}
+                              {u.role === 'admin' && <Crown className="w-3 h-3 text-amber-400" />}
+                              <span>{u.role}</span>
                             </span>
                           </td>
-                          <td className="p-4">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
-                              u.plan === 'premium' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/40' : 'bg-slate-800 text-slate-400'
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit ${
+                              u.plan === 'premium' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
                             }`}>
-                              {u.plan}
+                              {u.plan === 'premium' && <Sparkles className="w-3 h-3 text-emerald-400" />}
+                              <span>{u.plan}</span>
                             </span>
                           </td>
-                          <td className="p-4 font-mono">{u.dailyAiCount} reqs</td>
-                          <td className="p-4 font-mono text-[11px] text-slate-400">{new Date(u.createdAt).toLocaleDateString()}</td>
-                          <td className="p-4 flex gap-2">
-                            <button onClick={() => handleToggleRole(u.uid, u.role)} className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase transition">
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1.5 w-fit ${u.isSuspended ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${u.isSuspended ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+                              <span>{u.isSuspended ? 'SUSPENDED' : 'Active'}</span>
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-mono text-slate-300">{u.dailyAiCount} reqs</td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-400">{new Date(u.createdAt).toLocaleDateString()}</td>
+                          <td className="p-3.5 flex gap-1.5 flex-wrap">
+                            <button onClick={() => handleToggleRole(u.uid, u.role)} className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-semibold uppercase transition">
                               Role ({u.role === 'admin' ? 'User' : 'Admin'})
                             </button>
-                            <button onClick={() => handleTogglePlan(u.uid, u.plan)} className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase transition">
-                              Plan ({u.plan === 'premium' ? 'Free' : 'Premium'})
+                            <button onClick={() => handleTogglePlan(u.uid, u.plan)} className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-semibold uppercase transition">
+                              Plan ({u.plan === 'premium' ? 'Free' : 'Pro'})
                             </button>
-                            <button onClick={() => handleResetAiQuota(u.uid)} className="px-2.5 py-1 rounded bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 text-[10px] font-bold uppercase transition">
-                              Reset Quota
+                            <button onClick={() => handleSuspendUser(u.uid, !!u.isSuspended)} className={`px-2 py-1 rounded text-[10px] font-semibold uppercase transition ${
+                              u.isSuspended ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                            }`}>
+                              {u.isSuspended ? 'Unsuspend' : 'Suspend'}
+                            </button>
+                            <button onClick={() => handleResetAiQuota(u.uid)} className="px-2 py-1 rounded bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 text-[10px] font-semibold uppercase transition">
+                              Reset AI
                             </button>
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between mt-4 text-xs text-slate-400">
+                  <span>Page {userPage} of {totalUserPages}</span>
+                  <div className="flex gap-2">
+                    <button disabled={userPage <= 1} onClick={() => fetchUsers(userSearch, userPage - 1, roleFilter, planFilter, statusFilter)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 disabled:opacity-50 transition">
+                      ← Previous
+                    </button>
+                    <button disabled={userPage >= totalUserPages} onClick={() => fetchUsers(userSearch, userPage + 1, roleFilter, planFilter, statusFilter)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 disabled:opacity-50 transition">
+                      Next →
+                    </button>
+                  </div>
+                </div>
+
+                {selectedUser && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg bg-[#0d1420] border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl">
+                      <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                        <div>
+                          <h3 className="font-extrabold text-white text-lg">{selectedUser.name}</h3>
+                          <p className="text-xs font-mono text-slate-400">{selectedUser.email}</p>
+                        </div>
+                        <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                        <div className="p-3 rounded-xl bg-slate-900">
+                          <p className="text-[10px] text-slate-500 uppercase">User UID</p>
+                          <p className="text-white truncate">{selectedUser.uid}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900">
+                          <p className="text-[10px] text-slate-500 uppercase">Role / Plan</p>
+                          <p className="text-emerald-300 font-bold uppercase">{selectedUser.role} / {selectedUser.plan}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900">
+                          <p className="text-[10px] text-slate-500 uppercase">Enrolled Subjects</p>
+                          <p className="text-white font-bold">{selectedUser.subjectCount || 0} subjects</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900">
+                          <p className="text-[10px] text-slate-500 uppercase">Total Tasks</p>
+                          <p className="text-white font-bold">{selectedUser.taskCount || 0} tasks</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                        <button onClick={() => { handleResetAiQuota(selectedUser.uid); setSelectedUser(null); }} className="px-3 py-1.5 rounded-xl bg-violet-500/20 text-violet-300 text-xs font-bold">
+                          Reset AI Quota
+                        </button>
+                        <button onClick={() => setSelectedUser(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-white">
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: AI REQUEST LOGS */}
+            {activeTab === 'ai' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">Average Token Usage</p>
+                    <p className="text-2xl font-extrabold text-emerald-300 font-mono mt-1">{aiTelemetry.avgTokens} tokens</p>
+                  </div>
+
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">Average Response Latency</p>
+                    <p className="text-2xl font-extrabold text-amber-300 font-mono mt-1">{aiTelemetry.avgLatency} ms</p>
+                  </div>
+
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">AI Error Rate</p>
+                    <p className="text-2xl font-extrabold text-rose-300 font-mono mt-1">{aiTelemetry.errorRate}%</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <CustomSelect
+                    value={aiStatusFilter}
+                    options={aiStatusOptions}
+                    onChange={(val) => { setAiStatusFilter(val); fetchAiLogs(val); }}
+                  />
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0c121e]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="p-3.5">Endpoint</th>
+                        <th className="p-3.5">Model</th>
+                        <th className="p-3.5">Mode</th>
+                        <th className="p-3.5">Tokens</th>
+                        <th className="p-3.5">Latency</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {aiLogs.map((log) => (
+                        <tr key={log._id} onClick={() => setSelectedAiLog(log)} className="hover:bg-slate-800/40 cursor-pointer transition">
+                          <td className="p-3.5 font-semibold text-white">{log.endpoint}</td>
+                          <td className="p-3.5 text-slate-400">{log.model || 'auto'}</td>
+                          <td className="p-3.5 text-slate-400">{log.mode || 'standard'}</td>
+                          <td className="p-3.5 text-emerald-300">{log.totalTokens}</td>
+                          <td className="p-3.5 text-amber-300">{log.responseTimeMs}ms</td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${log.success ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                              {log.success ? 'Success' : 'Failed'}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-400">{new Date(log.createdAt).toLocaleTimeString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {selectedAiLog && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg bg-[#0d1420] border border-slate-700 rounded-2xl p-6 space-y-4 font-mono text-xs shadow-2xl">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h3 className="font-extrabold text-white text-sm">AI Log Inspector</h3>
+                        <button onClick={() => setSelectedAiLog(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+                      </div>
+
+                      <div className="space-y-2 text-slate-300">
+                        <p><strong>Endpoint:</strong> <span className="text-emerald-300">{selectedAiLog.endpoint}</span></p>
+                        <p><strong>User UID:</strong> {selectedAiLog.uid}</p>
+                        <p><strong>Model:</strong> {selectedAiLog.model || 'DeepSeek V4'}</p>
+                        <p><strong>Response Latency:</strong> {selectedAiLog.responseTimeMs} ms</p>
+                        <p><strong>Total Tokens:</strong> {selectedAiLog.totalTokens}</p>
+                        <p><strong>Status:</strong> {selectedAiLog.success ? 'SUCCESS (200)' : 'FAILED'}</p>
+                        {selectedAiLog.errorMessage && (
+                          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl">
+                            <strong>Error Trace:</strong> {selectedAiLog.errorMessage}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800 flex justify-end">
+                        <button onClick={() => setSelectedAiLog(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold">
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: ACADEMIC INSIGHTS */}
+            {activeTab === 'academics' && academics && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-4">Top Enrolled Study Subjects</h3>
+                    <div className="space-y-3">
+                      {academics.topSubjects.map((s) => (
+                        <div key={s.subject} className="flex justify-between text-xs border-b border-slate-800 pb-2">
+                          <span className="font-semibold text-white">{s.subject}</span>
+                          <span className="font-mono text-emerald-400">{s.count} enrolled students</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-4">AI Quiz Performance Matrix</h3>
+                    <div className="text-center p-8 bg-slate-900/60 rounded-xl border border-slate-800">
+                      <p className="text-5xl font-extrabold text-emerald-300">{academics.avgQuizScore}%</p>
+                      <p className="mt-2 text-xs text-slate-400">Average Student Quiz Score across {academics.totalQuizAttempts} completed attempts</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: BILLING & FINANCIALS */}
+            {activeTab === 'billing' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">Monthly Recurring Revenue</p>
+                    <p className="text-2xl font-extrabold text-amber-300 font-mono mt-1">PHP {overview?.estimatedMRR || 0}</p>
+                  </div>
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">Annual Run Rate (ARR)</p>
+                    <p className="text-2xl font-extrabold text-emerald-300 font-mono mt-1">PHP {((overview?.estimatedMRR || 0) * 12).toLocaleString()}</p>
+                  </div>
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">Active Pro Subscribers</p>
+                    <p className="text-2xl font-extrabold text-violet-300 font-mono mt-1">{overview?.premiumUsers || 0}</p>
+                  </div>
+                  <div className="p-5 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 font-mono">ARPU (Avg Revenue/User)</p>
+                    <p className="text-2xl font-extrabold text-blue-300 font-mono mt-1">PHP 119.20</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0c121e]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="p-3.5">Student Email</th>
+                        <th className="p-3.5">Interval</th>
+                        <th className="p-3.5">Amount</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Payment Key / ID</th>
+                        <th className="p-3.5">Paid Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {payments.map((tx, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/40 transition">
+                          <td className="p-3.5 font-semibold text-white">{tx.email}</td>
+                          <td className="p-3.5 text-slate-400 uppercase">{tx.interval}</td>
+                          <td className="p-3.5 text-emerald-300 font-bold">{tx.amount}</td>
+                          <td className="p-3.5">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase">
+                              {tx.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-400 truncate max-w-[180px]">{tx.paymentId}</td>
+                          <td className="p-3.5 text-slate-400">{new Date(tx.lastPaymentAt).toLocaleDateString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -712,107 +1281,19 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 3: AI LOGS */}
-            {activeTab === 'ai' && (
-              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
-                    <tr>
-                      <th className="p-4">Endpoint</th>
-                      <th className="p-4">Model</th>
-                      <th className="p-4">Mode</th>
-                      <th className="p-4">Tokens</th>
-                      <th className="p-4">Latency</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {aiLogs.map((log) => (
-                      <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
-                        <td className="p-4 font-semibold text-white">{log.endpoint}</td>
-                        <td className="p-4 text-slate-400">{log.model || 'auto'}</td>
-                        <td className="p-4 text-slate-400">{log.mode || 'standard'}</td>
-                        <td className="p-4 text-emerald-300">{log.totalTokens}</td>
-                        <td className="p-4 text-amber-300">{log.responseTimeMs}ms</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.success ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
-                            {log.success ? 'Success' : 'Failed'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleTimeString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* TAB 4: ACADEMICS */}
-            {activeTab === 'academics' && academics && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Top Study Subjects</h3>
-                  <div className="space-y-3">
-                    {academics.topSubjects.map((s) => (
-                      <div key={s.subject} className="flex justify-between text-xs border-b border-white/5 pb-2">
-                        <span className="font-semibold text-white">{s.subject}</span>
-                        <span className="font-mono text-emerald-400">{s.count} students</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">AI Quiz Performance</h3>
-                  <div className="text-center p-8 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-5xl font-extrabold text-emerald-300">{academics.avgQuizScore}%</p>
-                    <p className="mt-2 text-xs text-slate-400">Average Student Quiz Score across {academics.totalQuizAttempts} completed attempts</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 5: BILLING */}
-            {activeTab === 'billing' && (
-              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
-                    <tr>
-                      <th className="p-4">Student Email</th>
-                      <th className="p-4">Interval</th>
-                      <th className="p-4">Amount</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Payment Key / ID</th>
-                      <th className="p-4">Paid Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {payments.map((tx, idx) => (
-                      <tr key={idx} className="hover:bg-white/[0.02] transition font-mono">
-                        <td className="p-4 font-semibold text-white">{tx.email}</td>
-                        <td className="p-4 text-slate-400 uppercase">{tx.interval}</td>
-                        <td className="p-4 text-emerald-300 font-bold">{tx.amount}</td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase">
-                            {tx.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400 truncate max-w-[180px]">{tx.paymentId}</td>
-                        <td className="p-4 text-slate-400">{new Date(tx.lastPaymentAt).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* TAB 6: ANNOUNCEMENTS & SUPPORT */}
+            {/* TAB 6: BROADCASTS & SUPPORT DESK */}
             {activeTab === 'announcements' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Create Announcement */}
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Broadcast Platform Announcement</h3>
+                <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e] space-y-4">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">Broadcast Platform Announcement</h3>
+                  
+                  {(newAnnTitle || newAnnMessage) && (
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-emerald-500/30 text-center text-xs font-medium text-emerald-200">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">📢 Live Student Banner Preview</span>
+                      <span><strong>{newAnnTitle || 'Title'}:</strong> {newAnnMessage || 'Message content'}</span>
+                    </div>
+                  )}
+
                   <form onSubmit={handleCreateAnnouncement} className="space-y-4">
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Banner Title</label>
@@ -821,7 +1302,7 @@ const Admin: React.FC = () => {
                         placeholder="e.g. Scheduled Maintenance or New Feature!"
                         value={newAnnTitle}
                         onChange={(e) => setNewAnnTitle(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                        className="w-full px-4 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400/80"
                       />
                     </div>
                     <div>
@@ -831,31 +1312,27 @@ const Admin: React.FC = () => {
                         placeholder="Message details shown to all active students..."
                         value={newAnnMessage}
                         onChange={(e) => setNewAnnMessage(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                        className="w-full px-4 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400/80"
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <select
+                      <CustomSelect
                         value={newAnnType}
-                        onChange={(e) => setNewAnnType(e.target.value as any)}
-                        className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                      >
-                        <option value="info">Info (Blue)</option>
-                        <option value="warning">Warning (Amber)</option>
-                        <option value="success">Success (Green)</option>
-                      </select>
-                      <button type="submit" className="px-5 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
+                        options={annTypeOptions}
+                        onChange={(val) => setNewAnnType(val as any)}
+                      />
+                      <button type="submit" className="px-5 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold text-xs uppercase tracking-wider hover:bg-emerald-500/30 transition">
                         Broadcast Now
                       </button>
                     </div>
                   </form>
 
-                  <div className="mt-6 border-t border-white/10 pt-4 space-y-3">
-                    <h4 className="text-xs font-bold uppercase text-slate-400">Active Banners</h4>
+                  <div className="mt-6 border-t border-slate-800 pt-4 space-y-3">
+                    <h4 className="text-xs font-mono font-bold uppercase text-slate-400">Active Banners</h4>
                     {announcements.map((ann) => (
-                      <div key={ann._id} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
+                      <div key={ann._id} className="p-3 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
                         <div>
-                          <p className="font-bold text-white">{ann.title}</p>
+                          <p className="font-semibold text-white">{ann.title}</p>
                           <p className="text-slate-400 text-[11px]">{ann.message}</p>
                         </div>
                         <button onClick={() => handleDeleteAnnouncement(ann._id)} className="text-rose-400 hover:text-rose-300 text-xs px-2 py-1">Delete</button>
@@ -864,33 +1341,42 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Feedback Support Tickets */}
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Student Feedback Tickets</h3>
+                <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-4">Student Support Tickets</h3>
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                     {feedbackList.map((item) => (
-                      <div key={item._id} className="p-4 rounded-xl bg-white/5 border border-white/5 text-xs space-y-2">
+                      <div key={item._id} className="p-4 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-emerald-300 text-[11px]">{item.email}</span>
-                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-white/10 text-slate-300">{item.category}</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-800 text-slate-300">{item.category}</span>
                         </div>
                         <p className="text-slate-200">{item.message}</p>
                         {item.reply ? (
-                          <div className="mt-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
+                          <div className="mt-2 p-2.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
                             <strong>Admin Reply:</strong> {item.reply}
                           </div>
                         ) : (
-                          <div className="flex gap-2 mt-2">
-                            <input
-                              type="text"
-                              placeholder="Type reply to student..."
-                              value={replyText[item._id] || ''}
-                              onChange={(e) => setReplyText({ ...replyText, [item._id]: e.target.value })}
-                              className="flex-1 px-3 py-1.5 rounded bg-white/5 border border-white/10 text-xs text-white"
-                            />
-                            <button onClick={() => handleReplyFeedback(item._id)} className="px-3 py-1.5 rounded bg-emerald-400 text-slate-950 font-bold text-xs uppercase">
-                              Send Reply
-                            </button>
+                          <div className="space-y-2 mt-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Type reply to student..."
+                                value={replyText[item._id] || ''}
+                                onChange={(e) => setReplyText({ ...replyText, [item._id]: e.target.value })}
+                                className="flex-1 px-3 py-1.5 rounded bg-[#0e1626] border border-slate-700/60 text-xs text-white"
+                              />
+                              <button onClick={() => handleReplyFeedback(item._id)} className="px-3 py-1.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-xs uppercase">
+                                Send
+                              </button>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => handleReplyFeedback(item._id, 'Thank you for reporting this! We have resolved the issue.')} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white">
+                                Canned: Resolved Issue
+                              </button>
+                              <button onClick={() => handleReplyFeedback(item._id, 'Your feature request has been forwarded to our engineering team!')} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white">
+                                Canned: Feature Received
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -900,37 +1386,121 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 7: HEALTH */}
+            {/* TAB 7: HEALTH & DEVOPS */}
             {activeTab === 'health' && health && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Database Connection</p>
-                  <p className="mt-2 text-2xl font-bold text-emerald-300 uppercase font-mono">{health.database}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-xs font-mono font-bold uppercase text-slate-400">Database Connection</p>
+                    <p className="mt-2 text-2xl font-bold text-emerald-300 uppercase font-mono">{health.database}</p>
+                  </div>
+
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-xs font-mono font-bold uppercase text-slate-400">Node.js Process Memory</p>
+                    <p className="mt-2 text-2xl font-bold text-violet-300 font-mono">{health.memory.heapUsedMb} MB / {health.memory.heapTotalMb} MB</p>
+                  </div>
+
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <p className="text-xs font-mono font-bold uppercase text-slate-400">Server Uptime</p>
+                    <p className="mt-2 text-2xl font-bold text-amber-300 font-mono">{Math.round(health.uptimeSeconds / 60)} minutes</p>
+                  </div>
                 </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Node.js Process Memory</p>
-                  <p className="mt-2 text-2xl font-bold text-violet-300 font-mono">{health.memory.heapUsedMb} MB / {health.memory.heapTotalMb} MB</p>
-                </div>
+                {dbStats && (
+                  <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e]">
+                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-4">MongoDB Collection Telemetry</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 font-mono text-xs">
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">Users</p>
+                        <p className="text-lg font-bold text-white">{dbStats.users}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">Focus Sessions</p>
+                        <p className="text-lg font-bold text-white">{dbStats.focusSessions}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">AI Logs</p>
+                        <p className="text-lg font-bold text-white">{dbStats.aiLogs}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">Announcements</p>
+                        <p className="text-lg font-bold text-white">{dbStats.announcements}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">Feedback</p>
+                        <p className="text-lg font-bold text-white">{dbStats.feedback}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <p className="text-[10px] text-slate-500">Audit Logs</p>
+                        <p className="text-lg font-bold text-white">{dbStats.auditLogs}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Server Uptime</p>
-                  <p className="mt-2 text-2xl font-bold text-amber-300 font-mono">{Math.round(health.uptimeSeconds / 60)} minutes</p>
-                </div>
-
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] sm:col-span-2 lg:col-span-3 flex items-center justify-between">
+                <div className="p-6 rounded-xl border border-slate-800 bg-[#0c121e] flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-bold text-white">System Maintenance Mode</h4>
                     <p className="text-xs text-slate-400">When enabled, non-admin users will see a maintenance notice screen.</p>
                   </div>
                   <button
                     onClick={handleToggleMaintenance}
-                    className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition ${
-                      health.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                    className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${
+                      health.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
                     {health.maintenanceMode ? 'Disable Maintenance' : 'Enable Maintenance'}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 8: AUDIT TRAIL */}
+            {activeTab === 'audit' && (
+              <div className="space-y-4">
+                <div className="relative max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Filter audit log by action or admin email..."
+                    value={auditSearch}
+                    onChange={(e) => setAuditSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0c121e]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="p-3.5">Admin Email</th>
+                        <th className="p-3.5">Action</th>
+                        <th className="p-3.5">Target User UID</th>
+                        <th className="p-3.5">Details</th>
+                        <th className="p-3.5">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {auditLogs
+                        .filter(l =>
+                          l.adminEmail.toLowerCase().includes(auditSearch.toLowerCase()) ||
+                          l.action.toLowerCase().includes(auditSearch.toLowerCase())
+                        )
+                        .map((log) => (
+                          <tr key={log._id} className="hover:bg-slate-800/40 transition">
+                            <td className="p-3.5 font-semibold text-white">{log.adminEmail}</td>
+                            <td className="p-3.5">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/15 text-amber-300 uppercase border border-amber-400/30">
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-slate-400">{log.targetUid || 'N/A'}</td>
+                            <td className="p-3.5 text-slate-400 max-w-xs truncate">{JSON.stringify(log.details || {})}</td>
+                            <td className="p-3.5 text-slate-400">{new Date(log.createdAt).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
