@@ -9,6 +9,7 @@ import NotificationPrompt from './components/NotificationPrompt';
 
 const Auth = lazy(() => import('./pages/Auth'));
 const Landing = lazy(() => import('./pages/Landing'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 const PageLoading = () => (
   <div className="min-h-screen w-full bg-zen-bg flex items-center justify-center" role="status" aria-live="polite">
@@ -124,6 +125,14 @@ const AppInner: React.FC = () => {
 
   if (!user.emailVerified) {
     return <VerifyEmail />;
+  }
+
+  if (location.pathname === '/admin') {
+    return (
+      <Suspense fallback={<PageLoading />}>
+        <Admin />
+      </Suspense>
+    );
   }
 
   return (

@@ -106,10 +106,14 @@ const Layout: React.FC<LayoutProps> = () => {
 
   const activeTab = pathToTab[location.pathname] || Tab.Home;
 
+  const [userRole, setUserRole] = useState<'user' | 'admin'>('user');
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+
   useEffect(() => {
     let active = true;
     if (!user) {
       setIsPremium(false);
+      setUserRole('user');
       return;
     }
 
@@ -125,6 +129,18 @@ const Layout: React.FC<LayoutProps> = () => {
           setIsPremium(plan === 'premium' && (isActive || status === 'canceled'));
         } else {
           setIsPremium(false);
+        }
+
+        const roleRes = await apiFetch('/api/me/role');
+        if (roleRes.ok && active) {
+          const roleData = await roleRes.json();
+          if (roleData?.role) setUserRole(roleData.role);
+        }
+
+        const annRes = await apiFetch('/api/announcements/active');
+        if (annRes.ok && active) {
+          const annData = await annRes.json();
+          if (Array.isArray(annData?.announcements)) setAnnouncements(annData.announcements);
         }
       } catch {
         if (active) setIsPremium(false);
@@ -350,15 +366,32 @@ const Layout: React.FC<LayoutProps> = () => {
                <IconChevronRight className="sidebar-ai-chevron ml-auto h-4 w-4 text-zen-text-disabled transition-transform group-hover:translate-x-0.5" />
              </button>
 
-             <div className="grid grid-cols-2 gap-2">
-               <button onClick={() => setShowSettings(true)} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
-               <button onClick={() => setShowLogoutConfirm(true)} aria-label="Sign out" className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
-             </div>
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  aria-label="Open Admin Console"
+                  className="w-full py-2.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-all shadow-lg shadow-amber-500/5 mb-1"
+                >
+                  <span>👑 Admin Console</span>
+                </button>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setShowSettings(true)} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
+                <button onClick={() => setShowLogoutConfirm(true)} aria-label="Sign out" className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
+              </div>
         </div>
       </aside>
 
       {/* --- MAIN CONTENT WRAPPER --- */}
       <div className="flex-1 flex flex-col h-full relative min-w-0">
+        
+        {/* System Broadcast Banner */}
+        {announcements.length > 0 && (
+          <div className="w-full bg-gradient-to-r from-emerald-500/20 via-violet-500/20 to-emerald-500/20 border-b border-emerald-500/30 px-4 py-2 text-center text-xs font-medium text-emerald-200 flex items-center justify-center gap-2 z-30">
+            <span>📢 <strong>{announcements[0].title}:</strong> {announcements[0].message}</span>
+          </div>
+        )}
         
         {/* Mobile Header (Hidden on Desktop) */}
         <header className="mobile-app-header sticky top-0 z-10 flex items-center justify-between px-4 py-3 lg:hidden">
