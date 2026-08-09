@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 
-type AdminTab = 'overview' | 'users' | 'ai' | 'academics' | 'billing' | 'announcements' | 'health';
+type AdminTab = 'overview' | 'users' | 'ai' | 'academics' | 'billing' | 'announcements' | 'health' | 'audit';
 
 interface OverviewMetrics {
   totalUsers: number;
@@ -26,10 +26,13 @@ interface AdminUser {
   email: string;
   name: string;
   role: 'user' | 'admin';
+  isSuspended?: boolean;
   plan: 'free' | 'premium';
   billingStatus: string;
   dailyAiCount: number;
   totalAiRequests: number;
+  subjectCount?: number;
+  taskCount?: number;
   createdAt: string;
   lastActive: string;
 }
@@ -92,6 +95,15 @@ interface SystemHealth {
   nodeVersion: string;
 }
 
+interface AuditLogItem {
+  _id: string;
+  adminEmail: string;
+  action: string;
+  targetUid?: string;
+  details?: Record<string, any>;
+  createdAt: string;
+}
+
 const Admin: React.FC = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -104,14 +116,23 @@ const Admin: React.FC = () => {
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [userPage, setUserPage] = useState(1);
   const [totalUserPages, setTotalUserPages] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+
   const [academics, setAcademics] = useState<AcademicAnalytics | null>(null);
   const [aiLogs, setAiLogs] = useState<AILogEntry[]>([]);
+  const [aiStatusFilter, setAiStatusFilter] = useState('all');
+  const [aiTelemetry, setAiTelemetry] = useState<{ avgTokens: number; avgLatency: number; errorRate: number }>({ avgTokens: 0, avgLatency: 0, errorRate: 0 });
+
   const [payments, setPayments] = useState<PaymentLog[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   // Form States
   const [newAnnTitle, setNewAnnTitle] = useState('');
@@ -132,20 +153,15 @@ const Admin: React.FC = () => {
         const res = await apiFetch('/api/admin/overview');
         if (res.ok) setOverview(await res.json());
 
-        // Also fetch health for quick toggle
         const hRes = await apiFetch('/api/admin/health');
         if (hRes.ok) setHealth(await hRes.json());
       } else if (tab === 'users') {
-        fetchUsers(userSearch, userPage);
+        fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
       } else if (tab === 'academics') {
         const res = await apiFetch('/api/admin/analytics/academics');
         if (res.ok) setAcademics(await res.json());
       } else if (tab === 'ai') {
-        const res = await apiFetch('/api/admin/ai/logs');
-        if (res.ok) {
-          const data = await res.json();
-          setAiLogs(data.logs || []);
-        }
+        fetchAiLogs(aiStatusFilter);
       } else if (tab === 'billing') {
         const res = await apiFetch('/api/admin/payments');
         if (res.ok) {
@@ -161,6 +177,9 @@ const Admin: React.FC = () => {
       } else if (tab === 'health') {
         const res = await apiFetch('/api/admin/health');
         if (res.ok) setHealth(await res.json());
+      } else if (tab === 'audit') {
+        const res = await apiFetch('/api/admin/audit-logs');
+        if (res.ok) setAuditLogs((await res.json()).logs || []);
       }
     } catch (err) {
       console.error('Failed to load admin data:', err);
@@ -169,9 +188,14 @@ const Admin: React.FC = () => {
     }
   };
 
-  const fetchUsers = async (q = '', page = 1) => {
+  const fetchUsers = async (q = '', page = 1, role = roleFilter, plan = planFilter, status = statusFilter) => {
     try {
-      const res = await apiFetch(`/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`);
+      let url = `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`;
+      if (role !== 'all') url += `&role=${role}`;
+      if (plan !== 'all') url += `&plan=${plan}`;
+      if (status !== 'all') url += `&status=${status}`;
+
+      const res = await apiFetch(url);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
@@ -183,9 +207,28 @@ const Admin: React.FC = () => {
     }
   };
 
+  const fetchAiLogs = async (status = aiStatusFilter) => {
+    try {
+      let url = '/api/admin/ai/logs';
+      if (status !== 'all') url += `?status=${status}`;
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setAiLogs(data.logs || []);
+        setAiTelemetry({
+          avgTokens: data.avgTokens || 0,
+          avgLatency: data.avgLatency || 0,
+          errorRate: data.errorRate || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch AI logs:', err);
+    }
+  };
+
   const handleUserSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchUsers(userSearch, 1);
+    fetchUsers(userSearch, 1, roleFilter, planFilter, statusFilter);
   };
 
   const handleToggleRole = async (uid: string, currentRole: string) => {
@@ -197,7 +240,7 @@ const Admin: React.FC = () => {
     });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: `Updated user role to ${nextRole}` });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -210,7 +253,20 @@ const Admin: React.FC = () => {
     });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: `Updated user plan to ${nextPlan}` });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
+  };
+
+  const handleSuspendUser = async (uid: string, currentSuspended: boolean) => {
+    const nextSuspend = !currentSuspended;
+    const res = await apiFetch(`/api/admin/users/${uid}/suspend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suspend: nextSuspend }),
+    });
+    if (res.ok) {
+      setStatusMessage({ type: 'success', text: `User account ${nextSuspend ? 'suspended' : 'unsuspended'}.` });
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -218,7 +274,24 @@ const Admin: React.FC = () => {
     const res = await apiFetch(`/api/admin/users/${uid}/reset-ai`, { method: 'POST' });
     if (res.ok) {
       setStatusMessage({ type: 'success', text: 'AI daily quota successfully reset for user.' });
-      fetchUsers(userSearch, userPage);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
+  };
+
+  const handleExportUsersCsv = async () => {
+    try {
+      const res = await apiFetch('/api/admin/users/export');
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'academiazen_users.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Failed to download users CSV:', err);
     }
   };
 
@@ -284,6 +357,7 @@ const Admin: React.FC = () => {
     { id: 'billing', label: 'Billing & MRR', icon: '💳' },
     { id: 'announcements', label: 'Support & Broadcasts', icon: '💬' },
     { id: 'health', label: 'System Health', icon: '⚙️' },
+    { id: 'audit', label: 'Admin Audit Trail', icon: '🛡️' },
   ];
 
   return (
@@ -373,12 +447,22 @@ const Admin: React.FC = () => {
             </h2>
             <p className="text-xs text-slate-400 mt-1">Real-time system telemetry and RBAC permissions</p>
           </div>
-          <button
-            onClick={() => fetchTabData(activeTab)}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition active:scale-95"
-          >
-            <span>🔄 Refresh</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {activeTab === 'users' && (
+              <button
+                onClick={handleExportUsersCsv}
+                className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-2 transition"
+              >
+                <span>📥 Export CSV</span>
+              </button>
+            )}
+            <button
+              onClick={() => fetchTabData(activeTab)}
+              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition active:scale-95"
+            >
+              <span>🔄 Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Status Alert Banner */}
@@ -424,7 +508,6 @@ const Admin: React.FC = () => {
                       <span>{overview.freeUsers} Free Users</span>
                       <span className="font-mono text-emerald-400 font-bold">{overview.conversionRate || 0}% Rate</span>
                     </div>
-                    {/* Visual Progress Bar */}
                     <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full bg-emerald-400 transition-all duration-500"
@@ -454,8 +537,6 @@ const Admin: React.FC = () => {
 
                 {/* 2. INTERACTIVE TELEMETRY BAR CHART + QUICK OPERATIONS GRID */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  {/* Visual 7-Day Activity Telemetry Bar Chart */}
                   <div className="lg:col-span-2 p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
                       <div>
@@ -478,7 +559,6 @@ const Admin: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Bar Chart Bars */}
                     {overview.dailyStats && overview.dailyStats.length > 0 ? (
                       <div className="flex items-end justify-between gap-3 h-48 pt-6 px-2">
                         {overview.dailyStats.map((day) => {
@@ -488,7 +568,6 @@ const Admin: React.FC = () => {
 
                           return (
                             <div key={day.date} className="flex-1 flex flex-col items-center gap-2 group relative">
-                              {/* Hover Tooltip */}
                               <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-white text-[10px] font-mono px-2 py-1 rounded shadow-xl pointer-events-none whitespace-nowrap z-20">
                                 {day.dayName} ({day.date}): {val} {chartMetric === 'activeUsers' ? 'active' : 'prompts'}
                               </div>
@@ -511,7 +590,6 @@ const Admin: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Quick Admin Operations Panel */}
                   <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
                     <div>
                       <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 border-b border-white/5 pb-4 mb-4">Quick Control Shortcuts</h3>
@@ -552,7 +630,6 @@ const Admin: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Maintenance Mode Toggle Shortcut */}
                     <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">Maintenance Mode</p>
@@ -572,8 +649,6 @@ const Admin: React.FC = () => {
 
                 {/* 3. RECENT ACTIVITY STREAM + TOP ACADEMIC SUBJECTS */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  
-                  {/* Recent Live Activity Feed */}
                   <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
                     <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                       <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Recent Student Registration Activity</h3>
@@ -604,7 +679,6 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Top Academic Subjects Breakdown */}
                   <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
                     <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                       <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Top Popular Study Subjects</h3>
@@ -636,7 +710,6 @@ const Admin: React.FC = () => {
                       )}
                     </div>
                   </div>
-
                 </div>
 
               </div>
@@ -645,7 +718,7 @@ const Admin: React.FC = () => {
             {/* TAB 2: USER DIRECTORY */}
             {activeTab === 'users' && (
               <div>
-                <form onSubmit={handleUserSearch} className="flex gap-3 max-w-xl mb-6">
+                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-6">
                   <input
                     type="text"
                     placeholder="Search by email, name, or UID..."
@@ -653,9 +726,41 @@ const Admin: React.FC = () => {
                     onChange={(e) => setUserSearch(e.target.value)}
                     className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
                   />
-                  <button type="submit" className="px-5 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
-                    Search
-                  </button>
+                  <div className="flex gap-2">
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => { setRoleFilter(e.target.value); fetchUsers(userSearch, 1, e.target.value, planFilter, statusFilter); }}
+                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="user">Users Only</option>
+                      <option value="admin">Admins Only</option>
+                    </select>
+
+                    <select
+                      value={planFilter}
+                      onChange={(e) => { setPlanFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, e.target.value, statusFilter); }}
+                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
+                    >
+                      <option value="all">All Plans</option>
+                      <option value="free">Free Tier</option>
+                      <option value="premium">Premium Pro</option>
+                    </select>
+
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => { setStatusFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, planFilter, e.target.value); }}
+                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active Only</option>
+                      <option value="suspended">Suspended Only</option>
+                    </select>
+
+                    <button type="submit" className="px-4 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-300 transition">
+                      Filter
+                    </button>
+                  </div>
                 </form>
 
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -665,6 +770,7 @@ const Admin: React.FC = () => {
                         <th className="p-4">User</th>
                         <th className="p-4">Role</th>
                         <th className="p-4">Plan</th>
+                        <th className="p-4">Status</th>
                         <th className="p-4">Daily AI</th>
                         <th className="p-4">Joined</th>
                         <th className="p-4">Actions</th>
@@ -673,8 +779,8 @@ const Admin: React.FC = () => {
                     <tbody className="divide-y divide-white/5">
                       {users.map((u) => (
                         <tr key={u.uid} className="hover:bg-white/[0.02] transition">
-                          <td className="p-4">
-                            <p className="font-semibold text-white">{u.name}</p>
+                          <td className="p-4 cursor-pointer" onClick={() => setSelectedUser(u)}>
+                            <p className="font-semibold text-white hover:text-emerald-300 transition">{u.name}</p>
                             <p className="text-[11px] text-slate-400 font-mono">{u.email}</p>
                           </td>
                           <td className="p-4">
@@ -691,17 +797,27 @@ const Admin: React.FC = () => {
                               {u.plan}
                             </span>
                           </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.isSuspended ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                              {u.isSuspended ? 'SUSPENDED' : 'Active'}
+                            </span>
+                          </td>
                           <td className="p-4 font-mono">{u.dailyAiCount} reqs</td>
                           <td className="p-4 font-mono text-[11px] text-slate-400">{new Date(u.createdAt).toLocaleDateString()}</td>
-                          <td className="p-4 flex gap-2">
-                            <button onClick={() => handleToggleRole(u.uid, u.role)} className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase transition">
+                          <td className="p-4 flex gap-1.5 flex-wrap">
+                            <button onClick={() => handleToggleRole(u.uid, u.role)} className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase transition">
                               Role ({u.role === 'admin' ? 'User' : 'Admin'})
                             </button>
-                            <button onClick={() => handleTogglePlan(u.uid, u.plan)} className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase transition">
-                              Plan ({u.plan === 'premium' ? 'Free' : 'Premium'})
+                            <button onClick={() => handleTogglePlan(u.uid, u.plan)} className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase transition">
+                              Plan ({u.plan === 'premium' ? 'Free' : 'Pro'})
                             </button>
-                            <button onClick={() => handleResetAiQuota(u.uid)} className="px-2.5 py-1 rounded bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 text-[10px] font-bold uppercase transition">
-                              Reset Quota
+                            <button onClick={() => handleSuspendUser(u.uid, !!u.isSuspended)} className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition ${
+                              u.isSuspended ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                            }`}>
+                              {u.isSuspended ? 'Unsuspend' : 'Suspend'}
+                            </button>
+                            <button onClick={() => handleResetAiQuota(u.uid)} className="px-2 py-1 rounded bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 text-[10px] font-bold uppercase transition">
+                              Reset AI
                             </button>
                           </td>
                         </tr>
@@ -709,42 +825,136 @@ const Admin: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between mt-4 text-xs text-slate-400">
+                  <span>Page {userPage} of {totalUserPages}</span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={userPage <= 1}
+                      onClick={() => fetchUsers(userSearch, userPage - 1, roleFilter, planFilter, statusFilter)}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition"
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      disabled={userPage >= totalUserPages}
+                      onClick={() => fetchUsers(userSearch, userPage + 1, roleFilter, planFilter, statusFilter)}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+
+                {/* User Detail Inspection Modal */}
+                {selectedUser && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4">
+                      <div className="flex justify-between items-start border-b border-white/10 pb-3">
+                        <div>
+                          <h3 className="font-extrabold text-white text-lg">{selectedUser.name}</h3>
+                          <p className="text-xs font-mono text-slate-400">{selectedUser.email}</p>
+                        </div>
+                        <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white">✕</button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                        <div className="p-3 rounded-xl bg-white/5">
+                          <p className="text-[10px] text-slate-500 uppercase">User UID</p>
+                          <p className="text-white truncate">{selectedUser.uid}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white/5">
+                          <p className="text-[10px] text-slate-500 uppercase">Role / Plan</p>
+                          <p className="text-emerald-300 font-bold uppercase">{selectedUser.role} / {selectedUser.plan}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white/5">
+                          <p className="text-[10px] text-slate-500 uppercase">Enrolled Subjects</p>
+                          <p className="text-white font-bold">{selectedUser.subjectCount || 0} subjects</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white/5">
+                          <p className="text-[10px] text-slate-500 uppercase">Total Tasks</p>
+                          <p className="text-white font-bold">{selectedUser.taskCount || 0} tasks</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-white/10 flex justify-end">
+                        <button onClick={() => setSelectedUser(null)} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white">
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* TAB 3: AI LOGS */}
             {activeTab === 'ai' && (
-              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
-                    <tr>
-                      <th className="p-4">Endpoint</th>
-                      <th className="p-4">Model</th>
-                      <th className="p-4">Mode</th>
-                      <th className="p-4">Tokens</th>
-                      <th className="p-4">Latency</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {aiLogs.map((log) => (
-                      <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
-                        <td className="p-4 font-semibold text-white">{log.endpoint}</td>
-                        <td className="p-4 text-slate-400">{log.model || 'auto'}</td>
-                        <td className="p-4 text-slate-400">{log.mode || 'standard'}</td>
-                        <td className="p-4 text-emerald-300">{log.totalTokens}</td>
-                        <td className="p-4 text-amber-300">{log.responseTimeMs}ms</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.success ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
-                            {log.success ? 'Success' : 'Failed'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleTimeString()}</td>
+              <div className="space-y-6">
+                {/* AI Telemetry Header Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Average Token Usage</p>
+                    <p className="text-2xl font-extrabold text-emerald-300 font-mono mt-1">{aiTelemetry.avgTokens} tokens</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Average Response Latency</p>
+                    <p className="text-2xl font-extrabold text-amber-300 font-mono mt-1">{aiTelemetry.avgLatency} ms</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">AI Error Rate</p>
+                    <p className="text-2xl font-extrabold text-rose-300 font-mono mt-1">{aiTelemetry.errorRate}%</p>
+                  </div>
+                </div>
+
+                {/* Filter */}
+                <div className="flex gap-3">
+                  <select
+                    value={aiStatusFilter}
+                    onChange={(e) => { setAiStatusFilter(e.target.value); fetchAiLogs(e.target.value); }}
+                    className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
+                  >
+                    <option value="all">All Request Statuses</option>
+                    <option value="success">Success Only</option>
+                    <option value="failed">Failed Only</option>
+                  </select>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
+                      <tr>
+                        <th className="p-4">Endpoint</th>
+                        <th className="p-4">Model</th>
+                        <th className="p-4">Mode</th>
+                        <th className="p-4">Tokens</th>
+                        <th className="p-4">Latency</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Time</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {aiLogs.map((log) => (
+                        <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
+                          <td className="p-4 font-semibold text-white">{log.endpoint}</td>
+                          <td className="p-4 text-slate-400">{log.model || 'auto'}</td>
+                          <td className="p-4 text-slate-400">{log.mode || 'standard'}</td>
+                          <td className="p-4 text-emerald-300">{log.totalTokens}</td>
+                          <td className="p-4 text-amber-300">{log.responseTimeMs}ms</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.success ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                              {log.success ? 'Success' : 'Failed'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleTimeString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -810,7 +1020,6 @@ const Admin: React.FC = () => {
             {/* TAB 6: ANNOUNCEMENTS & SUPPORT */}
             {activeTab === 'announcements' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Create Announcement */}
                 <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Broadcast Platform Announcement</h3>
                   <form onSubmit={handleCreateAnnouncement} className="space-y-4">
@@ -864,7 +1073,6 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Feedback Support Tickets */}
                 <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Student Feedback Tickets</h3>
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
@@ -932,6 +1140,38 @@ const Admin: React.FC = () => {
                     {health.maintenanceMode ? 'Disable Maintenance' : 'Enable Maintenance'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* TAB 8: AUDIT TRAIL */}
+            {activeTab === 'audit' && (
+              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
+                    <tr>
+                      <th className="p-4">Admin Email</th>
+                      <th className="p-4">Action</th>
+                      <th className="p-4">Target User UID</th>
+                      <th className="p-4">Details</th>
+                      <th className="p-4">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {auditLogs.map((log) => (
+                      <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
+                        <td className="p-4 font-semibold text-white">{log.adminEmail}</td>
+                        <td className="p-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 uppercase border border-amber-500/30">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-4 text-slate-400">{log.targetUid || 'N/A'}</td>
+                        <td className="p-4 text-slate-400 max-w-xs truncate">{JSON.stringify(log.details || {})}</td>
+                        <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </>
