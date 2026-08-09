@@ -26,6 +26,69 @@ const faqs = [
   ['What stays useful without AI?', 'Your tasks, calendar, focus tools, study library, and history all remain useful even when you are not using an AI feature.'],
 ];
 
+const TiltCard: React.FC<{ card: (typeof productCards)[0]; index: number }> = ({ card, index }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [transform, setTransform] = useState('perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)');
+  const [glare, setGlare] = useState<{ x: number; y: number; opacity: number }>({ x: 50, y: 50, opacity: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const rotateX = ((y - centerY) / centerY) * -10;
+    const rotateY = ((x - centerX) / centerX) * 10;
+
+    setTransform(`perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.03, 1.03, 1.03)`);
+    setGlare({
+      x: (x / rect.width) * 100,
+      y: (y / rect.height) * 100,
+      opacity: 0.15,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setTransform('perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)');
+    setGlare(prev => ({ ...prev, opacity: 0 }));
+  };
+
+  return (
+    <article
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ transform, transition: 'transform 0.15s ease-out, border-color 0.3s ease, box-shadow 0.3s ease' }}
+      className={`reveal-on-scroll reveal-delay-${index + 1} group relative flex min-w-[82%] snap-start flex-col justify-between overflow-hidden rounded-2xl border border-white/[.08] bg-[#070c14]/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition duration-300 hover:border-emerald-300/40 hover:shadow-[0_20px_50px_rgba(16,185,129,0.18)] sm:min-w-[46%] lg:min-w-0 [transform-style:preserve-3d]`}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 transition-opacity duration-300 rounded-2xl"
+        style={{
+          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255, 255, 255, ${glare.opacity}), transparent 60%)`,
+        }}
+      />
+
+      <div className="relative z-10 [transform:translateZ(20px)] transition-transform duration-300">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-sm font-bold text-emerald-300 transition duration-300 group-hover:scale-110">{card.number}</span>
+          <span className="text-sm font-semibold text-white transition duration-300 group-hover:text-emerald-200">{card.name}</span>
+        </div>
+        <p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">{card.description}</p>
+      </div>
+
+      <div className="relative z-10 mt-5 overflow-hidden rounded-xl border border-white/[.08] bg-[#05080f] p-1.5 shadow-lg transition duration-500 group-hover:border-emerald-300/40 group-hover:shadow-[0_0_25px_rgba(52,211,153,0.2)] [transform:translateZ(35px)]">
+        <img
+          src={card.image}
+          alt={card.alt}
+          className="aspect-[16/10] w-full rounded-lg object-contain transition duration-500 group-hover:scale-[1.03]"
+        />
+      </div>
+    </article>
+  );
+};
+
 const Landing: React.FC = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [showHeader, setShowHeader] = useState(true);
@@ -156,18 +219,7 @@ const Landing: React.FC = () => {
             <div className="reveal-on-scroll mx-auto max-w-3xl text-center"><p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-300">The academic loop</p><h2 className="landing-display mt-4 text-4xl font-semibold tracking-[-.05em] text-white sm:text-5xl">A calmer way to move through your workload.</h2><p className="mt-5 text-lg leading-8 text-slate-400">AcademiaZen follows the study rhythm you already need—without becoming another complicated system to maintain.</p></div>
             <div className="mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-4 lg:overflow-visible">
               {productCards.map((card, index) => (
-                <article key={card.name} className={`reveal-on-scroll reveal-delay-${index + 1} landing-card-hover group flex min-w-[82%] snap-start flex-col justify-between overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] p-5 transition duration-300 sm:min-w-[46%] lg:min-w-0`}>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm font-bold text-emerald-300 transition duration-300 group-hover:scale-110">{card.number}</span>
-                      <span className="text-sm font-semibold text-white transition duration-300 group-hover:text-emerald-200">{card.name}</span>
-                    </div>
-                    <p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">{card.description}</p>
-                  </div>
-                  <div className="mt-5 overflow-hidden rounded-xl border border-white/[.08] bg-[#070c14] p-1.5 shadow-lg transition duration-500 group-hover:border-emerald-300/30 group-hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]">
-                    <img src={card.image} alt={card.alt} className="aspect-[16/10] w-full rounded-lg object-contain transition duration-500 group-hover:scale-[1.03]" />
-                  </div>
-                </article>
+                <TiltCard key={card.name} card={card} index={index} />
               ))}
             </div>
           </div>
