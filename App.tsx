@@ -60,7 +60,7 @@ const VerifyEmail: React.FC = () => {
           </button>
           <button
             onClick={signOut}
-            className="w-full py-2 rounded-xl border border-zen-surface text-zen-text-secondary hover:text-zen-text-primary transition-colors"
+            className="w-full py-2 text-xs text-zen-text-disabled hover:text-zen-text-secondary transition-colors"
           >
             Sign out
           </button>
@@ -71,43 +71,25 @@ const VerifyEmail: React.FC = () => {
 };
 
 const AppInner: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   const location = useLocation();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    audioRef.current = new Audio('/sounds/phone-alert-marimba-bubble-om-fx-1-00-01.mp3');
-    audioRef.current.volume = 0.7;
+    audioRef.current = new Audio('/sounds/notification.mp3');
+  }, []);
 
-    const handleServiceWorkerMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
-        playNotificationSound();
-      }
-    };
-
+  useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
-
-    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
-      navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
-  const playNotificationSound = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => {
-        console.log('Could not play notification sound:', err);
-      });
-    }
-  };
 
   if (loading) {
     return <PageLoading />;
@@ -125,6 +107,11 @@ const AppInner: React.FC = () => {
 
   if (!user.emailVerified) {
     return <VerifyEmail />;
+  }
+
+  // Instant Admin redirect if user is admin and hits root or login
+  if (role === 'admin' && (location.pathname === '/' || location.pathname === '/login')) {
+    return <Navigate to="/admin" replace />;
   }
 
   if (location.pathname === '/admin') {

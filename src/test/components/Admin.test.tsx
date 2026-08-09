@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+vi.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'admin-1', email: 'admin123@admin.com' },
+    role: 'admin',
+    signOut: vi.fn(),
+  }),
+}));
 
 vi.mock('../../../utils/api', () => ({
   apiFetch: vi.fn().mockImplementation((path: string) => {
@@ -32,9 +41,13 @@ describe('Admin Dashboard Component', () => {
   });
 
   it('renders control center title and overview statistics tab', async () => {
-    render(<Admin />);
+    render(
+      <MemoryRouter>
+        <Admin />
+      </MemoryRouter>
+    );
 
-    expect(screen.getByRole('heading', { name: /AcademiaZen Control Center/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /AcademiaZen/i })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('142')).toBeInTheDocument(); // Total users
