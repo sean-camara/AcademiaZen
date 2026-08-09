@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useZen } from '../context/ZenContext';
 import { IconX, IconLogOut, IconCheck, IconSettings, IconBot, IconFocus, IconLibrary, IconCreditCard } from '../components/Icons';
 import { AMBIENCE_OPTIONS, FOCUS_DURATIONS } from '../constants';
@@ -652,7 +652,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
                                     <div className="relative z-10 py-6 md:py-8">
                                         <div className="flex items-baseline gap-1">
                                             <span className="text-4xl md:text-5xl font-light text-white tracking-tight">
-                                                PHP {selectedInterval === 'weekly' ? '49' : '129'}
+                                                PHP {selectedInterval === 'weekly' ? '49' : '149'}
                                             </span>
                                             <span className="text-lg md:text-xl text-gray-500 font-light">
                                                 /{selectedInterval === 'weekly' ? 'wk' : 'mo'}

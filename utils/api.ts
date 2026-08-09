@@ -4,6 +4,9 @@ const configuredApiBaseUrl = (import.meta as any).env?.VITE_API_URL || '';
 
 export function resolveApiBaseUrl(configuredBaseUrl: string, hostname: string): string {
   const normalizedHostname = hostname.toLowerCase();
+  if (normalizedHostname === 'localhost' || normalizedHostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
   if (normalizedHostname === 'academiazen.app' || normalizedHostname === 'www.academiazen.app') {
     return '';
   }

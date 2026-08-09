@@ -11,11 +11,6 @@ export default defineConfig(({ mode }) => {
           host: 'localhost',
           port: 3000,
         },
-        headers: {
-          // Allows auth popups (e.g., Google sign-in) without COOP warnings in dev.
-          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-          'Cross-Origin-Embedder-Policy': 'unsafe-none',
-        },
       },
       plugins: [react()],
       build: {

@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   onAuthStateChanged,
+  getRedirectResult,
   signInWithPopup,
+  signInWithRedirect,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -30,6 +32,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      if (error?.code !== 'auth/no-auth-event') {
+        console.error('[Auth] Google redirect sign-in failed:', error);
+      }
+    });
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -38,7 +45,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+    if (isMobile) {
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
+
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      const code = error?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/internal-error'
+      ) {
+        console.warn('[Auth] Popup failed or blocked, falling back to redirect:', code);
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      throw error;
+    }
   };
 
   const signInWithEmail = async (email: string, password: string) => {

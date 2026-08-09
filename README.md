@@ -339,7 +339,7 @@ location.reload();
 
 ## 📄 License
 
-See root LICENSE file.
+No license file is currently included. All rights are reserved unless a license is added later.
 
 ## 🤝 Contributing
 
@@ -351,3 +351,23 @@ For deployment issues, see:
 - `/DEPLOYMENT_GUIDE.md` - Production deployment
 - `/VPS_SETUP.md` - Server configuration
 - Backend README for API documentation
+
+## Project Screenshot
+
+![AcademiaZen student dashboard](https://raw.githubusercontent.com/sean-camara/sean-camara-portfolio/main/public/assets/academiazen-screenshot.png)
+
+## Testing Strategy
+
+Vitest tests cover API helpers, constants, navigation, calendar and library behavior, empty states, and error boundaries. Playwright covers the public browser experience. Run `npm run typecheck`, `npm run test:run`, `npm run test:e2e`, and `npm run build`. `npm run test:coverage` can generate a report, but no coverage percentage is published. Authenticated cross-service workflows, offline recovery, and notification/provider paths need broader automated coverage.
+
+## Known Limitations
+
+- Some authenticated features require the separately deployed API and configured Firebase services.
+- Offline behavior is intentionally limited for private or server-owned data.
+- AI, billing, storage, and push behavior depend on external provider configuration.
+
+## Future Improvements
+
+- Expand authenticated browser tests and offline/reconnect scenarios.
+- Add provider-contract tests using safe sandbox configuration.
+- Keep bundle checks and accessibility coverage in the release gate.
