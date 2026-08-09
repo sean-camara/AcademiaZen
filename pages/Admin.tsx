@@ -15,6 +15,10 @@ interface OverviewMetrics {
   totalFocusMinutes: number;
   totalFocusSessions: number;
   estimatedMRR: number;
+  conversionRate?: number;
+  dailyStats?: Array<{ date: string; dayName: string; activeUsers: number; aiRequests: number }>;
+  recentActivity?: Array<{ id: string; type: string; title: string; timestamp: string; badge: string }>;
+  topSubjects?: Array<{ subject: string; count: number }>;
 }
 
 interface AdminUser {
@@ -94,6 +98,7 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chartMetric, setChartMetric] = useState<'activeUsers' | 'aiRequests'>('activeUsers');
 
   // Metrics Data States
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
@@ -126,6 +131,10 @@ const Admin: React.FC = () => {
       if (tab === 'overview') {
         const res = await apiFetch('/api/admin/overview');
         if (res.ok) setOverview(await res.json());
+
+        // Also fetch health for quick toggle
+        const hRes = await apiFetch('/api/admin/health');
+        if (hRes.ok) setHealth(await hRes.json());
       } else if (tab === 'users') {
         fetchUsers(userSearch, userPage);
       } else if (tab === 'academics') {
@@ -362,11 +371,11 @@ const Admin: React.FC = () => {
             <h2 className="text-2xl font-extrabold text-white tracking-tight">
               {menuItems.find(m => m.id === activeTab)?.label}
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Real-time system data and RBAC permissions</p>
+            <p className="text-xs text-slate-400 mt-1">Real-time system telemetry and RBAC permissions</p>
           </div>
           <button
             onClick={() => fetchTabData(activeTab)}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition"
+            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition active:scale-95"
           >
             <span>🔄 Refresh</span>
           </button>
@@ -389,30 +398,247 @@ const Admin: React.FC = () => {
           <>
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && overview && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Registered Users</p>
-                  <p className="mt-2 text-4xl font-extrabold text-white">{overview.totalUsers}</p>
-                  <p className="mt-1 text-xs text-emerald-400 font-medium">Active today: {overview.activeUsersToday}</p>
+              <div className="space-y-8">
+                
+                {/* 1. TOP METRICS CARDS GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
+                    <div className="flex justify-between items-start">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Registered Users</p>
+                      <span className="text-xl">👥</span>
+                    </div>
+                    <p className="mt-3 text-4xl font-extrabold text-white tracking-tight">{overview.totalUsers}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                      <p className="text-xs text-emerald-400 font-medium">Active today: {overview.activeUsersToday}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
+                    <div className="flex justify-between items-start">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Plan Conversion</p>
+                      <span className="text-xl">💎</span>
+                    </div>
+                    <p className="mt-3 text-4xl font-extrabold text-emerald-300">{overview.premiumUsers} <span className="text-sm font-normal text-slate-400">Pro</span></p>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                      <span>{overview.freeUsers} Free Users</span>
+                      <span className="font-mono text-emerald-400 font-bold">{overview.conversionRate || 0}% Rate</span>
+                    </div>
+                    {/* Visual Progress Bar */}
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-400 transition-all duration-500"
+                        style={{ width: `${Math.min(100, overview.conversionRate || 0)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-violet-400/30 transition">
+                    <div className="flex justify-between items-start">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Zen AI Prompts</p>
+                      <span className="text-xl">🤖</span>
+                    </div>
+                    <p className="mt-3 text-4xl font-extrabold text-violet-300">{overview.promptsToday} <span className="text-sm font-normal text-slate-400">today</span></p>
+                    <p className="mt-2 text-xs text-slate-400 font-mono">{overview.promptsMonth} prompts generated this month</p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-amber-400/30 transition">
+                    <div className="flex justify-between items-start">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Estimated MRR</p>
+                      <span className="text-xl">💳</span>
+                    </div>
+                    <p className="mt-3 text-4xl font-extrabold text-amber-300">PHP {overview.estimatedMRR.toLocaleString()}</p>
+                    <p className="mt-2 text-xs text-slate-400 font-mono">{overview.totalFocusMinutes.toLocaleString()} focus mins logged</p>
+                  </div>
                 </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Plan Distribution</p>
-                  <p className="mt-2 text-4xl font-extrabold text-emerald-300">{overview.premiumUsers} <span className="text-sm font-normal text-slate-400">Premium</span></p>
-                  <p className="mt-1 text-xs text-slate-400">{overview.freeUsers} Free Tier Users</p>
+                {/* 2. INTERACTIVE TELEMETRY BAR CHART + QUICK OPERATIONS GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Visual 7-Day Activity Telemetry Bar Chart */}
+                  <div className="lg:col-span-2 p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">7-Day System Activity Telemetry</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Daily active student engagement across the week</p>
+                      </div>
+                      <div className="flex rounded-xl bg-white/5 p-1 border border-white/10 text-xs font-bold">
+                        <button
+                          onClick={() => setChartMetric('activeUsers')}
+                          className={`px-3 py-1 rounded-lg transition ${chartMetric === 'activeUsers' ? 'bg-emerald-400 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Active Students
+                        </button>
+                        <button
+                          onClick={() => setChartMetric('aiRequests')}
+                          className={`px-3 py-1 rounded-lg transition ${chartMetric === 'aiRequests' ? 'bg-violet-400 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          AI Prompts
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Bar Chart Bars */}
+                    {overview.dailyStats && overview.dailyStats.length > 0 ? (
+                      <div className="flex items-end justify-between gap-3 h-48 pt-6 px-2">
+                        {overview.dailyStats.map((day) => {
+                          const val = day[chartMetric];
+                          const maxVal = Math.max(...overview.dailyStats!.map(d => d[chartMetric]), 1);
+                          const heightPct = Math.max(12, Math.round((val / maxVal) * 100));
+
+                          return (
+                            <div key={day.date} className="flex-1 flex flex-col items-center gap-2 group relative">
+                              {/* Hover Tooltip */}
+                              <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-white text-[10px] font-mono px-2 py-1 rounded shadow-xl pointer-events-none whitespace-nowrap z-20">
+                                {day.dayName} ({day.date}): {val} {chartMetric === 'activeUsers' ? 'active' : 'prompts'}
+                              </div>
+
+                              <div className="w-full bg-white/5 rounded-t-xl overflow-hidden h-full flex items-end">
+                                <div
+                                  className={`w-full rounded-t-xl transition-all duration-500 group-hover:brightness-125 ${
+                                    chartMetric === 'activeUsers' ? 'bg-gradient-to-t from-emerald-500/40 to-emerald-400' : 'bg-gradient-to-t from-violet-500/40 to-violet-400'
+                                  }`}
+                                  style={{ height: `${heightPct}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400 uppercase">{day.dayName}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-48 flex items-center justify-center text-xs text-slate-500 font-mono">No telemetry points recorded</div>
+                    )}
+                  </div>
+
+                  {/* Quick Admin Operations Panel */}
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 border-b border-white/5 pb-4 mb-4">Quick Control Shortcuts</h3>
+                      
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => setActiveTab('announcements')}
+                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
+                        >
+                          <span className="text-lg p-2 rounded-lg bg-emerald-500/10 text-emerald-300">📢</span>
+                          <div>
+                            <p className="text-white group-hover:text-emerald-300 transition">Broadcast System Banner</p>
+                            <p className="text-[11px] text-slate-400 font-normal">Push notification banner to all active students</p>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('users')}
+                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
+                        >
+                          <span className="text-lg p-2 rounded-lg bg-blue-500/10 text-blue-300">👥</span>
+                          <div>
+                            <p className="text-white group-hover:text-blue-300 transition">User & Role Management</p>
+                            <p className="text-[11px] text-slate-400 font-normal">Promote admins, grant plans, reset AI limits</p>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('ai')}
+                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
+                        >
+                          <span className="text-lg p-2 rounded-lg bg-violet-500/10 text-violet-300">🤖</span>
+                          <div>
+                            <p className="text-white group-hover:text-violet-300 transition">Inspect Live AI Logs</p>
+                            <p className="text-[11px] text-slate-400 font-normal">View prompt tokens, latencies & status codes</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Maintenance Mode Toggle Shortcut */}
+                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-white">Maintenance Mode</p>
+                        <p className="text-[10px] text-slate-400">Lock non-admin access</p>
+                      </div>
+                      <button
+                        onClick={handleToggleMaintenance}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition ${
+                          health?.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {health?.maintenanceMode ? 'ACTIVE' : 'OFF'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Zen AI Prompts</p>
-                  <p className="mt-2 text-4xl font-extrabold text-violet-300">{overview.promptsToday} <span className="text-sm font-normal text-slate-400">today</span></p>
-                  <p className="mt-1 text-xs text-slate-400">{overview.promptsMonth} generated this month</p>
+                {/* 3. RECENT ACTIVITY STREAM + TOP ACADEMIC SUBJECTS */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Recent Live Activity Feed */}
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Recent Student Registration Activity</h3>
+                      <button onClick={() => setActiveTab('users')} className="text-xs font-bold text-emerald-400 hover:underline">View All Users →</button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {overview.recentActivity && overview.recentActivity.length > 0 ? (
+                        overview.recentActivity.map((act) => (
+                          <div key={act.id} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-3">
+                              <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300 font-mono text-[11px]">👤</span>
+                              <div>
+                                <p className="font-semibold text-white">{act.title}</p>
+                                <p className="text-slate-400 text-[10px] font-mono">{new Date(act.timestamp).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              act.badge === 'Pro' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/10 text-slate-400'
+                            }`}>
+                              {act.badge}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No recent activity events recorded</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Top Academic Subjects Breakdown */}
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Top Popular Study Subjects</h3>
+                      <button onClick={() => setActiveTab('academics')} className="text-xs font-bold text-emerald-400 hover:underline">Full Analytics →</button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {overview.topSubjects && overview.topSubjects.length > 0 ? (
+                        overview.topSubjects.map((sub, idx) => {
+                          const maxCount = Math.max(...overview.topSubjects!.map(s => s.count), 1);
+                          const pct = Math.round((sub.count / maxCount) * 100);
+
+                          return (
+                            <div key={sub.subject} className="space-y-1.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="font-semibold text-white flex items-center gap-2">
+                                  <span className="font-mono text-emerald-400 font-bold">#0{idx + 1}</span> {sub.subject}
+                                </span>
+                                <span className="font-mono text-slate-400">{sub.count} enrolled students</span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No subjects created yet</p>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Estimated MRR</p>
-                  <p className="mt-2 text-4xl font-extrabold text-amber-300">PHP {overview.estimatedMRR.toLocaleString()}</p>
-                  <p className="mt-1 text-xs text-slate-400">{overview.totalFocusMinutes.toLocaleString()} focus mins logged</p>
-                </div>
               </div>
             )}
 
