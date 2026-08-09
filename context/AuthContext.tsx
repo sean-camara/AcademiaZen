@@ -43,21 +43,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const isEmailAdmin = (currentUser.email || '').toLowerCase() === 'admin123@admin.com';
-        if (isEmailAdmin) {
-          setRole('admin');
-        } else {
-          try {
-            const res = await apiFetch('/api/me/role');
-            if (res.ok) {
-              const data = await res.json();
-              setRole(data.role === 'admin' ? 'admin' : 'user');
-            } else {
-              setRole('user');
-            }
-          } catch {
+        try {
+          const res = await apiFetch('/api/me/role');
+          if (res.ok) {
+            const data = await res.json();
+            setRole(data.role === 'admin' ? 'admin' : 'user');
+          } else {
             setRole('user');
           }
+        } catch {
+          setRole('user');
         }
       } else {
         setRole('user');

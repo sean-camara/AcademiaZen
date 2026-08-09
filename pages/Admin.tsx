@@ -164,9 +164,13 @@ interface CustomSelectProps {
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectId = useRef(`cs-${Math.random().toString(36).slice(2, 8)}`).current;
 
   const selectedOption = options.find((o) => o.value === value) || options[0];
+  const selectedIndex = options.findIndex((o) => o.value === value);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -178,12 +182,78 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, c
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    }
+  }, [isOpen, selectedIndex]);
+
+  // Scroll focused option into view
+  useEffect(() => {
+    if (isOpen && focusedIndex >= 0 && listRef.current) {
+      const option = listRef.current.children[focusedIndex] as HTMLElement;
+      option?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [focusedIndex, isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isOpen) {
+          setIsOpen(true);
+        } else {
+          setFocusedIndex((prev) => (prev < options.length - 1 ? prev + 1 : 0));
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (!isOpen) {
+          setIsOpen(true);
+        } else {
+          setFocusedIndex((prev) => (prev > 0 ? prev - 1 : options.length - 1));
+        }
+        break;
+      case 'Home':
+        e.preventDefault();
+        if (isOpen) setFocusedIndex(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        if (isOpen) setFocusedIndex(options.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (isOpen && focusedIndex >= 0) {
+          onChange(options[focusedIndex].value);
+          setIsOpen(false);
+        } else {
+          setIsOpen(true);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        break;
+      case 'Tab':
+        if (isOpen) setIsOpen(false);
+        break;
+    }
+  };
+
   return (
     <div ref={dropdownRef} className={`relative inline-block ${className}`}>
       <button
         type="button"
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-controls={`${selectId}-list`}
+        aria-activedescendant={isOpen && focusedIndex >= 0 ? `${selectId}-opt-${focusedIndex}` : undefined}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3.5 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 hover:border-slate-500 text-xs font-medium text-slate-200 flex items-center justify-between gap-3 transition-all focus:outline-none focus:border-emerald-400/80 shadow-inner"
+        onKeyDown={handleKeyDown}
+        className="w-full px-3.5 py-2 rounded-lg bg-[#0e1626] border border-slate-700/60 hover:border-slate-500 text-xs font-medium text-slate-200 flex items-center justify-between gap-3 transition-all focus:outline-none focus:border-emerald-400/80 focus:ring-1 focus:ring-emerald-400/40 shadow-inner"
       >
         <span className="flex items-center gap-2 truncate">
           {selectedOption?.icon && <span className="text-slate-400">{selectedOption.icon}</span>}
@@ -193,19 +263,29 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, c
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 mt-1.5 z-50 py-1 bg-[#0f172a] border border-slate-700 rounded-xl shadow-2xl backdrop-blur-xl animate-in fade-in duration-100 font-sans min-w-[170px]">
-          {options.map((opt) => {
+        <div
+          ref={listRef}
+          id={`${selectId}-list`}
+          role="listbox"
+          aria-label="Select option"
+          className="absolute left-0 right-0 mt-1.5 z-50 py-1 bg-[#0f172a] border border-slate-700 rounded-xl shadow-2xl backdrop-blur-xl animate-in fade-in duration-100 font-sans min-w-[170px] max-h-64 overflow-y-auto"
+        >
+          {options.map((opt, idx) => {
             const isSelected = opt.value === value;
+            const isFocused = idx === focusedIndex;
             return (
-              <button
+              <div
                 key={opt.value}
-                type="button"
+                id={`${selectId}-opt-${idx}`}
+                role="option"
+                aria-selected={isSelected}
                 onClick={() => {
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-3.5 py-2 text-left text-xs font-medium flex items-center justify-between transition-colors ${
-                  isSelected ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                onMouseEnter={() => setFocusedIndex(idx)}
+                className={`w-full px-3.5 py-2 text-left text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                  isSelected ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : isFocused ? 'bg-slate-800/80 text-white' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -213,7 +293,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, c
                   <span>{opt.label}</span>
                 </span>
                 {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -610,6 +690,7 @@ const Admin: React.FC = () => {
                   return (
                     <button
                       key={item.id}
+                      aria-current={isActive ? 'page' : undefined}
                       onClick={() => {
                         setActiveTab(item.id as AdminTab);
                         setSidebarOpen(false);
@@ -977,13 +1058,13 @@ const Admin: React.FC = () => {
                         <th className="p-3.5 w-10">
                           <input type="checkbox" checked={selectedUids.length > 0 && selectedUids.length === users.length} onChange={handleSelectAllUsers} className="rounded accent-emerald-400" />
                         </th>
-                        <th className="p-3.5">Student Account</th>
-                        <th className="p-3.5">Role</th>
-                        <th className="p-3.5">Plan</th>
-                        <th className="p-3.5">Status</th>
-                        <th className="p-3.5">Daily AI</th>
-                        <th className="p-3.5">Joined Date</th>
-                        <th className="p-3.5">Actions</th>
+                        <th scope="col" className="p-3.5">Student Account</th>
+                        <th scope="col" className="p-3.5">Role</th>
+                        <th scope="col" className="p-3.5">Plan</th>
+                        <th scope="col" className="p-3.5">Status</th>
+                        <th scope="col" className="p-3.5">Daily AI</th>
+                        <th scope="col" className="p-3.5">Joined Date</th>
+                        <th scope="col" className="p-3.5">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
@@ -1137,13 +1218,13 @@ const Admin: React.FC = () => {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
                       <tr>
-                        <th className="p-3.5">Endpoint</th>
-                        <th className="p-3.5">Model</th>
-                        <th className="p-3.5">Mode</th>
-                        <th className="p-3.5">Tokens</th>
-                        <th className="p-3.5">Latency</th>
-                        <th className="p-3.5">Status</th>
-                        <th className="p-3.5">Time</th>
+                        <th scope="col" className="p-3.5">Endpoint</th>
+                        <th scope="col" className="p-3.5">Model</th>
+                        <th scope="col" className="p-3.5">Mode</th>
+                        <th scope="col" className="p-3.5">Tokens</th>
+                        <th scope="col" className="p-3.5">Latency</th>
+                        <th scope="col" className="p-3.5">Status</th>
+                        <th scope="col" className="p-3.5">Time</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -1252,12 +1333,12 @@ const Admin: React.FC = () => {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
                       <tr>
-                        <th className="p-3.5">Student Email</th>
-                        <th className="p-3.5">Interval</th>
-                        <th className="p-3.5">Amount</th>
-                        <th className="p-3.5">Status</th>
-                        <th className="p-3.5">Payment Key / ID</th>
-                        <th className="p-3.5">Paid Date</th>
+                        <th scope="col" className="p-3.5">Student Email</th>
+                        <th scope="col" className="p-3.5">Interval</th>
+                        <th scope="col" className="p-3.5">Amount</th>
+                        <th scope="col" className="p-3.5">Status</th>
+                        <th scope="col" className="p-3.5">Payment Key / ID</th>
+                        <th scope="col" className="p-3.5">Paid Date</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -1473,11 +1554,11 @@ const Admin: React.FC = () => {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
                       <tr>
-                        <th className="p-3.5">Admin Email</th>
-                        <th className="p-3.5">Action</th>
-                        <th className="p-3.5">Target User UID</th>
-                        <th className="p-3.5">Details</th>
-                        <th className="p-3.5">Timestamp</th>
+                        <th scope="col" className="p-3.5">Admin Email</th>
+                        <th scope="col" className="p-3.5">Action</th>
+                        <th scope="col" className="p-3.5">Target User UID</th>
+                        <th scope="col" className="p-3.5">Details</th>
+                        <th scope="col" className="p-3.5">Timestamp</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-mono">
