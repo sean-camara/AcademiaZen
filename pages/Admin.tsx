@@ -1,5 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Users,
+  Bot,
+  GraduationCap,
+  CreditCard,
+  Megaphone,
+  Activity,
+  ShieldCheck,
+  RefreshCw,
+  Download,
+  Check,
+  ChevronDown,
+  Search,
+  Lock,
+  Unlock,
+  UserCheck,
+  UserX,
+  Zap,
+  Crown,
+  LogOut,
+  Smartphone,
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  X,
+  Menu,
+  Database,
+  TrendingUp,
+  FileText,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 
@@ -117,7 +148,7 @@ interface AuditLogItem {
 interface CustomSelectOption {
   value: string;
   label: string;
-  icon?: string;
+  icon?: React.ReactNode;
 }
 
 interface CustomSelectProps {
@@ -150,13 +181,11 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, c
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b121c] border border-white/10 hover:border-emerald-400/40 text-xs font-semibold text-slate-200 flex items-center justify-between gap-3 transition-all focus:outline-none focus:border-emerald-400 shadow-sm"
       >
-        <span className="flex items-center gap-2 truncate">
-          {selectedOption?.icon && <span className="text-sm">{selectedOption.icon}</span>}
+        <span className="flex items-center gap-2.5 truncate">
+          {selectedOption?.icon && <span className="text-slate-400">{selectedOption.icon}</span>}
           <span>{selectedOption?.label}</span>
         </span>
-        <span className={`text-[10px] text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-400' : ''}`}>
-          ▼
-        </span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-400' : ''}`} />
       </button>
 
       {isOpen && (
@@ -175,11 +204,11 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, c
                   isSelected ? 'bg-emerald-400/15 text-emerald-300 font-bold' : 'text-slate-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  {opt.icon && <span className="text-sm">{opt.icon}</span>}
+                <span className="flex items-center gap-2.5">
+                  {opt.icon && <span className={isSelected ? 'text-emerald-400' : 'text-slate-400'}>{opt.icon}</span>}
                   <span>{opt.label}</span>
                 </span>
-                {isSelected && <span className="text-emerald-400 font-bold text-xs">✓</span>}
+                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
               </button>
             );
           })}
@@ -474,44 +503,44 @@ const Admin: React.FC = () => {
   };
 
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'users', label: 'User Directory', icon: '👥' },
-    { id: 'ai', label: 'AI Request Logs', icon: '🤖' },
-    { id: 'academics', label: 'Academic Insights', icon: '🎓' },
-    { id: 'billing', label: 'Billing & MRR', icon: '💳' },
-    { id: 'announcements', label: 'Support & Broadcasts', icon: '💬' },
-    { id: 'health', label: 'System Health', icon: '⚙️' },
-    { id: 'audit', label: 'Admin Audit Trail', icon: '🛡️' },
+    { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
+    { id: 'ai', label: 'AI Request Logs', icon: <Bot className="w-4 h-4" /> },
+    { id: 'academics', label: 'Academic Insights', icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'billing', label: 'Billing & MRR', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'announcements', label: 'Support & Broadcasts', icon: <Megaphone className="w-4 h-4" /> },
+    { id: 'health', label: 'System Health', icon: <Activity className="w-4 h-4" /> },
+    { id: 'audit', label: 'Admin Audit Trail', icon: <ShieldCheck className="w-4 h-4" /> },
   ];
 
   const roleOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'All Roles', icon: '👥' },
-    { value: 'user', label: 'Users Only', icon: '👤' },
-    { value: 'admin', label: 'Admins Only', icon: '👑' },
+    { value: 'all', label: 'All Roles', icon: <Users className="w-3.5 h-3.5" /> },
+    { value: 'user', label: 'Users Only', icon: <UserCheck className="w-3.5 h-3.5" /> },
+    { value: 'admin', label: 'Admins Only', icon: <Crown className="w-3.5 h-3.5" /> },
   ];
 
   const planOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'All Plans', icon: '💳' },
-    { value: 'free', label: 'Free Tier', icon: '🌱' },
-    { value: 'premium', label: 'Premium Pro', icon: '💎' },
+    { value: 'all', label: 'All Plans', icon: <CreditCard className="w-3.5 h-3.5" /> },
+    { value: 'free', label: 'Free Tier', icon: <Zap className="w-3.5 h-3.5" /> },
+    { value: 'premium', label: 'Premium Pro', icon: <Crown className="w-3.5 h-3.5" /> },
   ];
 
   const statusOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'All Statuses', icon: '⚡' },
-    { value: 'active', label: 'Active Only', icon: '✅' },
-    { value: 'suspended', label: 'Suspended Only', icon: '🚫' },
+    { value: 'all', label: 'All Statuses', icon: <Activity className="w-3.5 h-3.5" /> },
+    { value: 'active', label: 'Active Only', icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> },
+    { value: 'suspended', label: 'Suspended Only', icon: <UserX className="w-3.5 h-3.5 text-rose-400" /> },
   ];
 
   const aiStatusOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'All Request Statuses', icon: '🤖' },
-    { value: 'success', label: 'Success Only', icon: '✅' },
-    { value: 'failed', label: 'Failed Only', icon: '❌' },
+    { value: 'all', label: 'All Request Statuses', icon: <Bot className="w-3.5 h-3.5" /> },
+    { value: 'success', label: 'Success Only', icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> },
+    { value: 'failed', label: 'Failed Only', icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> },
   ];
 
   const annTypeOptions: CustomSelectOption[] = [
-    { value: 'info', label: 'Info (Blue)', icon: 'ℹ️' },
-    { value: 'warning', label: 'Warning (Amber)', icon: '⚠️' },
-    { value: 'success', label: 'Success (Green)', icon: '✅' },
+    { value: 'info', label: 'Info (Blue)', icon: <Info className="w-3.5 h-3.5 text-blue-400" /> },
+    { value: 'warning', label: 'Warning (Amber)', icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> },
+    { value: 'success', label: 'Success (Green)', icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> },
   ];
 
   return (
@@ -524,7 +553,7 @@ const Admin: React.FC = () => {
           <span className="font-bold text-white text-sm">AcademiaZen Control</span>
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-slate-300 hover:text-white">
-          {sidebarOpen ? '✕' : '☰'}
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
@@ -576,12 +605,14 @@ const Admin: React.FC = () => {
             onClick={() => navigate('/')}
             className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition"
           >
-            <span>📱 Student Workspace</span>
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Student Workspace</span>
           </button>
           <button
             onClick={() => signOut()}
             className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/20 transition"
           >
+            <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
         </div>
@@ -604,14 +635,16 @@ const Admin: React.FC = () => {
                 onClick={handleExportUsersCsv}
                 className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-2 transition"
               >
-                <span>📥 Export CSV</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
             )}
             <button
               onClick={() => fetchTabData(activeTab)}
               className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold flex items-center gap-2 transition active:scale-95"
             >
-              <span>🔄 Refresh</span>
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh</span>
             </button>
           </div>
         </div>
@@ -622,7 +655,7 @@ const Admin: React.FC = () => {
             statusMessage.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
           }`}>
             <span>{statusMessage.text}</span>
-            <button onClick={() => setStatusMessage(null)} className="text-slate-400 hover:text-white">✕</button>
+            <button onClick={() => setStatusMessage(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -638,7 +671,7 @@ const Admin: React.FC = () => {
                   <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
                     <div className="flex justify-between items-start">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Registered Users</p>
-                      <span className="text-xl">👥</span>
+                      <Users className="w-5 h-5 text-emerald-400" />
                     </div>
                     <p className="mt-3 text-4xl font-extrabold text-white tracking-tight">{overview.totalUsers}</p>
                     <div className="mt-2 flex items-center gap-2">
@@ -650,7 +683,7 @@ const Admin: React.FC = () => {
                   <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
                     <div className="flex justify-between items-start">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Plan Conversion</p>
-                      <span className="text-xl">💎</span>
+                      <Crown className="w-5 h-5 text-amber-400" />
                     </div>
                     <p className="mt-3 text-4xl font-extrabold text-emerald-300">{overview.premiumUsers} <span className="text-sm font-normal text-slate-400">Pro</span></p>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
@@ -665,7 +698,7 @@ const Admin: React.FC = () => {
                   <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-violet-400/30 transition">
                     <div className="flex justify-between items-start">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Zen AI Prompts</p>
-                      <span className="text-xl">🤖</span>
+                      <Bot className="w-5 h-5 text-violet-400" />
                     </div>
                     <p className="mt-3 text-4xl font-extrabold text-violet-300">{overview.promptsToday} <span className="text-sm font-normal text-slate-400">today</span></p>
                     <p className="mt-2 text-xs text-slate-400 font-mono">{overview.promptsMonth} prompts generated this month</p>
@@ -674,7 +707,7 @@ const Admin: React.FC = () => {
                   <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-amber-400/30 transition">
                     <div className="flex justify-between items-start">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Estimated MRR</p>
-                      <span className="text-xl">💳</span>
+                      <CreditCard className="w-5 h-5 text-amber-400" />
                     </div>
                     <p className="mt-3 text-4xl font-extrabold text-amber-300">PHP {overview.estimatedMRR.toLocaleString()}</p>
                     <p className="mt-2 text-xs text-slate-400 font-mono">{overview.totalFocusMinutes.toLocaleString()} focus mins logged</p>
@@ -741,7 +774,9 @@ const Admin: React.FC = () => {
                       
                       <div className="space-y-3">
                         <button onClick={() => setActiveTab('announcements')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
-                          <span className="text-lg p-2 rounded-lg bg-emerald-500/10 text-emerald-300">📢</span>
+                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
+                            <Megaphone className="w-4 h-4" />
+                          </div>
                           <div>
                             <p className="text-white group-hover:text-emerald-300 transition">Broadcast System Banner</p>
                             <p className="text-[11px] text-slate-400 font-normal">Push notification banner to all active students</p>
@@ -749,7 +784,9 @@ const Admin: React.FC = () => {
                         </button>
 
                         <button onClick={() => setActiveTab('users')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
-                          <span className="text-lg p-2 rounded-lg bg-blue-500/10 text-blue-300">👥</span>
+                          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-300">
+                            <Users className="w-4 h-4" />
+                          </div>
                           <div>
                             <p className="text-white group-hover:text-blue-300 transition">User & Role Management</p>
                             <p className="text-[11px] text-slate-400 font-normal">Promote admins, grant plans, reset AI limits</p>
@@ -757,7 +794,9 @@ const Admin: React.FC = () => {
                         </button>
 
                         <button onClick={() => setActiveTab('ai')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
-                          <span className="text-lg p-2 rounded-lg bg-violet-500/10 text-violet-300">🤖</span>
+                          <div className="p-2 rounded-lg bg-violet-500/10 text-violet-300">
+                            <Bot className="w-4 h-4" />
+                          </div>
                           <div>
                             <p className="text-white group-hover:text-violet-300 transition">Inspect Live AI Logs</p>
                             <p className="text-[11px] text-slate-400 font-normal">View prompt tokens, latencies & status codes</p>
@@ -773,11 +812,12 @@ const Admin: React.FC = () => {
                       </div>
                       <button
                         onClick={handleToggleMaintenance}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition flex items-center gap-1.5 ${
                           health?.maintenanceMode ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'
                         }`}
                       >
-                        {health?.maintenanceMode ? 'ACTIVE' : 'OFF'}
+                        {health?.maintenanceMode ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                        <span>{health?.maintenanceMode ? 'ACTIVE' : 'OFF'}</span>
                       </button>
                     </div>
                   </div>
@@ -789,13 +829,17 @@ const Admin: React.FC = () => {
             {activeTab === 'users' && (
               <div>
                 <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-4 items-center">
-                  <input
-                    type="text"
-                    placeholder="Search by email, name, or UID..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="flex-1 w-full px-4 py-2.5 rounded-xl bg-[#0b121c] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
-                  />
+                  <div className="relative flex-1 w-full">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search by email, name, or UID..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#0b121c] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+
                   <div className="flex gap-2.5 w-full sm:w-auto">
                     <CustomSelect
                       value={roleFilter}
@@ -928,7 +972,7 @@ const Admin: React.FC = () => {
                           <h3 className="font-extrabold text-white text-lg">{selectedUser.name}</h3>
                           <p className="text-xs font-mono text-slate-400">{selectedUser.email}</p>
                         </div>
-                        <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white">✕</button>
+                        <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 text-xs font-mono">
@@ -1030,7 +1074,7 @@ const Admin: React.FC = () => {
                     <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4 font-mono text-xs shadow-2xl">
                       <div className="flex justify-between items-center border-b border-white/10 pb-3">
                         <h3 className="font-extrabold text-white text-sm">AI Log Inspector</h3>
-                        <button onClick={() => setSelectedAiLog(null)} className="text-slate-400 hover:text-white">✕</button>
+                        <button onClick={() => setSelectedAiLog(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
                       </div>
 
                       <div className="space-y-2 text-slate-300">
@@ -1317,13 +1361,16 @@ const Admin: React.FC = () => {
             {/* TAB 8: ADMIN AUDIT TRAIL */}
             {activeTab === 'audit' && (
               <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Filter audit log by action or admin email..."
-                  value={auditSearch}
-                  onChange={(e) => setAuditSearch(e.target.value)}
-                  className="w-full max-w-md px-4 py-2 rounded-xl bg-[#0b121c] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none"
-                />
+                <div className="relative max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Filter audit log by action or admin email..."
+                    value={auditSearch}
+                    onChange={(e) => setAuditSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0b121c] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  />
+                </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                   <table className="w-full text-left text-xs text-slate-300">
