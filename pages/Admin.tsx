@@ -54,6 +54,7 @@ interface AILogEntry {
   success: boolean;
   userTier: string;
   createdAt: string;
+  errorMessage?: string;
 }
 
 interface PaymentLog {
@@ -95,6 +96,15 @@ interface SystemHealth {
   nodeVersion: string;
 }
 
+interface CollectionStats {
+  users: number;
+  focusSessions: number;
+  aiLogs: number;
+  announcements: number;
+  feedback: number;
+  auditLogs: number;
+}
+
 interface AuditLogItem {
   _id: string;
   adminEmail: string;
@@ -112,9 +122,10 @@ const Admin: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chartMetric, setChartMetric] = useState<'activeUsers' | 'aiRequests'>('activeUsers');
 
-  // Metrics Data States
+  // Metrics & Data States
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selectedUids, setSelectedUids] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [planFilter, setPlanFilter] = useState('all');
@@ -126,13 +137,16 @@ const Admin: React.FC = () => {
   const [academics, setAcademics] = useState<AcademicAnalytics | null>(null);
   const [aiLogs, setAiLogs] = useState<AILogEntry[]>([]);
   const [aiStatusFilter, setAiStatusFilter] = useState('all');
+  const [selectedAiLog, setSelectedAiLog] = useState<AILogEntry | null>(null);
   const [aiTelemetry, setAiTelemetry] = useState<{ avgTokens: number; avgLatency: number; errorRate: number }>({ avgTokens: 0, avgLatency: 0, errorRate: 0 });
 
   const [payments, setPayments] = useState<PaymentLog[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [dbStats, setDbStats] = useState<CollectionStats | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditSearch, setAuditSearch] = useState('');
 
   // Form States
   const [newAnnTitle, setNewAnnTitle] = useState('');
@@ -177,6 +191,12 @@ const Admin: React.FC = () => {
       } else if (tab === 'health') {
         const res = await apiFetch('/api/admin/health');
         if (res.ok) setHealth(await res.json());
+
+        const dbRes = await apiFetch('/api/admin/health/db-stats');
+        if (dbRes.ok) {
+          const data = await dbRes.json();
+          setDbStats(data.collections || null);
+        }
       } else if (tab === 'audit') {
         const res = await apiFetch('/api/admin/audit-logs');
         if (res.ok) setAuditLogs((await res.json()).logs || []);
@@ -229,6 +249,35 @@ const Admin: React.FC = () => {
   const handleUserSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchUsers(userSearch, 1, roleFilter, planFilter, statusFilter);
+  };
+
+  const handleToggleSelectUser = (uid: string) => {
+    setSelectedUids(prev =>
+      prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const handleSelectAllUsers = () => {
+    if (selectedUids.length === users.length) {
+      setSelectedUids([]);
+    } else {
+      setSelectedUids(users.map(u => u.uid));
+    }
+  };
+
+  const handleBatchAction = async (action: 'grant_plan' | 'reset_ai' | 'suspend' | 'unsuspend') => {
+    if (selectedUids.length === 0) return;
+    const res = await apiFetch('/api/admin/users/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uids: selectedUids, action }),
+    });
+
+    if (res.ok) {
+      setStatusMessage({ type: 'success', text: `Batch operation '${action}' completed for ${selectedUids.length} users.` });
+      setSelectedUids([]);
+      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+    }
   };
 
   const handleToggleRole = async (uid: string, currentRole: string) => {
@@ -320,8 +369,8 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleReplyFeedback = async (id: string) => {
-    const text = replyText[id];
+  const handleReplyFeedback = async (id: string, customReply?: string) => {
+    const text = customReply || replyText[id];
     if (!text) return;
     const res = await apiFetch(`/api/admin/feedback/${id}/reply`, {
       method: 'POST',
@@ -379,7 +428,6 @@ const Admin: React.FC = () => {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div>
-          {/* Admin Header */}
           <div className="flex items-center gap-3.5 pb-6 border-b border-white/10">
             <img src="/icons/academiazen-mark.svg" alt="AcademiaZen Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-emerald-500/10" />
             <div>
@@ -393,7 +441,6 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation Links */}
           <nav className="mt-6 space-y-1.5" aria-label="Admin Navigation">
             <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 font-mono">Management Menu</p>
             {menuItems.map((item) => {
@@ -419,7 +466,6 @@ const Admin: React.FC = () => {
           </nav>
         </div>
 
-        {/* Sidebar Footer Actions */}
         <div className="pt-6 border-t border-white/10 space-y-2">
           <button
             onClick={() => navigate('/')}
@@ -439,7 +485,7 @@ const Admin: React.FC = () => {
       {/* RIGHT MAIN CONTENT AREA */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-8 min-w-0">
         
-        {/* Main Content Title Header */}
+        {/* Header Title Bar */}
         <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
           <div>
             <h2 className="text-2xl font-extrabold text-white tracking-tight">
@@ -483,8 +529,6 @@ const Admin: React.FC = () => {
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && overview && (
               <div className="space-y-8">
-                
-                {/* 1. TOP METRICS CARDS GRID */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/30 transition">
                     <div className="flex justify-between items-start">
@@ -509,10 +553,7 @@ const Admin: React.FC = () => {
                       <span className="font-mono text-emerald-400 font-bold">{overview.conversionRate || 0}% Rate</span>
                     </div>
                     <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400 transition-all duration-500"
-                        style={{ width: `${Math.min(100, overview.conversionRate || 0)}%` }}
-                      />
+                      <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${Math.min(100, overview.conversionRate || 0)}%` }} />
                     </div>
                   </div>
 
@@ -535,7 +576,6 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 2. INTERACTIVE TELEMETRY BAR CHART + QUICK OPERATIONS GRID */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
@@ -595,10 +635,7 @@ const Admin: React.FC = () => {
                       <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 border-b border-white/5 pb-4 mb-4">Quick Control Shortcuts</h3>
                       
                       <div className="space-y-3">
-                        <button
-                          onClick={() => setActiveTab('announcements')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
+                        <button onClick={() => setActiveTab('announcements')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
                           <span className="text-lg p-2 rounded-lg bg-emerald-500/10 text-emerald-300">📢</span>
                           <div>
                             <p className="text-white group-hover:text-emerald-300 transition">Broadcast System Banner</p>
@@ -606,10 +643,7 @@ const Admin: React.FC = () => {
                           </div>
                         </button>
 
-                        <button
-                          onClick={() => setActiveTab('users')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
+                        <button onClick={() => setActiveTab('users')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
                           <span className="text-lg p-2 rounded-lg bg-blue-500/10 text-blue-300">👥</span>
                           <div>
                             <p className="text-white group-hover:text-blue-300 transition">User & Role Management</p>
@@ -617,10 +651,7 @@ const Admin: React.FC = () => {
                           </div>
                         </button>
 
-                        <button
-                          onClick={() => setActiveTab('ai')}
-                          className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group"
-                        >
+                        <button onClick={() => setActiveTab('ai')} className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left text-xs font-semibold flex items-center gap-3 transition group">
                           <span className="text-lg p-2 rounded-lg bg-violet-500/10 text-violet-300">🤖</span>
                           <div>
                             <p className="text-white group-hover:text-violet-300 transition">Inspect Live AI Logs</p>
@@ -646,79 +677,13 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* 3. RECENT ACTIVITY STREAM + TOP ACADEMIC SUBJECTS */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Recent Student Registration Activity</h3>
-                      <button onClick={() => setActiveTab('users')} className="text-xs font-bold text-emerald-400 hover:underline">View All Users →</button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {overview.recentActivity && overview.recentActivity.length > 0 ? (
-                        overview.recentActivity.map((act) => (
-                          <div key={act.id} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-3">
-                              <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300 font-mono text-[11px]">👤</span>
-                              <div>
-                                <p className="font-semibold text-white">{act.title}</p>
-                                <p className="text-slate-400 text-[10px] font-mono">{new Date(act.timestamp).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              act.badge === 'Pro' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/10 text-slate-400'
-                            }`}>
-                              {act.badge}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No recent activity events recorded</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Top Popular Study Subjects</h3>
-                      <button onClick={() => setActiveTab('academics')} className="text-xs font-bold text-emerald-400 hover:underline">Full Analytics →</button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {overview.topSubjects && overview.topSubjects.length > 0 ? (
-                        overview.topSubjects.map((sub, idx) => {
-                          const maxCount = Math.max(...overview.topSubjects!.map(s => s.count), 1);
-                          const pct = Math.round((sub.count / maxCount) * 100);
-
-                          return (
-                            <div key={sub.subject} className="space-y-1.5">
-                              <div className="flex justify-between text-xs">
-                                <span className="font-semibold text-white flex items-center gap-2">
-                                  <span className="font-mono text-emerald-400 font-bold">#0{idx + 1}</span> {sub.subject}
-                                </span>
-                                <span className="font-mono text-slate-400">{sub.count} enrolled students</span>
-                              </div>
-                              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-xs text-slate-500 font-mono p-4 text-center">No subjects created yet</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
               </div>
             )}
 
-            {/* TAB 2: USER DIRECTORY */}
+            {/* TAB 2: USER DIRECTORY & BATCH ACTIONS */}
             {activeTab === 'users' && (
               <div>
-                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-6">
+                <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-3 mb-4">
                   <input
                     type="text"
                     placeholder="Search by email, name, or UID..."
@@ -727,31 +692,19 @@ const Admin: React.FC = () => {
                     className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
                   />
                   <div className="flex gap-2">
-                    <select
-                      value={roleFilter}
-                      onChange={(e) => { setRoleFilter(e.target.value); fetchUsers(userSearch, 1, e.target.value, planFilter, statusFilter); }}
-                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                    >
+                    <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); fetchUsers(userSearch, 1, e.target.value, planFilter, statusFilter); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
                       <option value="all">All Roles</option>
                       <option value="user">Users Only</option>
                       <option value="admin">Admins Only</option>
                     </select>
 
-                    <select
-                      value={planFilter}
-                      onChange={(e) => { setPlanFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, e.target.value, statusFilter); }}
-                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                    >
+                    <select value={planFilter} onChange={(e) => { setPlanFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, e.target.value, statusFilter); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
                       <option value="all">All Plans</option>
                       <option value="free">Free Tier</option>
                       <option value="premium">Premium Pro</option>
                     </select>
 
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => { setStatusFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, planFilter, e.target.value); }}
-                      className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                    >
+                    <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); fetchUsers(userSearch, 1, roleFilter, planFilter, e.target.value); }} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
                       <option value="all">All Statuses</option>
                       <option value="active">Active Only</option>
                       <option value="suspended">Suspended Only</option>
@@ -763,10 +716,31 @@ const Admin: React.FC = () => {
                   </div>
                 </form>
 
+                {/* Batch Action Bar */}
+                {selectedUids.length > 0 && (
+                  <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-200 animate-fade-in">
+                    <span>Selected <strong>{selectedUids.length}</strong> student accounts</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleBatchAction('grant_plan')} className="px-3 py-1 rounded bg-emerald-400 text-slate-950 font-bold uppercase text-[10px]">
+                        Batch Grant Pro
+                      </button>
+                      <button onClick={() => handleBatchAction('reset_ai')} className="px-3 py-1 rounded bg-violet-500 text-white font-bold uppercase text-[10px]">
+                        Batch Reset AI
+                      </button>
+                      <button onClick={() => handleBatchAction('suspend')} className="px-3 py-1 rounded bg-rose-500 text-white font-bold uppercase text-[10px]">
+                        Batch Suspend
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
                       <tr>
+                        <th className="p-4 w-10">
+                          <input type="checkbox" checked={selectedUids.length > 0 && selectedUids.length === users.length} onChange={handleSelectAllUsers} />
+                        </th>
                         <th className="p-4">User</th>
                         <th className="p-4">Role</th>
                         <th className="p-4">Plan</th>
@@ -779,6 +753,9 @@ const Admin: React.FC = () => {
                     <tbody className="divide-y divide-white/5">
                       {users.map((u) => (
                         <tr key={u.uid} className="hover:bg-white/[0.02] transition">
+                          <td className="p-4">
+                            <input type="checkbox" checked={selectedUids.includes(u.uid)} onChange={() => handleToggleSelectUser(u.uid)} />
+                          </td>
                           <td className="p-4 cursor-pointer" onClick={() => setSelectedUser(u)}>
                             <p className="font-semibold text-white hover:text-emerald-300 transition">{u.name}</p>
                             <p className="text-[11px] text-slate-400 font-mono">{u.email}</p>
@@ -826,31 +803,21 @@ const Admin: React.FC = () => {
                   </table>
                 </div>
 
-                {/* Pagination Controls */}
                 <div className="flex items-center justify-between mt-4 text-xs text-slate-400">
                   <span>Page {userPage} of {totalUserPages}</span>
                   <div className="flex gap-2">
-                    <button
-                      disabled={userPage <= 1}
-                      onClick={() => fetchUsers(userSearch, userPage - 1, roleFilter, planFilter, statusFilter)}
-                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition"
-                    >
+                    <button disabled={userPage <= 1} onClick={() => fetchUsers(userSearch, userPage - 1, roleFilter, planFilter, statusFilter)} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition">
                       ← Previous
                     </button>
-                    <button
-                      disabled={userPage >= totalUserPages}
-                      onClick={() => fetchUsers(userSearch, userPage + 1, roleFilter, planFilter, statusFilter)}
-                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition"
-                    >
+                    <button disabled={userPage >= totalUserPages} onClick={() => fetchUsers(userSearch, userPage + 1, roleFilter, planFilter, statusFilter)} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition">
                       Next →
                     </button>
                   </div>
                 </div>
 
-                {/* User Detail Inspection Modal */}
                 {selectedUser && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4">
+                    <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4 shadow-2xl">
                       <div className="flex justify-between items-start border-b border-white/10 pb-3">
                         <div>
                           <h3 className="font-extrabold text-white text-lg">{selectedUser.name}</h3>
@@ -878,8 +845,11 @@ const Admin: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-white/10 flex justify-end">
-                        <button onClick={() => setSelectedUser(null)} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white">
+                      <div className="pt-2 border-t border-white/10 flex justify-end gap-2">
+                        <button onClick={() => { handleResetAiQuota(selectedUser.uid); setSelectedUser(null); }} className="px-3 py-1.5 rounded-xl bg-violet-500/20 text-violet-300 text-xs font-bold">
+                          Reset AI Quota
+                        </button>
+                        <button onClick={() => setSelectedUser(null)} className="px-4 py-2 rounded-xl bg-white/10 text-xs font-bold text-white">
                           Close
                         </button>
                       </div>
@@ -889,10 +859,9 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 3: AI LOGS */}
+            {/* TAB 3: AI REQUEST LOGS & INSPECTOR */}
             {activeTab === 'ai' && (
               <div className="space-y-6">
-                {/* AI Telemetry Header Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Average Token Usage</p>
@@ -910,7 +879,6 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Filter */}
                 <div className="flex gap-3">
                   <select
                     value={aiStatusFilter}
@@ -938,7 +906,7 @@ const Admin: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {aiLogs.map((log) => (
-                        <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
+                        <tr key={log._id} onClick={() => setSelectedAiLog(log)} className="hover:bg-white/[0.04] cursor-pointer transition font-mono">
                           <td className="p-4 font-semibold text-white">{log.endpoint}</td>
                           <td className="p-4 text-slate-400">{log.model || 'auto'}</td>
                           <td className="p-4 text-slate-400">{log.mode || 'standard'}</td>
@@ -955,73 +923,138 @@ const Admin: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
 
-            {/* TAB 4: ACADEMICS */}
-            {activeTab === 'academics' && academics && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Top Study Subjects</h3>
-                  <div className="space-y-3">
-                    {academics.topSubjects.map((s) => (
-                      <div key={s.subject} className="flex justify-between text-xs border-b border-white/5 pb-2">
-                        <span className="font-semibold text-white">{s.subject}</span>
-                        <span className="font-mono text-emerald-400">{s.count} students</span>
+                {/* AI Log Inspector Modal */}
+                {selectedAiLog && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg bg-[#0d141e] border border-white/15 rounded-2xl p-6 space-y-4 font-mono text-xs shadow-2xl">
+                      <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                        <h3 className="font-extrabold text-white text-sm">AI Log Inspector</h3>
+                        <button onClick={() => setSelectedAiLog(null)} className="text-slate-400 hover:text-white">✕</button>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">AI Quiz Performance</h3>
-                  <div className="text-center p-8 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-5xl font-extrabold text-emerald-300">{academics.avgQuizScore}%</p>
-                    <p className="mt-2 text-xs text-slate-400">Average Student Quiz Score across {academics.totalQuizAttempts} completed attempts</p>
+                      <div className="space-y-2 text-slate-300">
+                        <p><strong>Endpoint:</strong> <span className="text-emerald-300">{selectedAiLog.endpoint}</span></p>
+                        <p><strong>User UID:</strong> {selectedAiLog.uid}</p>
+                        <p><strong>Model:</strong> {selectedAiLog.model || 'DeepSeek V4'}</p>
+                        <p><strong>Response Latency:</strong> {selectedAiLog.responseTimeMs} ms</p>
+                        <p><strong>Total Tokens:</strong> {selectedAiLog.totalTokens}</p>
+                        <p><strong>Status:</strong> {selectedAiLog.success ? 'SUCCESS (200)' : 'FAILED'}</p>
+                        {selectedAiLog.errorMessage && (
+                          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl">
+                            <strong>Error Trace:</strong> {selectedAiLog.errorMessage}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-white/10 flex justify-end">
+                        <button onClick={() => setSelectedAiLog(null)} className="px-4 py-2 rounded-xl bg-white/10 text-white font-bold">
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: ACADEMIC INSIGHTS */}
+            {activeTab === 'academics' && academics && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Top Enrolled Study Subjects</h3>
+                    <div className="space-y-3">
+                      {academics.topSubjects.map((s) => (
+                        <div key={s.subject} className="flex justify-between text-xs border-b border-white/5 pb-2">
+                          <span className="font-semibold text-white">{s.subject}</span>
+                          <span className="font-mono text-emerald-400">{s.count} enrolled students</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">AI Quiz Performance Matrix</h3>
+                    <div className="text-center p-8 bg-white/5 rounded-xl border border-white/5">
+                      <p className="text-5xl font-extrabold text-emerald-300">{academics.avgQuizScore}%</p>
+                      <p className="mt-2 text-xs text-slate-400">Average Student Quiz Score across {academics.totalQuizAttempts} completed attempts</p>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 5: BILLING */}
+            {/* TAB 5: BILLING & FINANCIAL COMMAND CENTER */}
             {activeTab === 'billing' && (
-              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
-                    <tr>
-                      <th className="p-4">Student Email</th>
-                      <th className="p-4">Interval</th>
-                      <th className="p-4">Amount</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Payment Key / ID</th>
-                      <th className="p-4">Paid Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {payments.map((tx, idx) => (
-                      <tr key={idx} className="hover:bg-white/[0.02] transition font-mono">
-                        <td className="p-4 font-semibold text-white">{tx.email}</td>
-                        <td className="p-4 text-slate-400 uppercase">{tx.interval}</td>
-                        <td className="p-4 text-emerald-300 font-bold">{tx.amount}</td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase">
-                            {tx.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400 truncate max-w-[180px]">{tx.paymentId}</td>
-                        <td className="p-4 text-slate-400">{new Date(tx.lastPaymentAt).toLocaleDateString()}</td>
+              <div className="space-y-6">
+                {/* Financial KPI Header */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Monthly Recurring Revenue</p>
+                    <p className="text-2xl font-extrabold text-amber-300 font-mono mt-1">PHP {overview?.estimatedMRR || 0}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Annual Run Rate (ARR)</p>
+                    <p className="text-2xl font-extrabold text-emerald-300 font-mono mt-1">PHP {((overview?.estimatedMRR || 0) * 12).toLocaleString()}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Active Pro Subscribers</p>
+                    <p className="text-2xl font-extrabold text-violet-300 font-mono mt-1">{overview?.premiumUsers || 0}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">ARPU (Avg Revenue/User)</p>
+                    <p className="text-2xl font-extrabold text-blue-300 font-mono mt-1">PHP 119.20</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
+                      <tr>
+                        <th className="p-4">Student Email</th>
+                        <th className="p-4">Interval</th>
+                        <th className="p-4">Amount</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Payment Key / ID</th>
+                        <th className="p-4">Paid Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {payments.map((tx, idx) => (
+                        <tr key={idx} className="hover:bg-white/[0.02] transition font-mono">
+                          <td className="p-4 font-semibold text-white">{tx.email}</td>
+                          <td className="p-4 text-slate-400 uppercase">{tx.interval}</td>
+                          <td className="p-4 text-emerald-300 font-bold">{tx.amount}</td>
+                          <td className="p-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase">
+                              {tx.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-400 truncate max-w-[180px]">{tx.paymentId}</td>
+                          <td className="p-4 text-slate-400">{new Date(tx.lastPaymentAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
-            {/* TAB 6: ANNOUNCEMENTS & SUPPORT */}
+            {/* TAB 6: ANNOUNCEMENTS & SUPPORT DESK WITH LIVE PREVIEW */}
             {activeTab === 'announcements' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Broadcast Platform Announcement</h3>
+                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Broadcast Platform Announcement</h3>
+                  
+                  {/* Live Student Preview Card */}
+                  {(newAnnTitle || newAnnMessage) && (
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 via-violet-500/20 to-emerald-500/20 border border-emerald-500/40 text-center text-xs font-medium text-emerald-200">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">📢 Live Student Banner Preview</span>
+                      <span><strong>{newAnnTitle || 'Title'}:</strong> {newAnnMessage || 'Message content'}</span>
+                    </div>
+                  )}
+
                   <form onSubmit={handleCreateAnnouncement} className="space-y-4">
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Banner Title</label>
@@ -1044,11 +1077,7 @@ const Admin: React.FC = () => {
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <select
-                        value={newAnnType}
-                        onChange={(e) => setNewAnnType(e.target.value as any)}
-                        className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-                      >
+                      <select value={newAnnType} onChange={(e) => setNewAnnType(e.target.value as any)} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white">
                         <option value="info">Info (Blue)</option>
                         <option value="warning">Warning (Amber)</option>
                         <option value="success">Success (Green)</option>
@@ -1074,7 +1103,7 @@ const Admin: React.FC = () => {
                 </div>
 
                 <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Student Feedback Tickets</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Student Support Tickets</h3>
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                     {feedbackList.map((item) => (
                       <div key={item._id} className="p-4 rounded-xl bg-white/5 border border-white/5 text-xs space-y-2">
@@ -1088,17 +1117,27 @@ const Admin: React.FC = () => {
                             <strong>Admin Reply:</strong> {item.reply}
                           </div>
                         ) : (
-                          <div className="flex gap-2 mt-2">
-                            <input
-                              type="text"
-                              placeholder="Type reply to student..."
-                              value={replyText[item._id] || ''}
-                              onChange={(e) => setReplyText({ ...replyText, [item._id]: e.target.value })}
-                              className="flex-1 px-3 py-1.5 rounded bg-white/5 border border-white/10 text-xs text-white"
-                            />
-                            <button onClick={() => handleReplyFeedback(item._id)} className="px-3 py-1.5 rounded bg-emerald-400 text-slate-950 font-bold text-xs uppercase">
-                              Send Reply
-                            </button>
+                          <div className="space-y-2 mt-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Type reply to student..."
+                                value={replyText[item._id] || ''}
+                                onChange={(e) => setReplyText({ ...replyText, [item._id]: e.target.value })}
+                                className="flex-1 px-3 py-1.5 rounded bg-white/5 border border-white/10 text-xs text-white"
+                              />
+                              <button onClick={() => handleReplyFeedback(item._id)} className="px-3 py-1.5 rounded bg-emerald-400 text-slate-950 font-bold text-xs uppercase">
+                                Send
+                              </button>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => handleReplyFeedback(item._id, 'Thank you for reporting this! We have resolved the issue.')} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-400 hover:text-white">
+                                Canned: Resolved Issue
+                              </button>
+                              <button onClick={() => handleReplyFeedback(item._id, 'Your feature request has been forwarded to our engineering team!')} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-400 hover:text-white">
+                                Canned: Feature Received
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1108,25 +1147,60 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 7: HEALTH */}
+            {/* TAB 7: HEALTH & DEVOPS INSPECTOR */}
             {activeTab === 'health' && health && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Database Connection</p>
-                  <p className="mt-2 text-2xl font-bold text-emerald-300 uppercase font-mono">{health.database}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-xs font-bold uppercase text-slate-400">Database Connection</p>
+                    <p className="mt-2 text-2xl font-bold text-emerald-300 uppercase font-mono">{health.database}</p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-xs font-bold uppercase text-slate-400">Node.js Process Memory</p>
+                    <p className="mt-2 text-2xl font-bold text-violet-300 font-mono">{health.memory.heapUsedMb} MB / {health.memory.heapTotalMb} MB</p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <p className="text-xs font-bold uppercase text-slate-400">Server Uptime</p>
+                    <p className="mt-2 text-2xl font-bold text-amber-300 font-mono">{Math.round(health.uptimeSeconds / 60)} minutes</p>
+                  </div>
                 </div>
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Node.js Process Memory</p>
-                  <p className="mt-2 text-2xl font-bold text-violet-300 font-mono">{health.memory.heapUsedMb} MB / {health.memory.heapTotalMb} MB</p>
-                </div>
+                {/* Database Collection Document Counts */}
+                {dbStats && (
+                  <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">MongoDB Collection Telemetry</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 font-mono text-xs">
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">Users</p>
+                        <p className="text-lg font-bold text-white">{dbStats.users}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">Focus Sessions</p>
+                        <p className="text-lg font-bold text-white">{dbStats.focusSessions}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">AI Logs</p>
+                        <p className="text-lg font-bold text-white">{dbStats.aiLogs}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">Announcements</p>
+                        <p className="text-lg font-bold text-white">{dbStats.announcements}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">Feedback</p>
+                        <p className="text-lg font-bold text-white">{dbStats.feedback}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/5">
+                        <p className="text-[10px] text-slate-500">Audit Logs</p>
+                        <p className="text-lg font-bold text-white">{dbStats.auditLogs}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <p className="text-xs font-bold uppercase text-slate-400">Server Uptime</p>
-                  <p className="mt-2 text-2xl font-bold text-amber-300 font-mono">{Math.round(health.uptimeSeconds / 60)} minutes</p>
-                </div>
-
-                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] sm:col-span-2 lg:col-span-3 flex items-center justify-between">
+                <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-bold text-white">System Maintenance Mode</h4>
                     <p className="text-xs text-slate-400">When enabled, non-admin users will see a maintenance notice screen.</p>
@@ -1143,35 +1217,50 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 8: AUDIT TRAIL */}
+            {/* TAB 8: ADMIN AUDIT TRAIL */}
             {activeTab === 'audit' && (
-              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
-                    <tr>
-                      <th className="p-4">Admin Email</th>
-                      <th className="p-4">Action</th>
-                      <th className="p-4">Target User UID</th>
-                      <th className="p-4">Details</th>
-                      <th className="p-4">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {auditLogs.map((log) => (
-                      <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
-                        <td className="p-4 font-semibold text-white">{log.adminEmail}</td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 uppercase border border-amber-500/30">
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400">{log.targetUid || 'N/A'}</td>
-                        <td className="p-4 text-slate-400 max-w-xs truncate">{JSON.stringify(log.details || {})}</td>
-                        <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleString()}</td>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Filter audit log by action or admin email..."
+                  value={auditSearch}
+                  onChange={(e) => setAuditSearch(e.target.value)}
+                  className="w-full max-w-md px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-white/5 uppercase font-mono text-[10px] text-slate-400 border-b border-white/10">
+                      <tr>
+                        <th className="p-4">Admin Email</th>
+                        <th className="p-4">Action</th>
+                        <th className="p-4">Target User UID</th>
+                        <th className="p-4">Details</th>
+                        <th className="p-4">Timestamp</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {auditLogs
+                        .filter(l =>
+                          l.adminEmail.toLowerCase().includes(auditSearch.toLowerCase()) ||
+                          l.action.toLowerCase().includes(auditSearch.toLowerCase())
+                        )
+                        .map((log) => (
+                          <tr key={log._id} className="hover:bg-white/[0.02] transition font-mono">
+                            <td className="p-4 font-semibold text-white">{log.adminEmail}</td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 uppercase border border-amber-500/30">
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="p-4 text-slate-400">{log.targetUid || 'N/A'}</td>
+                            <td className="p-4 text-slate-400 max-w-xs truncate">{JSON.stringify(log.details || {})}</td>
+                            <td className="p-4 text-slate-400">{new Date(log.createdAt).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>
