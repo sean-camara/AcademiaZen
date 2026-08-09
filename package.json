@@ -18,7 +18,7 @@
     "verify": "npm run typecheck && npm run test:run && npm run build && npm run check:bundle"
   },
   "dependencies": {
-    "firebase": "12.16.0",
+    "firebase": "12.17.1",
     "lucide-react": "^1.30.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
