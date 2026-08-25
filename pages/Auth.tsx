@@ -3,6 +3,32 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { IconCheck, IconChevronLeft, IconEye, IconEyeOff } from '../components/Icons';
 
+const getAuthErrorCode = (error: unknown): string => (
+  typeof error === 'object' && error !== null && 'code' in error
+    ? String(error.code)
+    : ''
+);
+
+export const getGoogleSignInErrorMessage = (error: unknown): string => {
+  const code = getAuthErrorCode(error);
+
+  switch (code) {
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign-in window. Allow pop-ups for AcademiaZen and try again.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Google sign-in was cancelled. Please try again when you are ready.';
+    case 'auth/network-request-failed':
+      return 'Google could not be reached. Check your internet connection and try again.';
+    case 'auth/unauthorized-domain':
+      return 'Google sign-in is not available on this domain. Please contact support.';
+    case 'auth/operation-not-allowed':
+      return 'Google sign-in is temporarily unavailable. Please use email sign-in or try again later.';
+    default:
+      return 'Google sign-in could not be completed. Please try again.';
+  }
+};
+
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { signInWithGoogle: signInWithGoogleAuth, signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
@@ -87,11 +113,9 @@ const Auth: React.FC = () => {
     setLoading(true);
     try {
       await signInWithGoogleAuth();
-    } catch (error: any) {
-      console.error('[Auth] Google sign-in failed details:', error);
-      const code = error?.code || 'error';
-      const detail = error?.message || 'Google sign-in could not be completed.';
-      setMessage(`[${code}] ${detail}`);
+    } catch (error: unknown) {
+      console.error('[Auth] Google sign-in failed:', getAuthErrorCode(error) || 'unknown');
+      setMessage(getGoogleSignInErrorMessage(error));
     } finally {
       setLoading(false);
     }

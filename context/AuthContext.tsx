@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   onAuthStateChanged,
-  getRedirectResult,
   signInWithPopup,
-  signInWithRedirect,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -35,11 +33,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      if (error?.code !== 'auth/no-auth-event') {
-        console.error('[Auth] Google redirect sign-in failed:', error);
-      }
-    });
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -68,28 +61,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
-    if (isMobile) {
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
-
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      const code = error?.code || '';
-      if (
-        code === 'auth/popup-blocked' ||
-        code === 'auth/popup-closed-by-user' ||
-        code === 'auth/cancelled-popup-request' ||
-        code === 'auth/internal-error'
-      ) {
-        console.warn('[Auth] Popup failed or blocked, falling back to redirect:', code);
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-      throw error;
-    }
+    // Redirect auth cannot complete reliably while the app is hosted on
+    // academiazen.app and Firebase's helper runs on firebaseapp.com: browsers
+    // that partition third-party storage lose the returned auth event. Popup
+    // auth keeps the flow intact on desktop and mobile without that storage
+    // hand-off. Do not silently fall back to redirect on popup errors.
+    await signInWithPopup(auth, googleProvider);
   };
 
   const signInWithEmail = async (email: string, password: string) => {
