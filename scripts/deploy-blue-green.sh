@@ -8,7 +8,7 @@ SITE_CONFIG="${ACADEMIAZEN_SITE_CONFIG:-/etc/nginx/sites-available/academiazen}"
 UPSTREAM_CONFIG="${ACADEMIAZEN_UPSTREAM_CONFIG:-/etc/nginx/conf.d/academiazen-frontend-upstream.conf}"
 STATE_DIR="${ACADEMIAZEN_STATE_DIR:-/var/lib/academiazen}"
 STATE_FILE="${STATE_DIR}/frontend-active.env"
-LOCK_FILE="${ACADEMIAZEN_DEPLOY_LOCK:-/tmp/deploy.lock}"
+LOCK_FILE="${ACADEMIAZEN_DEPLOY_LOCK:-/run/lock/academiazen-frontend-deploy.lock}"
 LOG_DIR="${ACADEMIAZEN_LOG_DIR:-/var/log/academiazen}"
 LOG_FILE="${LOG_DIR}/frontend-deploy.log"
 

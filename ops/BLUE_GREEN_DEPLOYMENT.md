@@ -12,7 +12,7 @@ Production frontend releases are triggered by the authenticated GitHub webhook w
 6. Run a TLS smoke test through the production virtual host.
 7. Keep the previous slot running for immediate rollback.
 
-Deployments are serialized with `/tmp/deploy.lock`. A failed build or health check never changes live traffic. A failed Nginx switch restores the previous configuration.
+Deployments are serialized with `/run/lock/academiazen-frontend-deploy.lock`. A failed build or health check never changes live traffic. A failed Nginx switch restores the previous configuration.
 
 ## State and diagnostics
 
