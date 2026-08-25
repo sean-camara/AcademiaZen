@@ -101,10 +101,10 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeTab, onNavigate }) => (
-  <nav className="space-y-5" aria-label="Admin navigation">
+  <nav className="space-y-4" aria-label="Admin navigation">
     {navGroups.map((group) => (
       <div key={group.title}>
-        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">{group.title}</p>
+        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">{group.title}</p>
         <div className="space-y-1">
           {group.items.map((item) => {
             const Icon = item.icon;
@@ -116,7 +116,7 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, onNavigate }) => (
                 aria-current={active ? 'page' : undefined}
                 onClick={() => onNavigate(item.id)}
                 className={cx(
-                  'group flex min-h-10 w-full items-center gap-3 rounded-lg border px-3 text-left text-xs font-medium',
+                  'group flex min-h-11 w-full items-center gap-3 rounded-lg border px-3 text-left text-xs font-medium lg:min-h-9',
                   'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70',
                   active
                     ? 'border-[#314151] bg-[#18222d] text-slate-50 shadow-[inset_2px_0_0_#64ffda]'
@@ -455,53 +455,19 @@ const Admin: React.FC = () => {
         Skip to admin content
       </a>
 
-      <aside className="hidden w-[68px] shrink-0 flex-col items-center border-r border-[#23303d] bg-[#090f16] py-4 lg:flex">
-        <img src="/icons/academiazen-mark.svg" alt="" className="h-9 w-9" aria-hidden="true" />
-        <nav className="mt-6 flex flex-1 flex-col gap-2" aria-label="Quick admin navigation">
-          {allNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = item.id === activeTab;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                title={item.label}
-                aria-label={item.label}
-                aria-current={active ? 'page' : undefined}
-                onClick={() => handleNavigate(item.id)}
-                className={cx(
-                  'grid h-10 w-10 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70',
-                  active
-                    ? 'border-[#314151] bg-[#18222d] text-[#64ffda]'
-                    : 'border-transparent text-slate-500 hover:border-[#273442] hover:bg-white/[0.025] hover:text-slate-200'
-                )}
-              >
-                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
-              </button>
-            );
-          })}
-        </nav>
-        <button
-          type="button"
-          aria-label="Sign out"
-          title="Sign out"
-          onClick={() => void signOut()}
-          className="grid h-10 w-10 place-items-center rounded-lg text-slate-500 hover:bg-rose-400/[0.08] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
-        >
-          <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
-        </button>
-      </aside>
-
-      <aside className="hidden w-[228px] shrink-0 flex-col border-r border-[#23303d] bg-[#0b1119] px-4 py-5 lg:flex xl:w-[244px]">
-        <div className="px-2">
-          <h1 className="text-base font-semibold tracking-[-0.025em] text-white">AcademiaZen</h1>
-          <p className="mt-0.5 text-xs text-slate-500">Admin Console</p>
+      <aside className="hidden w-[244px] shrink-0 flex-col border-r border-[#23303d] bg-[#0b1119] px-4 py-4 lg:flex">
+        <div className="flex items-center gap-3 px-2">
+          <img src="/icons/academiazen-mark.svg" alt="" className="h-9 w-9 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-[-0.025em] text-white">AcademiaZen</h1>
+            <p className="mt-0.5 text-xs text-slate-500">Admin Console</p>
+          </div>
         </div>
-        <div className="mt-7 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
           <Navigation activeTab={activeTab} onNavigate={handleNavigate} />
         </div>
-        <div className="mt-5 space-y-2 border-t border-[#23303d] pt-4">
-          <div className="rounded-lg border border-[#273442] bg-[#101820] px-3 py-3">
+        <div className="mt-4 space-y-1.5 border-t border-[#23303d] pt-3">
+          <div className="rounded-lg border border-[#273442] bg-[#101820] px-3 py-2.5">
             <div className="flex items-center justify-between gap-2 text-[11px]">
               <span className="text-slate-500">Environment</span>
               <StatusPill label="Production" tone="mint" dot />
@@ -511,10 +477,18 @@ const Admin: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-transparent px-3 text-xs text-slate-400 hover:border-[#273442] hover:bg-white/[0.025] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
+            className="flex min-h-9 w-full items-center gap-2 rounded-lg border border-transparent px-3 text-xs text-slate-400 hover:border-[#273442] hover:bg-white/[0.025] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
           >
             <Smartphone className="h-4 w-4" aria-hidden="true" />
             Student Workspace
+          </button>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="flex min-h-9 w-full items-center gap-2 rounded-lg border border-transparent px-3 text-xs text-rose-300/80 hover:border-rose-400/15 hover:bg-rose-400/[0.06] hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            Sign Out
           </button>
         </div>
       </aside>
