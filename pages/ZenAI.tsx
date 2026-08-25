@@ -1106,7 +1106,6 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
     // ========================================================================
 
     const openBilling = () => {
-        onClose();
         openSettings('billing');
     };
 
@@ -2098,7 +2097,6 @@ If asked tech stack: "MERN Stack."`;
                             <button 
                                 onClick={() => {
                                     setQuotaExhausted(null);
-                                    onClose();
                                     openSettings('billing');
                                 }}
                                 className="min-h-[44px] w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-[#091510] font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-colors"

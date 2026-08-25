@@ -284,7 +284,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, initialTab }) => {
     }
 
     setTimeout(() => setBillingNotice(''), 6000);
-    window.history.replaceState({}, document.title, window.location.pathname);
+    window.history.replaceState(window.history.state, document.title, window.location.pathname);
   }, []);
 
   useEffect(() => {
