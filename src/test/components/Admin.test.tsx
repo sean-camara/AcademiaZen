@@ -51,7 +51,7 @@ describe('Admin Dashboard Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('142')).toBeInTheDocument(); // Total users
-      expect(screen.getByText('PHP 2,831')).toBeInTheDocument(); // Estimated MRR
+      expect(screen.getByText('₱2,831')).toBeInTheDocument(); // Estimated MRR
     });
   });
 });
