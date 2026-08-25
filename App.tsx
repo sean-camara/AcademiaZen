@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ZenProvider } from './context/ZenContext';
 import { ToastProvider } from './context/ToastContext';
@@ -6,10 +6,11 @@ import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationPrompt from './components/NotificationPrompt';
+import { lazyWithChunkRecovery } from './utils/chunkRecovery';
 
-const Auth = lazy(() => import('./pages/Auth'));
-const Landing = lazy(() => import('./pages/Landing'));
-const Admin = lazy(() => import('./pages/Admin'));
+const Auth = lazyWithChunkRecovery(() => import('./pages/Auth'));
+const Landing = lazyWithChunkRecovery(() => import('./pages/Landing'));
+const Admin = lazyWithChunkRecovery(() => import('./pages/Admin'));
 
 const PageLoading = () => (
   <div className="min-h-screen w-full bg-zen-bg flex items-center justify-center" role="status" aria-live="polite">

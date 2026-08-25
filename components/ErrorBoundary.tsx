@@ -1,4 +1,5 @@
 import React from 'react';
+import { isChunkLoadError } from '../utils/chunkRecovery';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -48,11 +49,17 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     window.location.reload();
   };
 
+  handleReload = (): void => {
+    window.location.reload();
+  };
+
   override render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
+
+      const isUpdateError = isChunkLoadError(this.state.error);
 
       return (
         <div className="min-h-screen bg-zen-bg flex items-center justify-center p-6">
@@ -60,24 +67,30 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
             <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">⚠️</span>
             </div>
-            <h2 className="text-2xl font-light text-zen-text-primary mb-2">Something went wrong</h2>
+            <h2 className="text-2xl font-light text-zen-text-primary mb-2">
+              {isUpdateError ? 'A newer version is ready' : 'Something went wrong'}
+            </h2>
             <p className="text-zen-text-secondary mb-6">
-              The app encountered an unexpected error. This is usually caused by corrupted data.
+              {isUpdateError
+                ? 'AcademiaZen was updated while this page was open. Reload to continue without losing your study data.'
+                : 'The app encountered an unexpected error. This can usually be resolved with a quick reload.'}
             </p>
             
             <div className="space-y-3">
               <button
-                onClick={this.handleReset}
+                onClick={isUpdateError ? this.handleReload : this.handleReset}
                 className="w-full py-3 bg-zen-primary text-zen-bg rounded-xl font-bold uppercase tracking-wider text-sm hover:brightness-110 active:scale-95 transition-all"
               >
-                Try Again
+                {isUpdateError ? 'Reload latest version' : 'Try Again'}
               </button>
-              <button
-                onClick={this.handleClearAll}
-                className="w-full py-3 bg-zen-surface text-zen-text-secondary rounded-xl font-medium text-sm hover:bg-zen-surface/80 active:scale-95 transition-all"
-              >
-                Clear Data & Reload
-              </button>
+              {!isUpdateError && (
+                <button
+                  onClick={this.handleClearAll}
+                  className="w-full py-3 bg-zen-surface text-zen-text-secondary rounded-xl font-medium text-sm hover:bg-zen-surface/80 active:scale-95 transition-all"
+                >
+                  Clear Data & Reload
+                </button>
+              )}
             </div>
             
             {this.state.error && (
