@@ -138,9 +138,13 @@ const Admin: React.FC = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
+  const signOutDialogRef = useRef<HTMLElement>(null);
+  const confirmSignOutRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
@@ -280,6 +284,53 @@ const Admin: React.FC = () => {
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
+
+  useEffect(() => {
+    if (!showSignOutConfirm) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = window.requestAnimationFrame(() => confirmSignOutRef.current?.focus());
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !signingOut) {
+        setShowSignOutConfirm(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(signOutDialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', handleEscape);
+      previouslyFocused?.focus();
+    };
+  }, [showSignOutConfirm, signingOut]);
+
+  const requestSignOut = () => {
+    setSidebarOpen(false);
+    setShowSignOutConfirm(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      setShowSignOutConfirm(false);
+      setStatusMessage({ type: 'error', text: error instanceof Error ? error.message : 'Unable to sign out. Please try again.' });
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   const handleNavigate = (tab: AdminTab) => {
     setActiveTab(tab);
@@ -484,7 +535,7 @@ const Admin: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => void signOut()}
+            onClick={requestSignOut}
             className="flex min-h-9 w-full items-center gap-2 rounded-lg border border-transparent px-3 text-xs text-rose-300/80 hover:border-rose-400/15 hover:bg-rose-400/[0.06] hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -539,7 +590,7 @@ const Admin: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => void signOut()}
+            onClick={requestSignOut}
             className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-rose-300 hover:bg-rose-400/10"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" /> Sign Out
@@ -732,6 +783,55 @@ const Admin: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {showSignOutConfirm && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !signingOut) setShowSignOutConfirm(false);
+          }}
+        >
+          <section
+            ref={signOutDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sign-out-title"
+            aria-describedby="sign-out-description"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#3a4858] bg-[#0f171f] shadow-[0_32px_100px_rgba(0,0,0,0.65)]"
+          >
+            <div className="p-5 sm:p-6">
+              <span className="grid h-11 w-11 place-items-center rounded-xl border border-rose-400/20 bg-rose-400/[0.08] text-rose-300">
+                <LogOut className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 id="sign-out-title" className="mt-4 text-lg font-semibold tracking-[-0.025em] text-white">Sign out of AcademiaZen?</h2>
+              <p id="sign-out-description" className="mt-2 text-sm leading-6 text-slate-400">
+                Your current admin session will end, and you will need to sign in again to access the console.
+              </p>
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={signingOut}
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="min-h-11 rounded-lg border border-[#344252] px-4 text-sm font-medium text-slate-300 hover:border-[#46576a] hover:bg-white/[0.035] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
+                >
+                  Cancel
+                </button>
+                <button
+                  ref={confirmSignOutRef}
+                  type="button"
+                  disabled={signingOut}
+                  onClick={() => void handleConfirmSignOut()}
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rose-400/30 bg-rose-400/[0.12] px-4 text-sm font-semibold text-rose-200 hover:bg-rose-400/[0.18] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  {signingOut ? 'Signing out…' : 'Sign out'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };
