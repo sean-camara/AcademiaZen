@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 // Mock Firebase
-vi.mock('../firebase', () => ({
+vi.mock('../../firebase', () => ({
   auth: {
     currentUser: null,
     onAuthStateChanged: vi.fn(),
