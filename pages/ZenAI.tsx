@@ -1,6 +1,23 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { IconX, IconBot, IconPaperclip, IconFileText, IconChevronRight, IconFolder, IconCheck, IconTrash } from '../components/Icons';
+import {
+    IconX,
+    IconBot,
+    IconPaperclip,
+    IconFileText,
+    IconChevronRight,
+    IconChevronDown,
+    IconFolder,
+    IconCheck,
+    IconTrash,
+    IconHome,
+    IconMenu,
+    IconMoreVertical,
+    IconPlus,
+    IconSend,
+    IconZap,
+} from '../components/Icons';
+import { ZenAIWelcome } from '../components/ZenAIWelcome';
 import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase';
@@ -660,25 +677,32 @@ const ModeToggle: React.FC<{
     const currentCap = mode === 'deep' ? quota?.deepCap : quota?.fastCap;
 
     return (
-        <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+        <div
+            className="relative"
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+        >
             <button
                 type="button"
                 onClick={() => onChange(mode === 'fast' ? 'deep' : 'fast')}
-                className={`h-9 sm:h-10 px-3 sm:px-4 rounded-xl border text-[10px] sm:text-xs uppercase font-bold tracking-wider transition-all flex items-center gap-2 min-w-[70px] sm:min-w-[80px] justify-center ${
+                className={`flex min-h-[44px] min-w-[88px] items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70 ${
                     mode === 'deep'
-                        ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-                        : 'border-white/10 text-gray-400 bg-white/5 hover:text-white hover:bg-white/10 active:bg-white/15'
+                        ? 'border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-200 hover:bg-emerald-400/[0.11]'
+                        : 'border-white/10 bg-white/[0.035] text-slate-200 hover:bg-white/[0.07]'
                 }`}
                 aria-label={`Switch to ${mode === 'fast' ? 'deep' : 'fast'} mode`}
             >
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${mode === 'deep' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}`} />
+                <IconZap className={`h-4 w-4 ${mode === 'deep' ? 'text-emerald-300' : 'text-slate-300'}`} aria-hidden="true" />
                 <span>{mode === 'deep' ? 'Deep' : 'Fast'}</span>
+                <IconChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
             </button>
 
             {/* Hover tooltip showing remaining quota */}
             {hovered && quota && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none animate-in fade-in duration-150">
-                    <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 shadow-xl min-w-[140px]">
+                <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 animate-in fade-in duration-150">
+                    <div className="min-w-[148px] rounded-xl border border-white/10 bg-[#111a27] px-3 py-2.5 shadow-2xl">
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between gap-3">
                                 <span className="text-[10px] text-gray-400 uppercase tracking-wide">Fast</span>
@@ -802,6 +826,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
     const [threads, setThreads] = useState<ConversationThread[]>([]);
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
     const [showThreadsSidebar, setShowThreadsSidebar] = useState(false);
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     
     // Thinking panels
     const [openThinkingPanels, setOpenThinkingPanels] = useState<Record<string, boolean>>({});
@@ -815,6 +840,7 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const headerMenuRef = useRef<HTMLDivElement>(null);
     const hasShownUpgradeOnceRef = useRef(false);
     const pdfTextCacheRef = useRef<Map<string, PdfExtractResult>>(new Map());
     const hasLoadedChatRef = useRef(false);
@@ -852,6 +878,26 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (!showHeaderMenu) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!headerMenuRef.current?.contains(event.target as Node)) {
+                setShowHeaderMenu(false);
+            }
+        };
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setShowHeaderMenu(false);
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showHeaderMenu]);
 
     // ========================================================================
     // CHATGPT-STYLE SCROLL BEHAVIOR
@@ -1072,6 +1118,27 @@ const ZenAI: React.FC<ZenAIProps> = ({ onClose, contextLabel = 'Workspace' }) =>
         try { localStorage.removeItem(CHAT_STORAGE_KEY); } catch (_) {}
         clearAIChat();
     };
+
+    const startNewChat = () => {
+        if (messages.length > 0) {
+            const firstMessage = messages[0];
+            const newThread: ConversationThread = {
+                id: Date.now().toString(),
+                title: firstMessage ? `${firstMessage.text.slice(0, 50)}${firstMessage.text.length > 50 ? '...' : ''}` : 'New Chat',
+                messages,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            setThreads(prev => [newThread, ...prev.slice(0, 19)]);
+        }
+        setShowHeaderMenu(false);
+        clearChat();
+    };
+
+    const selectStarterPrompt = useCallback((prompt: string) => {
+        setInput(prompt);
+        window.requestAnimationFrame(() => textareaRef.current?.focus());
+    }, []);
 
     const toggleRef = (ref: SelectedRef) => {
         setSelectedRefs(prev => 
@@ -1772,83 +1839,82 @@ If asked tech stack: "MERN Stack."`;
             {/* ================================================================
                 HEADER - Fixed, responsive
             ================================================================ */}
-            <header className="ai-header safe-area-top sticky top-0 z-20 flex-shrink-0 px-3 pb-3 pt-4 backdrop-blur-xl sm:px-4">
+            <header className="ai-header sticky top-0 z-20 flex-shrink-0 px-3 pb-3 backdrop-blur-xl sm:px-4">
                 <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        {/* Sidebar toggle - 44px min touch */}
+                    <div className="flex min-w-0 items-center gap-2">
                         <button
+                            type="button"
                             onClick={() => setShowThreadsSidebar(!showThreadsSidebar)}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 hover:text-emerald-400 transition-colors"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-white/[0.055] hover:text-white active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70"
                             aria-label="Toggle conversations"
+                            aria-expanded={showThreadsSidebar}
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                            </svg>
+                            <IconMenu className="h-[22px] w-[22px]" />
                         </button>
-                        
-                        {/* Logo */}
-                        <div className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.08)]">
-                            <IconBot className="w-5 h-5" />
+
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-white/[0.11] bg-white/[0.04] text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                            <IconBot className="h-5 w-5" />
                         </div>
-                        
-                        {/* Title - hidden on very small screens */}
-                        <div className="hidden min-w-0 xs:block">
-                            <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-white sm:text-lg">Zen AI</h1>
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-500/80 sm:text-[10px]">DeepSeek V4 Flash</span>
-                            </div>
-                        </div>
+
+                        <h1 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.025em] text-white sm:text-lg">Zen AI</h1>
                     </div>
-                    
-                    <div className="flex items-center gap-1 sm:gap-2">
-                        {/* New chat */}
+
+                    <div className="flex items-center gap-1.5">
                         <button
-                            onClick={() => {
-                                if (messages.length > 0) {
-                                    const firstMessage = messages[0];
-                                    const newThread: ConversationThread = {
-                                        id: Date.now().toString(),
-                                        title: firstMessage ? `${firstMessage.text.slice(0, 50)}${firstMessage.text.length > 50 ? '...' : ''}` : 'New Chat',
-                                        messages,
-                                        createdAt: new Date().toISOString(),
-                                        updatedAt: new Date().toISOString()
-                                    };
-                                    setThreads(prev => [newThread, ...prev.slice(0, 19)]);
-                                }
-                                clearChat();
-                            }}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/10 active:bg-emerald-500/20 text-white/50 hover:text-emerald-400 transition-colors"
+                            type="button"
+                            onClick={startNewChat}
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[14px] border border-white/[0.09] bg-white/[0.025] text-slate-300 transition-colors hover:border-white/[0.16] hover:bg-white/[0.06] hover:text-white active:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70"
                             aria-label="New chat"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
+                            <IconPlus className="h-[22px] w-[22px]" />
                         </button>
-                        
-                        {/* Clear */}
-                        <button
-                            onClick={clearChat}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 hover:text-white transition-colors"
-                            aria-label="Clear chat"
-                        >
-                            <IconTrash className="w-5 h-5" />
-                        </button>
-                        
-                        {/* Close */}
-                        <button 
-                            onClick={onClose} 
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 hover:bg-red-500/10 active:bg-red-500/20 text-white/50 hover:text-red-400 transition-colors"
-                            aria-label="Close"
-                        >
-                            <IconX className="w-5 h-5" />
-                        </button>
+
+                        <div ref={headerMenuRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowHeaderMenu(current => !current)}
+                                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-white/[0.055] hover:text-white active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70"
+                                aria-label="More Zen AI options"
+                                aria-haspopup="menu"
+                                aria-expanded={showHeaderMenu}
+                            >
+                                <IconMoreVertical className="h-[22px] w-[22px]" />
+                            </button>
+
+                            {showHeaderMenu && (
+                                <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#111a27] p-1.5 shadow-2xl" role="menu" aria-label="Zen AI options">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            clearChat();
+                                            setShowHeaderMenu(false);
+                                        }}
+                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zen-primary/70"
+                                        role="menuitem"
+                                    >
+                                        <IconTrash className="h-4 w-4 text-slate-500" />
+                                        Clear conversation
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowHeaderMenu(false);
+                                            onClose();
+                                        }}
+                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zen-primary/70"
+                                        role="menuitem"
+                                    >
+                                        <IconX className="h-4 w-4 text-slate-500" />
+                                        Close Zen AI
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="mx-auto mt-2 flex w-full max-w-4xl items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] text-zen-text-disabled">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zen-secondary" aria-hidden="true" />
-                    <span className="truncate">Working beside <strong className="font-semibold text-zen-text-secondary">{contextLabel}</strong></span>
-                    <span className="ml-auto hidden text-[9px] font-semibold uppercase tracking-[0.14em] text-zen-secondary/70 sm:inline">Context stays visible</span>
+                <div className="mx-auto mt-3 flex min-h-[48px] w-full max-w-4xl items-center gap-3 rounded-full border border-white/[0.09] bg-white/[0.025] px-4 text-sm text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+                    <IconHome className="h-[18px] w-[18px] shrink-0 text-emerald-300" aria-hidden="true" />
+                    <span className="truncate">Working with <strong className="font-semibold text-slate-100">{contextLabel}</strong></span>
                 </div>
             </header>
 
@@ -2057,7 +2123,7 @@ If asked tech stack: "MERN Stack."`;
             <main 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain custom-scrollbar"
+                className="ai-message-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
                 role="log"
                 aria-label="Chat messages"
                 aria-live="polite"
@@ -2083,53 +2149,7 @@ If asked tech stack: "MERN Stack."`;
                         EMPTY STATE
                     ============================================================ */}
                     {messages.length === 0 && !isLoading && (
-                        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col items-center justify-center rounded-[24px] border border-white/[0.055] bg-white/[0.018] px-4 py-5 text-center sm:px-5 sm:py-6">
-                            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.07] shadow-[0_0_40px_rgba(16,185,129,0.08)]">
-                                <IconBot className="h-7 w-7 text-emerald-400" />
-                            </div>
-                            
-                            <h2 className="mb-2 text-xl font-medium tracking-tight text-white sm:text-2xl">
-                                What are we solving?
-                            </h2>
-                            <p className="mb-5 max-w-sm text-xs leading-relaxed text-gray-400 sm:text-sm">
-                                Ask directly, attach study material, or turn tasks and calendar plans into a clear next step.
-                            </p>
-                            
-                            <div className="grid w-full max-w-2xl grid-cols-3 gap-2">
-                                <button
-                                    disabled={aiLocked}
-                                    onClick={() => setInput("What tasks, exams, projects, and study sessions are scheduled this week, and how should I prioritize them?")}
-                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
-                                        aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 active:bg-emerald-500/10'
-                                    }`}
-                                >
-                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-emerald-500">Plan</p>
-                                    <p className="text-xs leading-snug text-white sm:text-sm">Prioritize this week</p>
-                                </button>
-
-                                <button
-                                    disabled={aiLocked}
-                                    onClick={() => setInput("Help me break down my upcoming tasks into smaller steps")}
-                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
-                                        aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-purple-500/30 hover:bg-purple-500/5 active:bg-purple-500/10'
-                                    }`}
-                                >
-                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-purple-400">Organize</p>
-                                    <p className="text-xs leading-snug text-white sm:text-sm">Break down tasks</p>
-                                </button>
-
-                                <button
-                                    disabled={aiLocked}
-                                    onClick={() => setInput("Create a study schedule around my scheduled exams, projects, study sessions, events, and unfinished tasks")}
-                                    className={`min-h-[82px] rounded-xl border p-3 text-left transition-all ${
-                                        aiLocked ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-amber-500/30 hover:bg-amber-500/5 active:bg-amber-500/10'
-                                    }`}
-                                >
-                                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">Schedule</p>
-                                    <p className="text-xs leading-snug text-white sm:text-sm">Build a study plan</p>
-                                </button>
-                            </div>
-                        </div>
+                        <ZenAIWelcome disabled={aiLocked} onSelectPrompt={selectStarterPrompt} />
                     )}
 
                     {/* ============================================================
@@ -2169,7 +2189,7 @@ If asked tech stack: "MERN Stack."`;
                                 <div 
                                     className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base leading-relaxed min-w-0 ${
                                         isUser 
-                                            ? 'max-w-[85%] sm:max-w-[75%] bg-white/10 text-white rounded-br-md ml-auto' 
+                                            ? 'max-w-[85%] sm:max-w-[75%] bg-white/10 text-white rounded-br-md ml-auto'
                                             : 'w-full bg-gradient-to-br from-white/5 to-transparent border border-white/5 text-gray-200 rounded-bl-md'
                                     }`}
                                 >
@@ -2458,8 +2478,8 @@ If asked tech stack: "MERN Stack."`;
             {/* ================================================================
                 INPUT BAR - Fixed bottom, safe area padding
             ================================================================ */}
-            <footer className="safe-area-bottom z-10 flex-shrink-0 border-t border-white/[0.06] bg-[#090d12]/94 p-3 backdrop-blur-xl sm:p-4">
-                <div className="max-w-4xl mx-auto space-y-3">
+            <footer className="ai-composer-footer z-10 flex-shrink-0 border-t border-white/[0.06] px-3 pt-2 backdrop-blur-xl sm:px-4 sm:pt-3">
+                <div className="mx-auto max-w-3xl space-y-3">
                     
                     {/* Selected refs chips */}
                     {selectedRefs.length > 0 && (
@@ -2489,83 +2509,79 @@ If asked tech stack: "MERN Stack."`;
 
                     {/* Input form */}
                     <form ref={formRef} onSubmit={handleSend} className="relative">
-                        <div className="ai-composer rounded-2xl border border-white/10 p-3 transition-colors focus-within:border-emerald-500/30 sm:p-4">
-                            
-                            {/* Textarea */}
-                            <textarea
-                                ref={textareaRef}
-                                value={input}
-                                onChange={e => {
-                                    setInput(e.target.value);
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
-                                }}
-                                onKeyDown={handleInputKeyDown}
-                                placeholder={selectedRefs.length > 0 ? "Ask about the docs..." : "Ask anything..."}
-                                disabled={isLoading || aiLocked}
-                                rows={1}
-                                className="w-full bg-transparent border-none text-sm sm:text-base text-white focus:outline-none focus:ring-0 placeholder:text-gray-500 resize-none leading-relaxed min-h-[44px] max-h-[160px] py-0 custom-scrollbar"
-                                aria-label="Message input"
-                            />
+                        <div className="ai-composer rounded-[26px] border border-white/[0.11] p-2.5 transition-[border-color,box-shadow] focus-within:border-emerald-300/25 focus-within:shadow-[0_0_0_1px_rgba(110,231,183,0.04)] sm:p-3">
+                            <div className="flex items-start gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (aiLocked) {
+                                            setShowUpgradeModal(true);
+                                            return;
+                                        }
+                                        setShowSelector(true);
+                                    }}
+                                    disabled={aiLocked}
+                                    className={`mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70 ${
+                                        aiLocked
+                                            ? 'border-white/5 bg-white/[0.025] text-slate-600'
+                                            : selectedRefs.length > 0
+                                                ? 'border-emerald-400/25 bg-emerald-400/[0.09] text-emerald-300'
+                                                : 'border-white/[0.09] bg-white/[0.025] text-slate-400 hover:border-white/[0.16] hover:bg-white/[0.055] hover:text-white active:bg-white/[0.08]'
+                                    }`}
+                                    title="Attach documents"
+                                    aria-label="Attach documents"
+                                >
+                                    <IconPaperclip className="h-5 w-5" />
+                                </button>
 
-                            {/* Toolbar */}
-                            <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/5">
-                                <div className="flex items-center gap-2">
-                                    {/* Attach button */}
-                                    <button 
-                                        type="button"
-                                        onClick={() => {
-                                            if (aiLocked) {
-                                                setShowUpgradeModal(true);
-                                                return;
-                                            }
-                                            setShowSelector(true);
+                                <div className="ai-composer-field min-w-0 flex-1 rounded-[20px] border border-white/[0.085] p-2.5 sm:p-3">
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={input}
+                                        onChange={e => {
+                                            setInput(e.target.value);
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
                                         }}
-                                        disabled={aiLocked}
-                                        className={`min-h-[44px] min-w-[44px] rounded-xl transition-all flex items-center justify-center border ${
-                                            aiLocked
-                                                ? 'bg-white/5 border-white/5 text-gray-600'
-                                                : selectedRefs.length > 0
-                                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10 active:bg-white/15'
-                                        }`}
-                                        title="Attach documents"
-                                        aria-label="Attach documents"
-                                    >
-                                        <IconPaperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    </button>
+                                        onKeyDown={handleInputKeyDown}
+                                        placeholder={selectedRefs.length > 0 ? 'Ask about your documents…' : 'Ask Zen anything…'}
+                                        disabled={isLoading || aiLocked}
+                                        rows={1}
+                                        className="custom-scrollbar min-h-[44px] max-h-[160px] w-full resize-none border-none bg-transparent px-1 py-1 text-[15px] leading-6 text-white placeholder:text-slate-500 focus:outline-none focus:ring-0 disabled:cursor-not-allowed"
+                                        aria-label="Message input"
+                                    />
 
-                                    {/* Mode toggle */}
-                                    <ModeToggle mode={analysisMode} onChange={setAnalysisMode} quota={modeQuota} />
+                                    <div className="mt-2 flex items-end justify-between gap-2">
+                                        <ModeToggle mode={analysisMode} onChange={setAnalysisMode} quota={modeQuota} />
+
+                                        {isLoading || isStreaming ? (
+                                            <button
+                                                type="button"
+                                                onClick={stopStreaming}
+                                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.07] text-slate-200 transition-[background-color,border-color,color,transform] hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111a27] active:scale-95"
+                                                aria-label="Stop generation"
+                                                title="Stop generation"
+                                            >
+                                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                </svg>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="submit"
+                                                disabled={!input.trim() || aiLocked}
+                                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-[background-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zen-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111a27] active:scale-95 ${
+                                                    !input.trim() || aiLocked
+                                                        ? 'bg-white/[0.055] text-slate-600'
+                                                        : 'bg-emerald-300 text-[#07110e] hover:bg-emerald-200'
+                                                }`}
+                                                aria-label="Send message"
+                                            >
+                                                <IconSend className="h-5 w-5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-
-                                {/* Send / Stop button */}
-                                {isLoading || isStreaming ? (
-                                    <button 
-                                        type="button"
-                                        onClick={stopStreaming}
-                                        className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-all bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/10 hover:border-red-500/30 active:scale-95"
-                                        aria-label="Stop generation"
-                                        title="Stop generation"
-                                    >
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <rect x="6" y="6" width="12" height="12" rx="2" />
-                                        </svg>
-                                    </button>
-                                ) : (
-                                    <button 
-                                        type="submit"
-                                        disabled={!input.trim() || aiLocked} 
-                                        className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-all ${
-                                            !input.trim() || aiLocked 
-                                                ? 'bg-white/5 text-gray-600' 
-                                                : 'bg-emerald-500 text-[#091510] hover:bg-emerald-400 active:bg-emerald-600'
-                                        }`}
-                                        aria-label="Send message"
-                                    >
-                                        <IconChevronRight className="w-5 h-5" />
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </form>

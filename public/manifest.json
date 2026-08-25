@@ -4,8 +4,8 @@
   "description": "Your academic companion for focused studying, task management, and productivity",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0B0F14",
-  "theme_color": "#64FFDA",
+  "background_color": "#07111D",
+  "theme_color": "#07111D",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
