@@ -1,7 +1,10 @@
-const STATIC_CACHE = 'zen-static-v11';
-const DYNAMIC_CACHE = 'zen-dynamic-v11';
+const CACHE_VERSION = 12;
+const STATIC_CACHE = `zen-static-v${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `zen-dynamic-v${CACHE_VERSION}`;
+const OLDEST_RETAINED_CACHE_VERSION = CACHE_VERSION - 1;
+const CHUNK_RECOVERY_QUERY = 'az-chunk-recovery';
 
-console.log('[SW] Service Worker v11 loaded');
+console.log(`[SW] Service Worker v${CACHE_VERSION} loaded`);
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -27,7 +30,7 @@ const EXTERNAL_ASSETS = [
 // Local ambience sounds (already in STATIC_ASSETS)
 const AMBIENCE_URLS = [];
 
-async function cachePublicShellChunks(cache) {
+async function cacheApplicationChunks(cache) {
   try {
     const response = await fetch('/.vite/manifest.json', { cache: 'no-store' });
     if (!response.ok) return;
@@ -45,12 +48,15 @@ async function cachePublicShellChunks(cache) {
       for (const imported of entry.imports || []) addEntry(imported);
     };
 
-    addEntry('index.html');
-    addEntry('pages/Landing.tsx');
-    addEntry('pages/Auth.tsx');
-    await Promise.all([...assetUrls].map((url) => cache.add(url)));
+    for (const key of Object.keys(manifest)) addEntry(key);
+
+    const results = await Promise.allSettled([...assetUrls].map((url) => cache.add(url)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    if (failedCount > 0) {
+      console.warn(`[SW] ${failedCount} application assets could not be precached`);
+    }
   } catch (error) {
-    console.warn('[SW] Public shell chunk precache skipped:', error?.message || error);
+    console.warn('[SW] Application chunk precache skipped:', error?.message || error);
   }
 }
 
@@ -60,31 +66,65 @@ self.addEventListener('install', (event) => {
     caches.open(STATIC_CACHE).then(async (cache) => {
       console.log('[SW] Caching static assets');
       await cache.addAll(STATIC_ASSETS);
-      await cachePublicShellChunks(cache);
+      await cacheApplicationChunks(cache);
     })
   );
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+const appCacheVersion = (key) => {
+  const match = /^zen-(?:static|dynamic)-v(\d+)$/.exec(key);
+  return match ? Number(match[1]) : null;
+};
+
+// Keep one complete previous release so tabs that were already open can still
+// request its content-hashed chunks while the latest service worker activates.
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker v11');
+  console.log(`[SW] Activating service worker v${CACHE_VERSION}`);
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
+          .filter((key) => {
+            const version = appCacheVersion(key);
+            return version !== null && version < OLDEST_RETAINED_CACHE_VERSION;
+          })
           .map((key) => {
             console.log('[SW] Removing old cache:', key);
             return caches.delete(key);
           })
       );
     }).then(() => {
-      console.log('[SW] Service worker v11 activated and claiming clients');
+      console.log(`[SW] Service worker v${CACHE_VERSION} activated and claiming clients`);
       return self.clients.claim();
     })
   );
 });
+
+async function matchAppCaches(request) {
+  const currentStatic = await caches.match(request, { cacheName: STATIC_CACHE });
+  if (currentStatic) return currentStatic;
+
+  const currentDynamic = await caches.match(request, { cacheName: DYNAMIC_CACHE });
+  if (currentDynamic) return currentDynamic;
+
+  // A prior release may still be serving an already-open tab.
+  return caches.match(request);
+}
+
+async function refreshClientAfterMissingChunk(clientId) {
+  if (!clientId) return;
+
+  const client = await self.clients.get(clientId);
+  if (!client || !('navigate' in client)) return;
+
+  const clientUrl = new URL(client.url);
+  if (clientUrl.searchParams.has(CHUNK_RECOVERY_QUERY)) return;
+
+  clientUrl.searchParams.set(CHUNK_RECOVERY_QUERY, String(Date.now()));
+  console.warn('[SW] Retired application chunk requested; refreshing client');
+  await client.navigate(clientUrl.toString());
+}
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
@@ -119,8 +159,9 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match('/');
+          return matchAppCaches(request).then(async (cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            return caches.match('/', { cacheName: STATIC_CACHE });
           });
         })
     );
@@ -132,12 +173,17 @@ self.addEventListener('fetch', (event) => {
   // fall through to the network after a deployment.
   if (url.origin === self.location.origin && url.pathname.includes('/assets/')) {
     event.respondWith(
-      caches.match(request).then(async (cachedResponse) => {
+      matchAppCaches(request).then(async (cachedResponse) => {
         if (cachedResponse) return cachedResponse;
         const response = await fetch(request);
         if (response?.ok) {
           const cache = await caches.open(DYNAMIC_CACHE);
           await cache.put(request, response.clone());
+        } else if (
+          (response?.status === 404 || response?.status === 410) &&
+          (request.destination === 'script' || url.pathname.endsWith('.js'))
+        ) {
+          await refreshClientAfterMissingChunk(event.clientId);
         }
         return response;
       })

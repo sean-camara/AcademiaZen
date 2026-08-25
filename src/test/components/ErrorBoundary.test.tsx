@@ -116,4 +116,20 @@ describe('ErrorBoundary', () => {
     // The error message should appear in technical details
     expect(screen.getByText('Test error')).toBeInTheDocument();
   });
+
+  it('offers a data-safe reload for an obsolete application chunk', () => {
+    const ThrowChunkError = () => {
+      throw new TypeError('Failed to fetch dynamically imported module: /assets/ZenAI-old.js');
+    };
+
+    render(
+      <ErrorBoundary>
+        <ThrowChunkError />
+      </ErrorBoundary>
+    );
+
+    expect(screen.getByText('A newer version is ready')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reload latest version' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear Data & Reload' })).not.toBeInTheDocument();
+  });
 });

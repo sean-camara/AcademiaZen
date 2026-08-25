@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
+import { installChunkRecovery } from './utils/chunkRecovery';
+
+installChunkRecovery();
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
@@ -11,7 +14,11 @@ if ('serviceWorker' in navigator) {
       .register('/sw.js')
       .then((registration) => {
         console.log('SW registered: ', registration);
-        
+
+        // Check once on every page load so an open PWA adopts a new release
+        // without waiting for the periodic browser service-worker check.
+        void registration.update();
+
         // Check for updates periodically
         setInterval(() => {
           registration.update();

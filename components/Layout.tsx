@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tab, ZenState } from '../types';
 import { IconHome, IconCalendar, IconReview, IconFocus, IconLibrary, IconSettings, IconBot, IconLogOut, IconChevronRight } from './Icons';
@@ -7,15 +7,16 @@ import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
 import type { OpenSettingsDetail, SettingsTab } from '../utils/appNavigation';
+import { lazyWithChunkRecovery } from '../utils/chunkRecovery';
 
-const Home = lazy(() => import('@/pages/Home'));
-const Calendar = lazy(() => import('@/pages/Calendar'));
-const Review = lazy(() => import('@/pages/Review'));
-const Focus = lazy(() => import('@/pages/Focus'));
-const Library = lazy(() => import('@/pages/Library'));
+const Home = lazyWithChunkRecovery(() => import('@/pages/Home'));
+const Calendar = lazyWithChunkRecovery(() => import('@/pages/Calendar'));
+const Review = lazyWithChunkRecovery(() => import('@/pages/Review'));
+const Focus = lazyWithChunkRecovery(() => import('@/pages/Focus'));
+const Library = lazyWithChunkRecovery(() => import('@/pages/Library'));
 const loadSettings = () => import('@/pages/Settings');
-const Settings = lazy(loadSettings);
-const ZenAI = lazy(() => import('@/pages/ZenAI'));
+const Settings = lazyWithChunkRecovery(loadSettings);
+const ZenAI = lazyWithChunkRecovery(() => import('@/pages/ZenAI'));
 
 const RouteLoading = () => (
   <div className="flex h-full min-h-64 items-center justify-center" role="status" aria-live="polite">
