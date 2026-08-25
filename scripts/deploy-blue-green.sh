@@ -171,9 +171,18 @@ if ! systemctl reload nginx; then
   fail "Nginx reload failed"
 fi
 
-if ! curl -fsS --retry 5 --retry-delay 1 --max-time 5 \
-  --resolve www.academiazen.app:443:127.0.0.1 \
-  https://www.academiazen.app/healthz >/dev/null; then
+switched_healthy=false
+for _ in $(seq 1 30); do
+  if curl -fsS --noproxy '*' --max-time 5 \
+    --header 'Connection: close' \
+    --resolve www.academiazen.app:443:127.0.0.1 \
+    "https://www.academiazen.app/healthz?release=${release_sha}" >/dev/null; then
+    switched_healthy=true
+    break
+  fi
+  sleep 1
+done
+if [[ "${switched_healthy}" != "true" ]]; then
   rollback_proxy
   fail "public smoke test failed after the traffic switch"
 fi
