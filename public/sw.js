@@ -1,14 +1,15 @@
-const CACHE_VERSION = 12;
+const CACHE_VERSION = 13;
 const STATIC_CACHE = `zen-static-v${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `zen-dynamic-v${CACHE_VERSION}`;
 const OLDEST_RETAINED_CACHE_VERSION = CACHE_VERSION - 1;
 const CHUNK_RECOVERY_QUERY = 'az-chunk-recovery';
+const APP_ROUTES = ['/', '/calendar', '/review', '/focus', '/library', '/admin', '/login'];
 
 console.log(`[SW] Service Worker v${CACHE_VERSION} loaded`);
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
-  '/',
+  ...APP_ROUTES,
   '/index.html',
   '/manifest.json',
   '/icons/icon.svg',
@@ -148,22 +149,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first strategy for HTML pages
+  // App-shell-first navigation keeps every tab instant. The versioned service
+  // worker installs a fresh shell for each release and revalidates it in the
+  // background without ever caching authenticated API responses.
   if (request.headers.get('accept')?.includes('text/html')) {
+    const networkResponse = fetch(request).then(async (response) => {
+      if (response?.ok) {
+        const cache = await caches.open(DYNAMIC_CACHE);
+        await cache.put(request, response.clone());
+      }
+      return response;
+    });
+    event.waitUntil(networkResponse.then(() => undefined).catch(() => undefined));
     event.respondWith(
-      fetch(request)
-        .then(async (response) => {
-          const clonedResponse = response.clone();
-          const cache = await caches.open(DYNAMIC_CACHE);
-          await cache.put(request, clonedResponse);
-          return response;
-        })
-        .catch(() => {
-          return matchAppCaches(request).then(async (cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-            return caches.match('/', { cacheName: STATIC_CACHE });
-          });
-        })
+      matchAppCaches(request).then(async (cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        const routeRequest = new Request(`${url.origin}${url.pathname}`);
+        const cachedRoute = await matchAppCaches(routeRequest);
+        if (cachedRoute) return cachedRoute;
+        try {
+          return await networkResponse;
+        } catch {
+          return caches.match('/', { cacheName: STATIC_CACHE });
+        }
+      })
     );
     return;
   }

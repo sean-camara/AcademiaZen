@@ -10,14 +10,20 @@ import type { OpenSettingsDetail } from '../utils/appNavigation';
 import { lazyWithChunkRecovery } from '../utils/chunkRecovery';
 import { useOverlayHistory } from '../hooks/useOverlayHistory';
 
-const Home = lazyWithChunkRecovery(() => import('@/pages/Home'));
-const Calendar = lazyWithChunkRecovery(() => import('@/pages/Calendar'));
-const Review = lazyWithChunkRecovery(() => import('@/pages/Review'));
-const Focus = lazyWithChunkRecovery(() => import('@/pages/Focus'));
-const Library = lazyWithChunkRecovery(() => import('@/pages/Library'));
+const loadHome = () => import('@/pages/Home');
+const loadCalendar = () => import('@/pages/Calendar');
+const loadReview = () => import('@/pages/Review');
+const loadFocus = () => import('@/pages/Focus');
+const loadLibrary = () => import('@/pages/Library');
 const loadSettings = () => import('@/pages/Settings');
+const loadZenAI = () => import('@/pages/ZenAI');
+const Home = lazyWithChunkRecovery(loadHome);
+const Calendar = lazyWithChunkRecovery(loadCalendar);
+const Review = lazyWithChunkRecovery(loadReview);
+const Focus = lazyWithChunkRecovery(loadFocus);
+const Library = lazyWithChunkRecovery(loadLibrary);
 const Settings = lazyWithChunkRecovery(loadSettings);
-const ZenAI = lazyWithChunkRecovery(() => import('@/pages/ZenAI'));
+const ZenAI = lazyWithChunkRecovery(loadZenAI);
 
 const RouteLoading = () => (
   <div className="flex h-full min-h-64 items-center justify-center" role="status" aria-live="polite">
@@ -87,7 +93,17 @@ const Layout: React.FC<LayoutProps> = () => {
   } = useOverlayHistory(location.key);
 
   useEffect(() => {
-    const preload = () => { void loadSettings(); };
+    const preload = () => {
+      void Promise.allSettled([
+        loadHome(),
+        loadCalendar(),
+        loadReview(),
+        loadFocus(),
+        loadLibrary(),
+        loadSettings(),
+        loadZenAI(),
+      ]);
+    };
     if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(preload, { timeout: 2000 });
       return () => window.cancelIdleCallback(id);

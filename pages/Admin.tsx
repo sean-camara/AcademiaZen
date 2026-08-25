@@ -134,12 +134,15 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, onNavigate }) => (
   </nav>
 );
 
+const ADMIN_TAB_CACHE_TTL_MS = 60_000;
+
 const Admin: React.FC = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
   const signOutDialogRef = useRef<HTMLElement>(null);
   const confirmSignOutRef = useRef<HTMLButtonElement>(null);
+  const tabFetchedAtRef = useRef<Partial<Record<AdminTab, number>>>({});
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -188,7 +191,10 @@ const Admin: React.FC = () => {
         setUsers(data.users || []);
         setUserPage(data.page || 1);
         setTotalUserPages(data.totalPages || 1);
+        tabFetchedAtRef.current.users = Date.now();
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Failed to fetch users:', error);
       throw error;
@@ -208,16 +214,26 @@ const Admin: React.FC = () => {
           avgLatency: data.avgLatency || 0,
           errorRate: data.errorRate || 0,
         });
+        tabFetchedAtRef.current.ai = Date.now();
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Failed to fetch AI logs:', error);
       throw error;
     }
   };
 
-  const fetchTabData = async (tab: AdminTab) => {
-    setLoading(true);
+  const fetchTabData = async (tab: AdminTab, force = false) => {
     setStatusMessage(null);
+    const fetchedAt = tabFetchedAtRef.current[tab];
+    if (!force && fetchedAt && Date.now() - fetchedAt < ADMIN_TAB_CACHE_TTL_MS) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    let loaded = false;
     try {
       if (tab === 'overview') {
         const [overviewRes, healthRes] = await Promise.all([
@@ -226,13 +242,15 @@ const Admin: React.FC = () => {
         ]);
         if (overviewRes.ok) setOverview(await overviewRes.json());
         if (healthRes.ok) setHealth(await healthRes.json());
+        loaded = overviewRes.ok || healthRes.ok;
       } else if (tab === 'users') {
-        await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+        loaded = await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
       } else if (tab === 'academics') {
         const res = await apiFetch('/api/admin/analytics/academics');
         if (res.ok) setAcademics(await res.json());
+        loaded = res.ok;
       } else if (tab === 'ai') {
-        await fetchAiLogs(aiStatusFilter);
+        loaded = await fetchAiLogs(aiStatusFilter);
       } else if (tab === 'billing') {
         const requests = [apiFetch('/api/admin/payments')];
         if (!overview) requests.push(apiFetch('/api/admin/overview'));
@@ -242,6 +260,7 @@ const Admin: React.FC = () => {
           setPayments(data.transactions || []);
         }
         if (overviewRes?.ok) setOverview(await overviewRes.json());
+        loaded = Boolean(paymentRes?.ok || overviewRes?.ok);
       } else if (tab === 'announcements') {
         const [announcementsRes, feedbackRes] = await Promise.all([
           apiFetch('/api/admin/announcements'),
@@ -249,6 +268,7 @@ const Admin: React.FC = () => {
         ]);
         if (announcementsRes.ok) setAnnouncements((await announcementsRes.json()).announcements || []);
         if (feedbackRes.ok) setFeedbackList((await feedbackRes.json()).feedback || []);
+        loaded = announcementsRes.ok || feedbackRes.ok;
       } else if (tab === 'health') {
         const [healthRes, dbRes] = await Promise.all([
           apiFetch('/api/admin/health'),
@@ -256,10 +276,13 @@ const Admin: React.FC = () => {
         ]);
         if (healthRes.ok) setHealth(await healthRes.json());
         if (dbRes.ok) setDbStats((await dbRes.json()).collections || null);
+        loaded = healthRes.ok || dbRes.ok;
       } else if (tab === 'audit') {
         const res = await apiFetch('/api/admin/audit-logs');
         if (res.ok) setAuditLogs((await res.json()).logs || []);
+        loaded = res.ok;
       }
+      if (loaded) tabFetchedAtRef.current[tab] = Date.now();
     } catch (error) {
       console.error('Failed to load admin data:', error);
       setStatusMessage({ type: 'error', text: 'The latest admin data could not be loaded. Try refreshing this page.' });
@@ -632,7 +655,7 @@ const Admin: React.FC = () => {
               type="button"
               disabled={loading}
               onClick={async () => {
-                await fetchTabData(activeTab);
+                await fetchTabData(activeTab, true);
                 setStatusMessage({ type: 'success', text: `${page.title} refreshed.` });
               }}
               className="flex h-10 items-center gap-2 rounded-lg border border-[#2b3745] bg-[#0d141d] px-3 text-xs font-medium text-slate-300 hover:border-[#3a495a] hover:bg-[#121b25] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
@@ -676,7 +699,7 @@ const Admin: React.FC = () => {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => void fetchTabData(activeTab)}
+                  onClick={() => void fetchTabData(activeTab, true)}
                   className="grid h-10 w-10 place-items-center rounded-lg border border-[#2b3745] bg-[#101720] text-slate-300 disabled:opacity-50"
                   aria-label={`Refresh ${page.title}`}
                 >
