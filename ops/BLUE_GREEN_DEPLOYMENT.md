@@ -20,6 +20,7 @@ Deployments are serialized with `/tmp/deploy.lock`. A failed build or health che
 cat /var/lib/academiazen/frontend-active.env
 docker ps --filter label=component=frontend
 journalctl -u webhook --since "30 minutes ago"
+tail -n 200 /var/log/academiazen/frontend-deploy.log
 curl -fsS https://www.academiazen.app/healthz
 ```
 

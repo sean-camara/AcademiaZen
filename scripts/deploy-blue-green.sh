@@ -9,6 +9,8 @@ UPSTREAM_CONFIG="${ACADEMIAZEN_UPSTREAM_CONFIG:-/etc/nginx/conf.d/academiazen-fr
 STATE_DIR="${ACADEMIAZEN_STATE_DIR:-/var/lib/academiazen}"
 STATE_FILE="${STATE_DIR}/frontend-active.env"
 LOCK_FILE="${ACADEMIAZEN_DEPLOY_LOCK:-/tmp/deploy.lock}"
+LOG_DIR="${ACADEMIAZEN_LOG_DIR:-/var/log/academiazen}"
+LOG_FILE="${LOG_DIR}/frontend-deploy.log"
 
 log() {
   printf '[academiazen-deploy] %s\n' "$*"
@@ -20,6 +22,13 @@ fail() {
 }
 
 [[ "${EUID}" -eq 0 ]] || fail "deployment must run as root (the webhook service supplies this)"
+
+install -d -o root -g root -m 0755 "${LOG_DIR}"
+touch "${LOG_FILE}"
+chmod 0644 "${LOG_FILE}"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+trap 'exit_code=$?; log "FAILED at line ${LINENO}: ${BASH_COMMAND} (exit ${exit_code})"' ERR
+log "starting deployment requested at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 exec 9>"${LOCK_FILE}"
 flock -n 9 || fail "another deployment is already running"
