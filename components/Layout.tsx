@@ -6,8 +6,9 @@ import { useZen } from '../context/ZenContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
-import type { OpenSettingsDetail, SettingsTab } from '../utils/appNavigation';
+import type { OpenSettingsDetail } from '../utils/appNavigation';
 import { lazyWithChunkRecovery } from '../utils/chunkRecovery';
+import { useOverlayHistory } from '../hooks/useOverlayHistory';
 
 const Home = lazyWithChunkRecovery(() => import('@/pages/Home'));
 const Calendar = lazyWithChunkRecovery(() => import('@/pages/Calendar'));
@@ -68,9 +69,6 @@ interface BillingUpdatedDetail {
 }
 
 const Layout: React.FC<LayoutProps> = () => {
-  const [showSettings, setShowSettings] = useState(false);
-  const [showAI, setShowAI] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const { focusSession, hideNavbar, setHideNavbar, syncConflict } = useZen();
   const { signOut, user } = useAuth();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -78,6 +76,15 @@ const Layout: React.FC<LayoutProps> = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const {
+    showSettings,
+    showAI,
+    settingsTab,
+    openSettings,
+    openAI,
+    closeSettings,
+    closeAI,
+  } = useOverlayHistory(location.key);
 
   useEffect(() => {
     const preload = () => { void loadSettings(); };
@@ -190,16 +197,11 @@ const Layout: React.FC<LayoutProps> = () => {
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<OpenSettingsDetail>).detail || {};
-      if (detail?.tab) {
-        setSettingsTab(detail.tab);
-      } else {
-        setSettingsTab(null);
-      }
-      setShowSettings(true);
+      openSettings(detail?.tab);
     };
     window.addEventListener('open-settings', handler as EventListener);
     return () => window.removeEventListener('open-settings', handler as EventListener);
-  }, []);
+  }, [openSettings]);
 
   useEffect(() => {
     if (!location.search) return;
@@ -207,6 +209,7 @@ const Layout: React.FC<LayoutProps> = () => {
     const page = params.get('page');
     const subjectId = params.get('subject');
     let nextPath = location.pathname;
+    const shouldOpenSettings = page === 'settings';
 
     const pageRoutes: Record<string, string> = {
       home: tabPaths[Tab.Home],
@@ -217,10 +220,6 @@ const Layout: React.FC<LayoutProps> = () => {
     };
 
     if (page) {
-      if (page === 'settings') {
-        setSettingsTab(null);
-        setShowSettings(true);
-      }
       if (pageRoutes[page]) {
         nextPath = pageRoutes[page];
       }
@@ -234,12 +233,16 @@ const Layout: React.FC<LayoutProps> = () => {
       navigate(nextPath, { replace: true });
     }
 
+    if (shouldOpenSettings) {
+      queueMicrotask(() => openSettings());
+    }
+
     if (subjectId) {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('open-subject', { detail: { id: subjectId } }));
       }, 0);
     }
-  }, [location.pathname, location.search, navigate, tabPaths]);
+  }, [location.pathname, location.search, navigate, openSettings, tabPaths]);
 
   useEffect(() => {
     if (!(import.meta as any).env?.PROD) return;
@@ -351,7 +354,7 @@ const Layout: React.FC<LayoutProps> = () => {
 
         <div className="space-y-2 border-t border-white/[0.06] p-3">
              <button 
-               onClick={() => setShowAI(true)}
+               onClick={openAI}
                aria-label="Open Zen AI"
                aria-expanded={showAI}
                aria-controls="zen-ai-panel"
@@ -378,7 +381,7 @@ const Layout: React.FC<LayoutProps> = () => {
               )}
 
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setShowSettings(true)} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
+                <button onClick={() => openSettings()} onPointerEnter={loadSettings} onFocus={loadSettings} aria-label="Open settings" className="sidebar-utility"><IconSettings className="h-4 w-4" /><span>Settings</span></button>
                 <button onClick={() => setShowLogoutConfirm(true)} aria-label="Sign out" className="sidebar-utility hover:!border-red-400/20 hover:!text-red-300"><IconLogOut className="h-4 w-4" /><span>Sign out</span></button>
               </div>
         </div>
@@ -406,7 +409,7 @@ const Layout: React.FC<LayoutProps> = () => {
           
           <div className="flex items-center gap-2">
              <button 
-               onClick={() => setShowAI(true)}
+               onClick={openAI}
                aria-label="Open Zen AI"
                aria-expanded={showAI}
                aria-controls="zen-ai-panel"
@@ -415,7 +418,7 @@ const Layout: React.FC<LayoutProps> = () => {
                <IconBot className="w-6 h-6" />
              </button>
              <button 
-               onClick={() => setShowSettings(true)}
+               onClick={() => openSettings()}
                onPointerEnter={loadSettings}
                onFocus={loadSettings}
                aria-label="Open settings"
@@ -468,10 +471,7 @@ const Layout: React.FC<LayoutProps> = () => {
       {showSettings && (
         <Suspense fallback={<SettingsLoading />}>
           <Settings
-            onClose={() => {
-              setShowSettings(false);
-              setSettingsTab(null);
-            }}
+            onClose={closeSettings}
             {...(settingsTab ? { initialTab: settingsTab } : {})}
           />
         </Suspense>
@@ -492,11 +492,11 @@ const Layout: React.FC<LayoutProps> = () => {
           <button
             type="button"
             className="fixed inset-0 z-[100] hidden cursor-default bg-black/55 backdrop-blur-[2px] sm:block min-[1180px]:hidden"
-            onClick={() => setShowAI(false)}
+            onClick={closeAI}
             aria-label="Close Zen AI"
           />
           <Suspense fallback={<AIPanelLoading />}>
-            <ZenAI contextLabel={activeNavItem.label} onClose={() => setShowAI(false)} />
+            <ZenAI contextLabel={activeNavItem.label} onClose={closeAI} />
           </Suspense>
         </>
       )}
