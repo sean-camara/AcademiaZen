@@ -11,6 +11,7 @@ STATE_FILE="${STATE_DIR}/frontend-active.env"
 LOCK_FILE="${ACADEMIAZEN_DEPLOY_LOCK:-/run/lock/academiazen-frontend-deploy.lock}"
 LOG_DIR="${ACADEMIAZEN_LOG_DIR:-/var/log/academiazen}"
 LOG_FILE="${LOG_DIR}/frontend-deploy.log"
+BUILT_IMAGE="${ACADEMIAZEN_BUILT_IMAGE:-academiazen-web:latest}"
 
 log() {
   printf '[academiazen-deploy] %s\n' "$*"
@@ -80,8 +81,8 @@ release_tag="academiazen-web:${release_sha}"
 
 log "building release ${release_sha} for inactive ${target_slot} slot"
 docker compose --project-directory "${APP_ROOT}" -f "${COMPOSE_FILE}" build web
-image_id="$(docker compose --project-directory "${APP_ROOT}" -f "${COMPOSE_FILE}" images -q web | head -n 1)"
-[[ -n "${image_id}" ]] || fail "compose build did not produce a frontend image"
+image_id="$(docker image inspect --format '{{.Id}}' "${BUILT_IMAGE}")"
+[[ -n "${image_id}" ]] || fail "compose build did not produce ${BUILT_IMAGE}"
 docker image tag "${image_id}" "${release_tag}"
 backend_container="$(docker compose --project-directory "${APP_ROOT}" -f "${COMPOSE_FILE}" ps -q backend | head -n 1)"
 [[ -n "${backend_container}" ]] || fail "backend container is not running"
