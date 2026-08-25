@@ -60,7 +60,7 @@ describe('Settings Modal & Billing Tab', () => {
 
   it('renders control center header and all settings tabs', () => {
     useZenMock.mockReturnValue(createZenContext());
-    render(<Settings isOpen={true} onClose={vi.fn()} />);
+    render(<Settings onClose={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Focus/i })).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('Settings Modal & Billing Tab', () => {
   it('displays correct Premium pricing in Plans tab (PHP 149/mo)', async () => {
     useZenMock.mockReturnValue(createZenContext());
     const user = userEvent.setup();
-    render(<Settings isOpen={true} onClose={vi.fn()} initialTab="billing" />);
+    render(<Settings onClose={vi.fn()} initialTab="billing" />);
 
     expect(screen.getByText(/PHP 149/i)).toBeInTheDocument();
 

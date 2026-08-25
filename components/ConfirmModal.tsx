@@ -28,16 +28,16 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity animate-in fade-in duration-300" 
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-sm bg-zen-card/95 backdrop-blur-3xl rounded-[2rem] border border-white/10 shadow-2xl p-6 sm:p-8 animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-sm bg-zen-card rounded-[2rem] border border-white/10 shadow-2xl p-6 sm:p-8 animate-in zoom-in-95 duration-300 transform-gpu">
         
         {/* Glow Effects */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-zen-primary/5 blur-[50px] pointer-events-none rounded-full" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-zen-secondary/5 blur-[50px] pointer-events-none rounded-full" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-zen-primary/5 blur-2xl pointer-events-none rounded-full" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-zen-secondary/5 blur-2xl pointer-events-none rounded-full" />
 
         <div className="space-y-4 text-center">
             {isDangerous && (

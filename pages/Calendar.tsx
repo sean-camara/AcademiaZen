@@ -3,130 +3,11 @@ import { useZen } from '../context/ZenContext';
 import { IconChevronLeft, IconChevronRight, IconCheck, IconTrash, IconPlus, IconX } from '../components/Icons';
 import { generateId, isSameDay } from '../utils/helpers';
 import { EmptyState } from '../components/ui/EmptyState';
+import { PlanModal } from '../components/PlanModal';
 import { Subject, Task } from '../types';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 type ScheduleCategory = NonNullable<Task['category']>;
-
-const CATEGORY_OPTIONS: Array<{ value: ScheduleCategory; label: string }> = [
-    { value: 'task', label: 'Task' },
-    { value: 'exam', label: 'Exam' },
-    { value: 'project', label: 'Project' },
-    { value: 'study', label: 'Study session' },
-    { value: 'event', label: 'School event' },
-];
-
-const formatDateInput = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-const toLocalIsoString = (date: string, time: string) => {
-    const value = new Date(`${date}T${time}:00`);
-    const offset = -value.getTimezoneOffset();
-    const sign = offset >= 0 ? '+' : '-';
-    const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
-    const minutes = String(Math.abs(offset) % 60).padStart(2, '0');
-    return `${date}T${time}:00${sign}${hours}:${minutes}`;
-};
-
-interface CalendarPlanModalProps {
-    selectedDate: Date;
-    subjects: Subject[];
-    onClose: () => void;
-    onSave: (plan: { title: string; dueDate: string; category: ScheduleCategory; subjectId?: string; notes?: string }) => void;
-}
-
-const CalendarPlanModal: React.FC<CalendarPlanModalProps> = ({ selectedDate, subjects, onClose, onSave }) => {
-    const [title, setTitle] = useState('');
-    const [category, setCategory] = useState<ScheduleCategory>('task');
-    const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
-    const [date, setDate] = useState(formatDateInput(selectedDate));
-    const [time, setTime] = useState('09:00');
-    const [notes, setNotes] = useState('');
-
-    const handleSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!title.trim()) return;
-        onSave({
-            title: title.trim(),
-            dueDate: toLocalIsoString(date, time),
-            category,
-            ...(subjectId ? { subjectId } : {}),
-            ...(notes.trim() ? { notes: notes.trim() } : {}),
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-6">
-            <button type="button" aria-label="Close planner" className="absolute inset-0 h-full w-full bg-black/70 backdrop-blur-xl" onClick={onClose} />
-            <div className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-white/10 bg-zen-bg shadow-2xl sm:max-w-2xl sm:rounded-[2rem]">
-                <div className="relative overflow-hidden border-b border-white/[0.06] p-6 sm:p-8">
-                    <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zen-primary/10 blur-3xl" aria-hidden="true" />
-                    <div className="relative flex items-start justify-between gap-4">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zen-primary">Calendar planner</p>
-                            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Schedule your next move</h2>
-                            <p className="mt-2 text-sm text-zen-text-secondary">Plan an exam, project, study session, event, or regular task.</p>
-                        </div>
-                        <button type="button" onClick={onClose} aria-label="Close planner" className="rounded-xl bg-white/[0.04] p-2.5 text-zen-text-secondary transition-colors hover:bg-white/[0.08] hover:text-white">
-                            <IconX className="h-5 w-5" />
-                        </button>
-                    </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="custom-scrollbar space-y-5 overflow-y-auto p-6 sm:p-8">
-                    <div className="space-y-2">
-                        <label htmlFor="plan-title" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Title</label>
-                        <input id="plan-title" autoFocus required value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g., Midterm exam or Submit capstone" className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-base text-white outline-none transition-colors placeholder:text-zen-text-disabled/50 focus:border-zen-primary/50" />
-                    </div>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <label htmlFor="plan-category" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Plan type</label>
-                            <select id="plan-category" value={category} onChange={event => setCategory(event.target.value as ScheduleCategory)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface px-4 py-3.5 text-sm text-white outline-none focus:border-zen-primary/50">
-                                {CATEGORY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="plan-subject" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Subject</label>
-                            <select id="plan-subject" value={subjectId} onChange={event => setSubjectId(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface px-4 py-3.5 text-sm text-white outline-none focus:border-zen-primary/50">
-                                <option value="">No subject</option>
-                                {subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <label htmlFor="plan-date" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Date</label>
-                            <input id="plan-date" type="date" required value={date} onChange={event => setDate(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none [color-scheme:dark] focus:border-zen-primary/50" />
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="plan-time" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Time</label>
-                            <input id="plan-time" type="time" required value={time} onChange={event => setTime(event.target.value)} className="w-full rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none [color-scheme:dark] focus:border-zen-primary/50" />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label htmlFor="plan-notes" className="text-[10px] font-bold uppercase tracking-[0.18em] text-zen-text-disabled">Notes <span className="normal-case tracking-normal">(optional)</span></label>
-                        <textarea id="plan-notes" rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Room, coverage, preparation steps, or reminders…" className="w-full resize-none rounded-xl border border-white/[0.07] bg-zen-surface/40 px-4 py-3.5 text-sm text-white outline-none transition-colors placeholder:text-zen-text-disabled/50 focus:border-zen-primary/50" />
-                    </div>
-
-                    <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col-reverse gap-3 border-t border-white/[0.06] bg-zen-bg/95 px-6 pb-6 pt-4 backdrop-blur-xl sm:-bottom-8 sm:-mx-8 sm:-mb-8 sm:flex-row sm:justify-end sm:px-8 sm:pb-8">
-                        <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-5 text-xs font-bold uppercase tracking-wider text-zen-text-secondary transition-colors hover:bg-white/[0.04] hover:text-white">Cancel</button>
-                        <button type="submit" disabled={!title.trim()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-zen-primary px-6 text-xs font-bold uppercase tracking-wider text-zen-bg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40">
-                            <IconPlus className="h-4 w-4" />
-                            Add to schedule
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
 
 const Calendar: React.FC = () => {
     const { state, addTask, toggleTask, deleteTask, setHideNavbar } = useZen();
@@ -381,7 +262,7 @@ const Calendar: React.FC = () => {
             </div>
         </div>
         {isPlanning && (
-            <CalendarPlanModal
+            <PlanModal
                 selectedDate={selectedDate}
                 subjects={state.subjects}
                 onClose={() => setIsPlanning(false)}

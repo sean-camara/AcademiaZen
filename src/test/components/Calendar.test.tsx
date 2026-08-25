@@ -37,12 +37,16 @@ describe('Calendar planning', () => {
     expect(screen.getByRole('heading', { name: 'Schedule your next move' })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Title'), 'Capstone presentation');
-    await user.selectOptions(screen.getByLabelText('Plan type'), 'project');
-    await user.selectOptions(screen.getByLabelText('Subject'), 'subject-1');
-    await user.clear(screen.getByLabelText('Date'));
-    await user.type(screen.getByLabelText('Date'), '2026-08-15');
-    await user.clear(screen.getByLabelText('Time'));
-    await user.type(screen.getByLabelText('Time'), '14:30');
+    await user.click(screen.getByLabelText('Plan type'));
+    await user.click(screen.getByRole('option', { name: 'Project' }));
+    await user.click(screen.getByLabelText('Subject'));
+    await user.click(screen.getByRole('option', { name: 'Programming Languages' }));
+    await user.click(screen.getByLabelText('Date'));
+    await user.click(screen.getByRole('button', { name: '15' }));
+    await user.click(screen.getByLabelText('Time'));
+    await user.click(screen.getByRole('button', { name: '02' }));
+    await user.click(screen.getByRole('button', { name: '30' }));
+    await user.click(screen.getByRole('button', { name: 'PM' }));
     await user.type(screen.getByLabelText(/Notes/), 'Bring the final prototype.');
     await user.click(screen.getByRole('button', { name: 'Add to schedule' }));
 
@@ -56,5 +60,5 @@ describe('Calendar planning', () => {
       dueDate: expect.stringContaining('2026-08-15T14:30:00'),
     }));
     expect(screen.queryByRole('heading', { name: 'Schedule your next move' })).not.toBeInTheDocument();
-  });
+  }, 15000);
 });

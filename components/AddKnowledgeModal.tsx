@@ -69,16 +69,16 @@ const AddKnowledgeModal: React.FC<AddKnowledgeModalProps> = ({ onClose, onSave, 
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6">
       {/* Backdrop */}
        <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity animate-in fade-in duration-500" 
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
         onClick={onClose}
       />
       
       {/* Modal Content */}
-      <div className="relative w-full sm:max-w-xl bg-zen-bg/95 backdrop-blur-3xl rounded-t-[2.5rem] sm:rounded-[3rem] border border-white/5 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom duration-500 zoom-in-95">
+      <div className="relative w-full sm:max-w-xl bg-zen-bg rounded-t-[2.5rem] sm:rounded-[3rem] border border-white/5 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom duration-300 zoom-in-95 transform-gpu">
         
          {/* Decorative Ambient Background */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-zen-primary/5 blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-zen-secondary/5 blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-zen-primary/5 blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-zen-secondary/5 blur-2xl pointer-events-none" />
 
         {/* Header */}
         <div className="flex justify-between items-center p-8 sm:p-10 border-b border-white/5">
