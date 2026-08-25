@@ -1,22 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard,
-  Users,
-  Bot,
-  GraduationCap,
-  CreditCard,
-  Megaphone,
   Activity,
-  ShieldCheck,
-  RefreshCw,
-  Download,
-  LogOut,
-  Smartphone,
+  AlertTriangle,
+  Bot,
+  CalendarDays,
   CheckCircle2,
-  X,
-  Menu,
   Command,
+  CreditCard,
+  Download,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Megaphone,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Smartphone,
+  Users,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api';
@@ -43,15 +47,102 @@ import { AdminBilling } from './admin/AdminBilling';
 import { AdminAnnouncements } from './admin/AdminAnnouncements';
 import { AdminHealth } from './admin/AdminHealth';
 import { AdminAudit } from './admin/AdminAudit';
+import { SkeletonGrid, StatusPill, cx } from './admin/AdminUI';
+
+interface NavItem {
+  id: AdminTab;
+  label: string;
+  shortLabel: string;
+  icon: LucideIcon;
+}
+
+const navGroups: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: 'Analytics',
+    items: [
+      { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: LayoutDashboard },
+      { id: 'academics', label: 'Academic Insights', shortLabel: 'Academics', icon: GraduationCap },
+      { id: 'billing', label: 'Billing & Financials', shortLabel: 'Billing', icon: CreditCard },
+    ],
+  },
+  {
+    title: 'Management',
+    items: [
+      { id: 'users', label: 'User Directory', shortLabel: 'Users', icon: Users },
+      { id: 'ai', label: 'AI Telemetry Logs', shortLabel: 'AI Telemetry', icon: Bot },
+      { id: 'announcements', label: 'Broadcasts & Support', shortLabel: 'Support', icon: Megaphone },
+    ],
+  },
+  {
+    title: 'Governance',
+    items: [
+      { id: 'health', label: 'System Health', shortLabel: 'Health', icon: Activity },
+      { id: 'audit', label: 'Audit Log Trail', shortLabel: 'Audit', icon: ShieldCheck },
+    ],
+  },
+];
+
+const allNavItems = navGroups.flatMap((group) => group.items);
+
+const pageMeta: Record<AdminTab, { title: string; description: string; live?: boolean }> = {
+  overview: { title: 'Overview', description: 'Platform growth, engagement, and operational health.', live: true },
+  academics: { title: 'Academic Insights', description: 'Enrollment demand and quiz performance across study subjects.' },
+  billing: { title: 'Billing & Financials', description: 'Revenue performance, subscriptions, and payment activity.' },
+  users: { title: 'User Directory', description: 'Manage student accounts, access, plans, and AI quotas.' },
+  ai: { title: 'AI Telemetry Logs', description: 'Request volume, token usage, latency, and failures.', live: true },
+  announcements: { title: 'Broadcasts & Support', description: 'Publish student updates and resolve support requests.' },
+  health: { title: 'System Health', description: 'Runtime, database, storage collections, and maintenance controls.', live: true },
+  audit: { title: 'Audit Log Trail', description: 'Review administrative actions and sensitive platform changes.' },
+};
+
+interface NavigationProps {
+  activeTab: AdminTab;
+  onNavigate: (tab: AdminTab) => void;
+}
+
+const Navigation: React.FC<NavigationProps> = ({ activeTab, onNavigate }) => (
+  <nav className="space-y-5" aria-label="Admin navigation">
+    {navGroups.map((group) => (
+      <div key={group.title}>
+        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">{group.title}</p>
+        <div className="space-y-1">
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === activeTab;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={active ? 'page' : undefined}
+                onClick={() => onNavigate(item.id)}
+                className={cx(
+                  'group flex min-h-10 w-full items-center gap-3 rounded-lg border px-3 text-left text-xs font-medium',
+                  'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70',
+                  active
+                    ? 'border-[#314151] bg-[#18222d] text-slate-50 shadow-[inset_2px_0_0_#64ffda]'
+                    : 'border-transparent text-slate-400 hover:border-[#253240] hover:bg-white/[0.025] hover:text-slate-200'
+                )}
+              >
+                <Icon className={cx('h-4 w-4 shrink-0', active ? 'text-[#64ffda]' : 'text-slate-500 group-hover:text-slate-300')} aria-hidden="true" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </nav>
+);
 
 const Admin: React.FC = () => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const searchRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
 
-  // Metrics & Data States
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUids, setSelectedUids] = useState<string[]>([]);
@@ -80,59 +171,6 @@ const Admin: React.FC = () => {
 
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    fetchTabData(activeTab);
-  }, [activeTab]);
-
-  const fetchTabData = async (tab: AdminTab) => {
-    setLoading(true);
-    setStatusMessage(null);
-    try {
-      if (tab === 'overview') {
-        const res = await apiFetch('/api/admin/overview');
-        if (res.ok) setOverview(await res.json());
-
-        const hRes = await apiFetch('/api/admin/health');
-        if (hRes.ok) setHealth(await hRes.json());
-      } else if (tab === 'users') {
-        fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
-      } else if (tab === 'academics') {
-        const res = await apiFetch('/api/admin/analytics/academics');
-        if (res.ok) setAcademics(await res.json());
-      } else if (tab === 'ai') {
-        fetchAiLogs(aiStatusFilter);
-      } else if (tab === 'billing') {
-        const res = await apiFetch('/api/admin/payments');
-        if (res.ok) {
-          const data = await res.json();
-          setPayments(data.transactions || []);
-        }
-      } else if (tab === 'announcements') {
-        const resAnn = await apiFetch('/api/admin/announcements');
-        if (resAnn.ok) setAnnouncements((await resAnn.json()).announcements || []);
-
-        const resFb = await apiFetch('/api/admin/feedback');
-        if (resFb.ok) setFeedbackList((await resFb.json()).feedback || []);
-      } else if (tab === 'health') {
-        const res = await apiFetch('/api/admin/health');
-        if (res.ok) setHealth(await res.json());
-
-        const dbRes = await apiFetch('/api/admin/health/db-stats');
-        if (dbRes.ok) {
-          const data = await dbRes.json();
-          setDbStats(data.collections || null);
-        }
-      } else if (tab === 'audit') {
-        const res = await apiFetch('/api/admin/audit-logs');
-        if (res.ok) setAuditLogs((await res.json()).logs || []);
-      }
-    } catch (err) {
-      console.error('Failed to load admin data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchUsers = async (q = '', page = 1, role = roleFilter, plan = planFilter, status = statusFilter) => {
     try {
       let url = `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`;
@@ -147,8 +185,9 @@ const Admin: React.FC = () => {
         setUserPage(data.page || 1);
         setTotalUserPages(data.totalPages || 1);
       }
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      throw error;
     }
   };
 
@@ -166,14 +205,101 @@ const Admin: React.FC = () => {
           errorRate: data.errorRate || 0,
         });
       }
-    } catch (err) {
-      console.error('Failed to fetch AI logs:', err);
+    } catch (error) {
+      console.error('Failed to fetch AI logs:', error);
+      throw error;
     }
   };
 
-  const handleUserSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchUsers(userSearch, 1, roleFilter, planFilter, statusFilter);
+  const fetchTabData = async (tab: AdminTab) => {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      if (tab === 'overview') {
+        const [overviewRes, healthRes] = await Promise.all([
+          apiFetch('/api/admin/overview'),
+          apiFetch('/api/admin/health'),
+        ]);
+        if (overviewRes.ok) setOverview(await overviewRes.json());
+        if (healthRes.ok) setHealth(await healthRes.json());
+      } else if (tab === 'users') {
+        await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      } else if (tab === 'academics') {
+        const res = await apiFetch('/api/admin/analytics/academics');
+        if (res.ok) setAcademics(await res.json());
+      } else if (tab === 'ai') {
+        await fetchAiLogs(aiStatusFilter);
+      } else if (tab === 'billing') {
+        const requests = [apiFetch('/api/admin/payments')];
+        if (!overview) requests.push(apiFetch('/api/admin/overview'));
+        const [paymentRes, overviewRes] = await Promise.all(requests);
+        if (paymentRes?.ok) {
+          const data = await paymentRes.json();
+          setPayments(data.transactions || []);
+        }
+        if (overviewRes?.ok) setOverview(await overviewRes.json());
+      } else if (tab === 'announcements') {
+        const [announcementsRes, feedbackRes] = await Promise.all([
+          apiFetch('/api/admin/announcements'),
+          apiFetch('/api/admin/feedback'),
+        ]);
+        if (announcementsRes.ok) setAnnouncements((await announcementsRes.json()).announcements || []);
+        if (feedbackRes.ok) setFeedbackList((await feedbackRes.json()).feedback || []);
+      } else if (tab === 'health') {
+        const [healthRes, dbRes] = await Promise.all([
+          apiFetch('/api/admin/health'),
+          apiFetch('/api/admin/health/db-stats'),
+        ]);
+        if (healthRes.ok) setHealth(await healthRes.json());
+        if (dbRes.ok) setDbStats((await dbRes.json()).collections || null);
+      } else if (tab === 'audit') {
+        const res = await apiFetch('/api/admin/audit-logs');
+        if (res.ok) setAuditLogs((await res.json()).logs || []);
+      }
+    } catch (error) {
+      console.error('Failed to load admin data:', error);
+      setStatusMessage({ type: 'error', text: 'The latest admin data could not be loaded. Try refreshing this page.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchTabData(activeTab);
+    // Page data is intentionally fetched only when the selected destination changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
+
+  const handleNavigate = (tab: AdminTab) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+  };
+
+  const handleGlobalSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = globalSearch.trim();
+    setUserSearch(query);
+    if (activeTab === 'users') {
+      void fetchUsers(query, 1, roleFilter, planFilter, statusFilter);
+    } else {
+      handleNavigate('users');
+    }
+  };
+
+  const handleUserSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    void fetchUsers(userSearch, 1, roleFilter, planFilter, statusFilter);
   };
 
   const handleBatchAction = async (action: 'grant_plan' | 'reset_ai' | 'suspend' | 'unsuspend') => {
@@ -183,11 +309,10 @@ const Admin: React.FC = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uids: selectedUids, action }),
     });
-
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: `Batch operation '${action}' completed for ${selectedUids.length} users.` });
+      setStatusMessage({ type: 'success', text: `${selectedUids.length} account${selectedUids.length === 1 ? '' : 's'} updated.` });
       setSelectedUids([]);
-      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -199,8 +324,8 @@ const Admin: React.FC = () => {
       body: JSON.stringify({ role: nextRole }),
     });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: `Updated user role to ${nextRole}` });
-      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      setStatusMessage({ type: 'success', text: `Account role updated to ${nextRole}.` });
+      await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -212,8 +337,8 @@ const Admin: React.FC = () => {
       body: JSON.stringify({ plan: nextPlan, interval: 'monthly', days: 30 }),
     });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: `Updated user plan to ${nextPlan}` });
-      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      setStatusMessage({ type: 'success', text: `Account plan updated to ${nextPlan}.` });
+      await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
@@ -225,38 +350,38 @@ const Admin: React.FC = () => {
       body: JSON.stringify({ suspend: nextSuspend }),
     });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: `User account ${nextSuspend ? 'suspended' : 'unsuspended'}.` });
-      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      setStatusMessage({ type: 'success', text: `Account ${nextSuspend ? 'suspended' : 'reactivated'}.` });
+      await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
   const handleResetAiQuota = async (uid: string) => {
     const res = await apiFetch(`/api/admin/users/${uid}/reset-ai`, { method: 'POST' });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: 'AI daily quota successfully reset for user.' });
-      fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
+      setStatusMessage({ type: 'success', text: 'Daily AI quota reset.' });
+      await fetchUsers(userSearch, userPage, roleFilter, planFilter, statusFilter);
     }
   };
 
   const handleExportUsersCsv = async () => {
     try {
       const res = await apiFetch('/api/admin/users/export');
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'academiazen_users.csv';
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error('Failed to download users CSV:', err);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'academiazen_users.csv';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download users CSV:', error);
+      setStatusMessage({ type: 'error', text: 'The user export could not be downloaded.' });
     }
   };
 
   const handleCreateAnnouncement = async (
-    e: React.FormEvent,
+    event: React.FormEvent,
     title: string,
     message: string,
     type: 'info' | 'warning' | 'success'
@@ -267,306 +392,372 @@ const Admin: React.FC = () => {
       body: JSON.stringify({ title, message, type }),
     });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: 'Announcement broadcasted!' });
-      const resAnn = await apiFetch('/api/admin/announcements');
-      if (resAnn.ok) setAnnouncements((await resAnn.json()).announcements || []);
+      setStatusMessage({ type: 'success', text: 'Announcement broadcast to students.' });
+      const announcementsRes = await apiFetch('/api/admin/announcements');
+      if (announcementsRes.ok) setAnnouncements((await announcementsRes.json()).announcements || []);
     }
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
     const res = await apiFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
     if (res.ok) {
-      setAnnouncements((prev) => prev.filter((a) => a._id !== id));
-      setStatusMessage({ type: 'success', text: 'Announcement deleted.' });
+      setAnnouncements((current) => current.filter((announcement) => announcement._id !== id));
+      setStatusMessage({ type: 'success', text: 'Announcement removed.' });
     }
   };
 
-  const handleReplyFeedback = async (id: string, text?: string) => {
-    if (!text) return;
+  const handleReplyFeedback = async (id: string, reply?: string) => {
+    if (!reply?.trim()) return;
     const res = await apiFetch(`/api/admin/feedback/${id}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reply: text, status: 'resolved' }),
+      body: JSON.stringify({ reply, status: 'resolved' }),
     });
     if (res.ok) {
-      setStatusMessage({ type: 'success', text: 'Reply sent to student.' });
-      const resFb = await apiFetch('/api/admin/feedback');
-      if (resFb.ok) setFeedbackList((await resFb.json()).feedback || []);
+      setStatusMessage({ type: 'success', text: 'Reply sent and ticket marked resolved.' });
+      const feedbackRes = await apiFetch('/api/admin/feedback');
+      if (feedbackRes.ok) setFeedbackList((await feedbackRes.json()).feedback || []);
     }
   };
 
   const handleToggleMaintenance = async () => {
     if (!health) return;
-    const nextMode = !health.maintenanceMode;
+    const enabled = !health.maintenanceMode;
     const res = await apiFetch('/api/admin/maintenance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: nextMode }),
+      body: JSON.stringify({ enabled }),
     });
     if (res.ok) {
-      setHealth((prev) => (prev ? { ...prev, maintenanceMode: nextMode } : null));
-      setStatusMessage({ type: 'success', text: `Maintenance mode ${nextMode ? 'enabled' : 'disabled'}.` });
+      setHealth((current) => (current ? { ...current, maintenanceMode: enabled } : null));
+      setStatusMessage({ type: 'success', text: `Maintenance mode ${enabled ? 'enabled' : 'disabled'}.` });
     }
   };
 
-  const navGroups = [
-    {
-      title: 'ANALYTICS & METRICS',
-      items: [
-        { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
-        { id: 'academics', label: 'Academic Insights', icon: <GraduationCap className="w-4 h-4" /> },
-        { id: 'billing', label: 'Billing & Financials', icon: <CreditCard className="w-4 h-4" /> },
-      ],
-    },
-    {
-      title: 'MANAGEMENT',
-      items: [
-        { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
-        { id: 'ai', label: 'AI Telemetry Logs', icon: <Bot className="w-4 h-4" /> },
-        { id: 'announcements', label: 'Broadcasts & Support', icon: <Megaphone className="w-4 h-4" /> },
-      ],
-    },
-    {
-      title: 'DEVOPS & GOVERNANCE',
-      items: [
-        { id: 'health', label: 'System Health', icon: <Activity className="w-4 h-4" /> },
-        { id: 'audit', label: 'Audit Log Trail', icon: <ShieldCheck className="w-4 h-4" /> },
-      ],
-    },
-  ];
+  const page = pageMeta[activeTab];
+  const activeItem = allNavItems.find((item) => item.id === activeTab) || allNavItems[0];
+  const ActiveIcon = activeItem?.icon || LayoutDashboard;
+  const adminInitial = (user?.email || 'A').charAt(0).toUpperCase();
+  const dateLabel = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 6);
+    const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+    return `${formatter.format(start)} – ${formatter.format(today)}`;
+  }, []);
 
   return (
-    <div className="h-screen w-full bg-[#070b12] text-slate-200 flex flex-col md:flex-row overflow-hidden font-sans selection:bg-emerald-500/30">
-      {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-[#090d16] flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <img src="/icons/academiazen-mark.svg" alt="Logo" className="w-8 h-8 rounded-xl shadow-md" />
-          <div>
-            <span className="font-bold text-white text-sm">AcademiaZen</span>
-            <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[9px] uppercase font-bold">Admin</span>
-          </div>
-        </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-slate-300 hover:text-white">
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Left Sidebar Navigation */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 lg:w-72 bg-[#090d16] border-r border-slate-800/80 flex flex-col justify-between p-5 transition-transform duration-300 md:static md:h-full md:translate-x-0 flex-shrink-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+    <div className="admin-shell flex h-dvh min-h-dvh w-full overflow-hidden bg-[#080d13] text-slate-200 selection:bg-[#64ffda]/25">
+      <a
+        href="#admin-main"
+        className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-[#64ffda] px-3 py-2 text-xs font-semibold text-[#07110f] transition-transform focus:translate-y-0"
       >
-        <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
-          <div className="flex items-center justify-between pb-5 border-b border-slate-800/80 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <img src="/icons/academiazen-mark.svg" alt="AcademiaZen Logo" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 ring-1 ring-white/10" />
-              <div>
-                <h1 className="font-extrabold text-white text-sm tracking-tight flex items-center gap-2">AcademiaZen</h1>
-                <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Production Control</span>
-                </p>
-              </div>
-            </div>
-          </div>
+        Skip to admin content
+      </a>
 
-          <nav className="mt-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar pr-1" aria-label="Admin Navigation">
-            {navGroups.map((group) => (
-              <div key={group.title} className="space-y-1">
-                <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-mono">{group.title}</p>
-                {group.items.map((item) => {
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      aria-current={isActive ? 'page' : undefined}
-                      onClick={() => {
-                        setActiveTab(item.id as AdminTab);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        isActive
-                          ? 'bg-emerald-500/15 text-emerald-300 font-semibold border-l-2 border-emerald-400 shadow-sm'
-                          : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={isActive ? 'text-emerald-400' : 'text-slate-400'}>{item.icon}</span>
-                        <span>{item.label}</span>
-                      </div>
-                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
+      <aside className="hidden w-[68px] shrink-0 flex-col items-center border-r border-[#23303d] bg-[#090f16] py-4 lg:flex">
+        <img src="/icons/academiazen-mark.svg" alt="" className="h-9 w-9" aria-hidden="true" />
+        <nav className="mt-6 flex flex-1 flex-col gap-2" aria-label="Quick admin navigation">
+          {allNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === activeTab;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                title={item.label}
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => handleNavigate(item.id)}
+                className={cx(
+                  'grid h-10 w-10 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70',
+                  active
+                    ? 'border-[#314151] bg-[#18222d] text-[#64ffda]'
+                    : 'border-transparent text-slate-500 hover:border-[#273442] hover:bg-white/[0.025] hover:text-slate-200'
+                )}
+              >
+                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          type="button"
+          aria-label="Sign out"
+          title="Sign out"
+          onClick={() => void signOut()}
+          className="grid h-10 w-10 place-items-center rounded-lg text-slate-500 hover:bg-rose-400/[0.08] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
+        >
+          <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
+        </button>
+      </aside>
+
+      <aside className="hidden w-[228px] shrink-0 flex-col border-r border-[#23303d] bg-[#0b1119] px-4 py-5 lg:flex xl:w-[244px]">
+        <div className="px-2">
+          <h1 className="text-base font-semibold tracking-[-0.025em] text-white">AcademiaZen</h1>
+          <p className="mt-0.5 text-xs text-slate-500">Admin Console</p>
         </div>
-
-        <div className="pt-5 border-t border-slate-800/80 space-y-2 flex-shrink-0 mt-auto">
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/60 mb-3 text-xs font-mono">
-            <div className="flex justify-between items-center text-[11px] text-slate-400 mb-1">
-              <span>Database Sync</span>
-              <span className="text-emerald-400 font-semibold">100% OK</span>
+        <div className="mt-7 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+          <Navigation activeTab={activeTab} onNavigate={handleNavigate} />
+        </div>
+        <div className="mt-5 space-y-2 border-t border-[#23303d] pt-4">
+          <div className="rounded-lg border border-[#273442] bg-[#101820] px-3 py-3">
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="text-slate-500">Environment</span>
+              <StatusPill label="Production" tone="mint" dot />
             </div>
-            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-400 w-full" />
-            </div>
+            <p className="mt-2 truncate text-[11px] text-slate-400">{user?.email || 'Administrator'}</p>
           </div>
-
           <button
+            type="button"
             onClick={() => navigate('/')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700/50 transition"
+            className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-transparent px-3 text-xs text-slate-400 hover:border-[#273442] hover:bg-white/[0.025] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
           >
-            <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-            <span>Student Workspace</span>
-          </button>
-          <button
-            onClick={() => signOut()}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium border border-rose-500/20 transition"
-          >
-            <LogOut className="w-3.5 h-3.5 text-rose-400" />
-            <span>Sign Out</span>
+            <Smartphone className="h-4 w-4" aria-hidden="true" />
+            Student Workspace
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 h-full overflow-y-auto p-5 sm:p-8 min-w-0 bg-[#070b12] custom-scrollbar">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-extrabold text-white tracking-tight">
-                {navGroups.flatMap((g) => g.items).find((m) => m.id === activeTab)?.label}
-              </h2>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-semibold border border-emerald-500/20">
-                LIVE TELEMETRY
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">Enterprise system health, RBAC controls & platform analytics</p>
-          </div>
-
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-40 bg-black/70 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside
+        className={cx(
+          'fixed inset-y-0 left-0 z-50 flex w-[min(88vw,320px)] flex-col border-r border-[#273442] bg-[#0b1119] p-5 shadow-2xl transition-transform duration-200 lg:hidden motion-reduce:transition-none',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+        aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen}
+      >
+        <div className="flex items-center justify-between border-b border-[#23303d] pb-5">
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono">
-              <Command className="w-3.5 h-3.5" />
-              <span>K Quick Commands</span>
+            <img src="/icons/academiazen-mark.svg" alt="" className="h-9 w-9" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-semibold text-white">AcademiaZen</p>
+              <p className="text-xs text-slate-500">Admin Console</p>
             </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setSidebarOpen(false)}
+            className="grid h-10 w-10 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+          <Navigation activeTab={activeTab} onNavigate={handleNavigate} />
+        </div>
+        <div className="space-y-2 border-t border-[#23303d] pt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/5"
+          >
+            <Smartphone className="h-4 w-4" aria-hidden="true" /> Student Workspace
+          </button>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-rose-300 hover:bg-rose-400/10"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" /> Sign Out
+          </button>
+        </div>
+      </aside>
 
-            {activeTab === 'users' && (
-              <button
-                onClick={handleExportUsersCsv}
-                className="px-3.5 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-2 transition"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
-            )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="z-30 flex min-h-[68px] shrink-0 items-center gap-3 border-b border-[#23303d] bg-[#090f16]/95 px-3 backdrop-blur sm:px-5 xl:px-6">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setSidebarOpen(true)}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#273442] text-slate-400 hover:bg-white/[0.035] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70 lg:hidden"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <form onSubmit={handleGlobalSearch} className="relative min-w-0 flex-1 sm:max-w-xl">
+            <label htmlFor="admin-global-search" className="sr-only">Search student accounts</label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <input
+              ref={searchRef}
+              id="admin-global-search"
+              value={globalSearch}
+              onChange={(event) => setGlobalSearch(event.target.value)}
+              placeholder="Search students by name, email or UID"
+              className="h-10 w-full rounded-lg border border-[#2b3745] bg-[#0d141d] pl-10 pr-14 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-[#64ffda]/50 focus:ring-2 focus:ring-[#64ffda]/10"
+            />
+            <span className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded border border-[#344252] px-1.5 py-0.5 text-[10px] text-slate-500 sm:flex">
+              <Command className="h-2.5 w-2.5" aria-hidden="true" /> K
+            </span>
+          </form>
+          <div className="ml-auto hidden items-center gap-2 md:flex">
+            <div className="flex h-10 items-center gap-2 rounded-lg border border-[#273442] bg-[#0d141d] px-3 text-xs text-slate-400">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              <span>{dateLabel}</span>
+            </div>
             <button
+              type="button"
               disabled={loading}
               onClick={async () => {
                 await fetchTabData(activeTab);
-                setStatusMessage({ type: 'success', text: 'Refreshed telemetry & overview metrics' });
+                setStatusMessage({ type: 'success', text: `${page.title} refreshed.` });
               }}
-              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-lg border border-[#2b3745] bg-[#0d141d] px-3 text-xs font-medium text-slate-300 hover:border-[#3a495a] hover:bg-[#121b25] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <RefreshCw className={cx('h-4 w-4', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden="true" />
+              Refresh
             </button>
+            <div className="grid h-9 w-9 place-items-center rounded-full border border-[#344252] bg-[#151e29] text-xs font-semibold text-slate-200" title={user?.email || 'Administrator'}>
+              {adminInitial}
+            </div>
           </div>
-        </div>
+        </header>
 
-        {statusMessage && (
-          <div
-            className={`mb-6 p-4 rounded-xl text-sm font-medium border flex items-center justify-between ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>{statusMessage.text}</span>
-            </span>
-            <button onClick={() => setStatusMessage(null)} className="text-slate-400 hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
+        <main id="admin-main" className="min-w-0 flex-1 overflow-y-auto custom-scrollbar" tabIndex={-1}>
+          <div className="mx-auto w-full max-w-[1720px] px-3 py-4 sm:px-5 sm:py-5 xl:px-6 xl:py-6">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#64ffda]/15 bg-[#64ffda]/[0.06] text-[#64ffda]">
+                    <ActiveIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold tracking-[-0.035em] text-white sm:text-2xl">{page.title}</h2>
+                      {page.live && <StatusPill label="Live data" tone="mint" dot />}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">{page.description}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 md:hidden">
+                {activeTab === 'users' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleExportUsersCsv()}
+                    className="flex min-h-10 items-center gap-2 rounded-lg border border-[#2b3745] bg-[#101720] px-3 text-xs font-medium text-slate-300"
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" /> Export
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void fetchTabData(activeTab)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-[#2b3745] bg-[#101720] text-slate-300 disabled:opacity-50"
+                  aria-label={`Refresh ${page.title}`}
+                >
+                  <RefreshCw className={cx('h-4 w-4', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden="true" />
+                </button>
+              </div>
+              {activeTab === 'users' && (
+                <button
+                  type="button"
+                  onClick={() => void handleExportUsersCsv()}
+                  className="hidden min-h-10 items-center gap-2 rounded-lg border border-[#64ffda]/20 bg-[#64ffda]/[0.07] px-3.5 text-xs font-semibold text-[#8affdf] hover:bg-[#64ffda]/[0.11] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64ffda]/70 md:flex"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" /> Export CSV
+                </button>
+              )}
+            </div>
+
+            {statusMessage && (
+              <div
+                className={cx(
+                  'mb-5 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm',
+                  statusMessage.type === 'success'
+                    ? 'border-[#64ffda]/20 bg-[#64ffda]/[0.07] text-[#a4ffe8]'
+                    : 'border-rose-400/25 bg-rose-400/[0.08] text-rose-200'
+                )}
+                role="status"
+                aria-live="polite"
+              >
+                <span className="flex items-start gap-2">
+                  {statusMessage.type === 'success' ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
+                  {statusMessage.text}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Dismiss message"
+                  onClick={() => setStatusMessage(null)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-md hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            {loading ? (
+              <SkeletonGrid />
+            ) : (
+              <div className="animate-fade-in motion-reduce:animate-none">
+                {activeTab === 'overview' && overview && (
+                  <AdminOverview overview={overview} health={health} setActiveTab={handleNavigate} onToggleMaintenance={handleToggleMaintenance} />
+                )}
+                {activeTab === 'users' && (
+                  <AdminUsers
+                    users={users}
+                    overview={overview}
+                    userSearch={userSearch}
+                    setUserSearch={setUserSearch}
+                    roleFilter={roleFilter}
+                    setRoleFilter={setRoleFilter}
+                    planFilter={planFilter}
+                    setPlanFilter={setPlanFilter}
+                    statusFilter={statusFilter}
+                    setStatusFilter={setStatusFilter}
+                    userPage={userPage}
+                    totalUserPages={totalUserPages}
+                    selectedUids={selectedUids}
+                    setSelectedUids={setSelectedUids}
+                    onSearch={handleUserSearch}
+                    onFetchUsers={fetchUsers}
+                    onBatchAction={handleBatchAction}
+                    onToggleRole={handleToggleRole}
+                    onTogglePlan={handleTogglePlan}
+                    onSuspendUser={handleSuspendUser}
+                    onResetAiQuota={handleResetAiQuota}
+                  />
+                )}
+                {activeTab === 'ai' && (
+                  <AdminAI
+                    aiLogs={aiLogs}
+                    aiTelemetry={aiTelemetry}
+                    aiStatusFilter={aiStatusFilter}
+                    setAiStatusFilter={setAiStatusFilter}
+                    onFetchAiLogs={fetchAiLogs}
+                  />
+                )}
+                {activeTab === 'academics' && <AdminAcademics academics={academics} />}
+                {activeTab === 'billing' && <AdminBilling payments={payments} overview={overview} />}
+                {activeTab === 'announcements' && (
+                  <AdminAnnouncements
+                    announcements={announcements}
+                    feedbackList={feedbackList}
+                    onCreateAnnouncement={handleCreateAnnouncement}
+                    onDeleteAnnouncement={handleDeleteAnnouncement}
+                    onReplyFeedback={handleReplyFeedback}
+                  />
+                )}
+                {activeTab === 'health' && <AdminHealth health={health} dbStats={dbStats} onToggleMaintenance={handleToggleMaintenance} />}
+                {activeTab === 'audit' && <AdminAudit auditLogs={auditLogs} />}
+              </div>
+            )}
           </div>
-        )}
-
-        {loading ? (
-          <div className="p-16 text-center text-slate-400 animate-pulse font-mono text-xs flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-            <span>Fetching system metrics & telemetry...</span>
-          </div>
-        ) : (
-          <>
-            {activeTab === 'overview' && overview && (
-              <AdminOverview
-                overview={overview}
-                health={health}
-                setActiveTab={setActiveTab}
-                onToggleMaintenance={handleToggleMaintenance}
-              />
-            )}
-
-            {activeTab === 'users' && (
-              <AdminUsers
-                users={users}
-                userSearch={userSearch}
-                setUserSearch={setUserSearch}
-                roleFilter={roleFilter}
-                setRoleFilter={setRoleFilter}
-                planFilter={planFilter}
-                setPlanFilter={setPlanFilter}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                userPage={userPage}
-                totalUserPages={totalUserPages}
-                selectedUids={selectedUids}
-                setSelectedUids={setSelectedUids}
-                onSearch={handleUserSearch}
-                onFetchUsers={fetchUsers}
-                onBatchAction={handleBatchAction}
-                onToggleRole={handleToggleRole}
-                onTogglePlan={handleTogglePlan}
-                onSuspendUser={handleSuspendUser}
-                onResetAiQuota={handleResetAiQuota}
-              />
-            )}
-
-            {activeTab === 'ai' && (
-              <AdminAI
-                aiLogs={aiLogs}
-                aiTelemetry={aiTelemetry}
-                aiStatusFilter={aiStatusFilter}
-                setAiStatusFilter={setAiStatusFilter}
-                onFetchAiLogs={fetchAiLogs}
-              />
-            )}
-
-            {activeTab === 'academics' && <AdminAcademics academics={academics} />}
-
-            {activeTab === 'billing' && <AdminBilling payments={payments} overview={overview} />}
-
-            {activeTab === 'announcements' && (
-              <AdminAnnouncements
-                announcements={announcements}
-                feedbackList={feedbackList}
-                onCreateAnnouncement={handleCreateAnnouncement}
-                onDeleteAnnouncement={handleDeleteAnnouncement}
-                onReplyFeedback={handleReplyFeedback}
-              />
-            )}
-
-            {activeTab === 'health' && (
-              <AdminHealth health={health} dbStats={dbStats} onToggleMaintenance={handleToggleMaintenance} />
-            )}
-
-            {activeTab === 'audit' && <AdminAudit auditLogs={auditLogs} />}
-          </>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
